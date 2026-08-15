@@ -1,10 +1,11 @@
+import { router, usePoll } from '@inertiajs/react';
 import { useConnectionStatus } from '@laravel/echo-react';
-import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef } from 'react';
 import { usePrivateChannelEvents } from '@/hooks/realtime/use-private-channel-events';
-import type { OrderRealtimePayload } from '@/lib/realtime/types';
 
 const SOUND_KEY = 'ride.business.new_order_sound';
+/** Fallback when WebSockets miss events (shared hosting / Pusher hiccups). */
+const REALTIME_POLL_MS = 5000;
 
 function playNewOrderChime(): void {
     if (typeof window === 'undefined') {
@@ -41,6 +42,18 @@ function playNewOrderChime(): void {
     }
 }
 
+function usePartialReload(only: string[]): () => void {
+    const onlyRef = useRef(only);
+
+    useEffect(() => {
+        onlyRef.current = only;
+    }, [only]);
+
+    return useCallback(() => {
+        router.reload({ only: onlyRef.current });
+    }, []);
+}
+
 type Options = {
     businessId?: number | null;
     branchIds?: number[];
@@ -54,16 +67,10 @@ export function useBusinessOrderEvents({
     only = ['orders', 'newCount', 'order'],
     playSoundOnCreate = true,
 }: Options): void {
-    const reload = useCallback(() => {
-        router.reload({
-            only,
-            preserveUrl: true,
-            preserveScroll: true,
-        });
-    }, [only.join('|')]);
+    const reload = usePartialReload(only);
 
-    const onEvent = useCallback(
-        (event: string, _payload: OrderRealtimePayload) => {
+    const handleEvent = useCallback(
+        (event: string) => {
             if (playSoundOnCreate && event === '.OrderCreated') {
                 playNewOrderChime();
             }
@@ -80,20 +87,15 @@ export function useBusinessOrderEvents({
         ],
         events: ['.OrderCreated', '.OrderStatusChanged', '.DriverAssigned', '.IncidentCreated'],
         enabled: Boolean(businessId) || branchIds.length > 0,
-        onEvent,
+        onEvent: handleEvent,
     });
 
-    useRealtimeReconnect(reload);
+    useRealtimeSync(reload, only);
 }
 
 export function useCustomerOrderEvents(customerId?: number | null, orderId?: number | null): void {
-    const reload = useCallback(() => {
-        router.reload({
-            only: ['order', 'orders'],
-            preserveUrl: true,
-            preserveScroll: true,
-        });
-    }, []);
+    const only = ['order', 'orders'];
+    const reload = usePartialReload(only);
 
     usePrivateChannelEvents({
         channels: [
@@ -105,24 +107,19 @@ export function useCustomerOrderEvents(customerId?: number | null, orderId?: num
         onEvent: () => reload(),
     });
 
-    useRealtimeReconnect(reload);
+    useRealtimeSync(reload, only);
 }
 
 export function useDriverOrderEvents(driverId?: number | null, branchIds: number[] = []): void {
-    const reload = useCallback(() => {
-        router.reload({
-            only: [
-                'availableOrders',
-                'activeOrders',
-                'activeGroups',
-                'compatibleOrders',
-                'stats',
-                'availabilityStatus',
-            ],
-            preserveUrl: true,
-            preserveScroll: true,
-        });
-    }, []);
+    const only = [
+        'availableOrders',
+        'activeOrders',
+        'activeGroups',
+        'compatibleOrders',
+        'stats',
+        'availabilityStatus',
+    ];
+    const reload = usePartialReload(only);
 
     usePrivateChannelEvents({
         channels: [
@@ -139,20 +136,14 @@ export function useDriverOrderEvents(driverId?: number | null, branchIds: number
         onEvent: () => reload(),
     });
 
-    useRealtimeReconnect(reload);
+    useRealtimeSync(reload, only);
 }
 
 export function useAdminOrderEvents(
     enabled = true,
     only: string[] = ['orders', 'order'],
 ): void {
-    const reload = useCallback(() => {
-        router.reload({
-            only,
-            preserveUrl: true,
-            preserveScroll: true,
-        });
-    }, [only.join('|')]);
+    const reload = usePartialReload(only);
 
     usePrivateChannelEvents({
         channels: ['admin'],
@@ -171,19 +162,13 @@ export function useAdminOrderEvents(
         onEvent: () => reload(),
     });
 
-    useRealtimeReconnect(reload);
+    useRealtimeSync(reload, only);
 }
 
 export function useAdminCustomOrderEvents(
     only: string[] = ['requests', 'request', 'queue', 'operation'],
 ): void {
-    const reload = useCallback(() => {
-        router.reload({
-            only,
-            preserveUrl: true,
-            preserveScroll: true,
-        });
-    }, [only.join('|')]);
+    const reload = usePartialReload(only);
 
     usePrivateChannelEvents({
         channels: ['admin'],
@@ -198,17 +183,12 @@ export function useAdminCustomOrderEvents(
         onEvent: () => reload(),
     });
 
-    useRealtimeReconnect(reload);
+    useRealtimeSync(reload, only);
 }
 
 export function useCustomerCustomOrderEvents(customerId?: number | null): void {
-    const reload = useCallback(() => {
-        router.reload({
-            only: ['request', 'requests'],
-            preserveUrl: true,
-            preserveScroll: true,
-        });
-    }, []);
+    const only = ['request', 'requests'];
+    const reload = usePartialReload(only);
 
     usePrivateChannelEvents({
         channels: [customerId ? `customer.${customerId}` : null],
@@ -223,17 +203,12 @@ export function useCustomerCustomOrderEvents(customerId?: number | null): void {
         onEvent: () => reload(),
     });
 
-    useRealtimeReconnect(reload);
+    useRealtimeSync(reload, only);
 }
 
 export function useDriverProfileEvents(driverId?: number | null): void {
-    const reload = useCallback(() => {
-        router.reload({
-            only: ['reputation'],
-            preserveUrl: true,
-            preserveScroll: true,
-        });
-    }, []);
+    const only = ['reputation'];
+    const reload = usePartialReload(only);
 
     usePrivateChannelEvents({
         channels: [driverId ? `driver.${driverId}` : null],
@@ -242,12 +217,20 @@ export function useDriverProfileEvents(driverId?: number | null): void {
         onEvent: () => reload(),
     });
 
-    useRealtimeReconnect(reload);
+    useRealtimeSync(reload, only);
 }
 
-function useRealtimeReconnect(onReconnect: () => void): void {
+/**
+ * WebSocket reconnect + focus refresh + poll safety net.
+ * Do not pass `preserveUrl: true` to reload — it can prevent props from updating in Inertia.
+ * Polling stays on even when Echo is connected so missed/server-side broadcast failures
+ * still refresh kitchen/driver/admin lists on shared hosting.
+ */
+function useRealtimeSync(onReconnect: () => void, only: string[]): void {
     const status = useConnectionStatus();
     const wasConnected = useRef(false);
+
+    usePoll(REALTIME_POLL_MS, () => ({ only }), { keepAlive: true });
 
     useEffect(() => {
         if (status === 'connected') {
