@@ -1,22 +1,29 @@
 import { Head, usePage } from '@inertiajs/react';
 import {
-    ActiveOrderCard,
-    type DriverActiveOrder,
+    ActiveOrderCard
+    
 } from '@/apps/driver/components/active-order-card';
+import type {DriverActiveOrder} from '@/apps/driver/components/active-order-card';
 import {
     AddToRouteCard,
 } from '@/apps/driver/components/add-to-route-card';
-import type { DriverAvailableOrder } from '@/apps/driver/components/available-order-card';
 import {
-    DriverAvailabilityControl,
-    type DriverAvailability,
+    AvailableOrderCard
+    
+} from '@/apps/driver/components/available-order-card';
+import type {DriverAvailableOrder} from '@/apps/driver/components/available-order-card';
+import {
+    DriverAvailabilityControl
+    
 } from '@/apps/driver/components/driver-availability-control';
+import type {DriverAvailability} from '@/apps/driver/components/driver-availability-control';
 import {
-    RouteOrderList,
-    type DriverRouteGroup,
+    RouteOrderList
+    
 } from '@/apps/driver/components/route-order-list';
-import { EmptyState } from '@/components/feedback/empty-state';
+import type {DriverRouteGroup} from '@/apps/driver/components/route-order-list';
 import { StatCard } from '@/components/data-display/stat-card';
+import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
 import { useDriverOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import type { Auth } from '@/types';
@@ -30,6 +37,7 @@ type Props = {
     stats: { active_orders: number };
     activeGroups: ActiveGroup[];
     compatibleOrders: DriverAvailableOrder[];
+    availableOrders: DriverAvailableOrder[];
 };
 
 export default function DriverHome({
@@ -37,6 +45,7 @@ export default function DriverHome({
     stats,
     activeGroups,
     compatibleOrders,
+    availableOrders,
 }: Props) {
     const { auth, realtime } = usePage().props as {
         auth: Auth;
@@ -45,8 +54,20 @@ export default function DriverHome({
     const firstName = auth.user?.name.split(' ')[0] ?? 'Repartidor';
     const flatActive = activeGroups.flatMap((group) => group.orders);
     const branchIds = activeGroups.map((group) => group.branch_id);
+    const idleOffers =
+        flatActive.length === 0 ? availableOrders : compatibleOrders;
 
-    useDriverOrderEvents(realtime?.driver_id, branchIds);
+    useDriverOrderEvents(realtime?.driver_id, {
+        branchIds,
+        userId: auth.user?.id,
+        only: [
+            'availabilityStatus',
+            'stats',
+            'activeGroups',
+            'compatibleOrders',
+            'availableOrders',
+        ],
+    });
 
     return (
         <>
@@ -81,9 +102,32 @@ export default function DriverHome({
                     <EmptyState title="Sin pedidos activos" />
                 )}
 
-                {compatibleOrders.map((order) => (
-                    <AddToRouteCard key={order.id} order={order} />
-                ))}
+                {compatibleOrders.length > 0 ? (
+                    <section className="space-y-3">
+                        <h2 className="font-semibold text-navy">
+                            Agregar a tu ruta
+                        </h2>
+                        {compatibleOrders.map((order) => (
+                            <AddToRouteCard key={order.id} order={order} />
+                        ))}
+                    </section>
+                ) : null}
+
+                {flatActive.length === 0 ? (
+                    <section className="space-y-3">
+                        <h2 className="font-semibold text-navy">Disponibles</h2>
+                        {idleOffers.length > 0 ? (
+                            idleOffers.map((order) => (
+                                <AvailableOrderCard
+                                    key={order.id}
+                                    order={order}
+                                />
+                            ))
+                        ) : (
+                            <EmptyState title="No hay pedidos disponibles" />
+                        )}
+                    </section>
+                ) : null}
             </PageContainer>
         </>
     );

@@ -1,15 +1,18 @@
 import { Head, usePage } from '@inertiajs/react';
 import {
-    AvailableOrderCard,
-    type DriverAvailableOrder,
-} from '@/apps/driver/components/available-order-card';
-import {
-    ActiveOrderCard,
-    type DriverActiveOrder,
+    ActiveOrderCard
+    
 } from '@/apps/driver/components/active-order-card';
+import type {DriverActiveOrder} from '@/apps/driver/components/active-order-card';
+import {
+    AvailableOrderCard
+    
+} from '@/apps/driver/components/available-order-card';
+import type {DriverAvailableOrder} from '@/apps/driver/components/available-order-card';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
 import { useDriverOrderEvents } from '@/hooks/realtime/use-order-realtime';
+import type { Auth } from '@/types';
 
 type Props = {
     availableOrders: DriverAvailableOrder[];
@@ -20,11 +23,15 @@ export default function DriverOrdersIndex({
     availableOrders,
     activeOrders,
 }: Props) {
-    const { realtime } = usePage().props as {
+    const { auth, realtime } = usePage().props as {
+        auth: Auth;
         realtime?: { driver_id?: number | null };
     };
 
-    useDriverOrderEvents(realtime?.driver_id);
+    useDriverOrderEvents(realtime?.driver_id, {
+        userId: auth.user?.id,
+        only: ['availableOrders', 'activeOrders'],
+    });
 
     return (
         <>

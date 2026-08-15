@@ -45,7 +45,9 @@ class HomeController extends Controller
             ->values()
             ->all();
 
-        $compatible = $availableOrders->forDriver($driver)
+        $offersCollection = $availableOrders->forDriver($driver);
+
+        $compatible = $offersCollection
             ->filter(function (Order $order) use ($active): bool {
                 if ($active->isEmpty()) {
                     return false;
@@ -61,6 +63,15 @@ class HomeController extends Controller
             ->values()
             ->all();
 
+        $offers = $offersCollection
+            ->take(10)
+            ->map(fn (Order $order): array => OrderData::driverAvailableCard(
+                $order,
+                $ranking->distanceToPickupMeters($driver, $order),
+            ))
+            ->values()
+            ->all();
+
         return Inertia::render('driver/home', [
             'availabilityStatus' => $driver->availability_status->value,
             'stats' => [
@@ -68,6 +79,7 @@ class HomeController extends Controller
             ],
             'activeGroups' => $grouped,
             'compatibleOrders' => $compatible,
+            'availableOrders' => $offers,
         ]);
     }
 

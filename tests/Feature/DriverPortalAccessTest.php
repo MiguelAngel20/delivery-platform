@@ -18,12 +18,35 @@ test('driver can open all driver portal pages', function (string $routeName) {
     'profile' => 'driver.profile.index',
 ]);
 
-test('business user cannot open driver portal', function () {
-    $user = User::factory()->businessAdmin()->create();
+test('driver home includes available orders for realtime refresh', function () {
+    $user = User::factory()->driver()->create();
+    Driver::factory()->approved()->forUser($user)->create();
 
     $this->actingAs($user)
         ->get(route('driver.home'))
-        ->assertForbidden();
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('driver/home')
+            ->has('availableOrders')
+            ->has('compatibleOrders')
+            ->has('activeGroups')
+            ->has('stats')
+            ->has('availabilityStatus')
+            ->has('realtime.driver_id'));
+});
+
+test('driver orders page shares realtime driver id', function () {
+    $user = User::factory()->driver()->create();
+    $driver = Driver::factory()->approved()->forUser($user)->create();
+
+    $this->actingAs($user)
+        ->get(route('driver.orders.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('driver/orders/index')
+            ->has('availableOrders')
+            ->has('activeOrders')
+            ->where('realtime.driver_id', $driver->id));
 });
 
 test('customer cannot open driver portal', function () {

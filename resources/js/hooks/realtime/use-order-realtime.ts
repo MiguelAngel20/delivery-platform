@@ -110,15 +110,29 @@ export function useCustomerOrderEvents(customerId?: number | null, orderId?: num
     useRealtimeSync(reload, only);
 }
 
-export function useDriverOrderEvents(driverId?: number | null, branchIds: number[] = []): void {
-    const only = [
-        'availableOrders',
-        'activeOrders',
-        'activeGroups',
-        'compatibleOrders',
-        'stats',
-        'availabilityStatus',
-    ];
+type DriverOrderEventOptions = {
+    branchIds?: number[];
+    /** Props of the current Inertia page only — avoid requesting props from other screens. */
+    only?: string[];
+    /** Used to reload when a push/inbox notification arrives (offer may beat OrderAvailable). */
+    userId?: number | null;
+};
+
+export function useDriverOrderEvents(
+    driverId?: number | null,
+    {
+        branchIds = [],
+        only = [
+            'availableOrders',
+            'activeOrders',
+            'activeGroups',
+            'compatibleOrders',
+            'stats',
+            'availabilityStatus',
+        ],
+        userId = null,
+    }: DriverOrderEventOptions = {},
+): void {
     const reload = usePartialReload(only);
 
     usePrivateChannelEvents({
@@ -133,6 +147,14 @@ export function useDriverOrderEvents(driverId?: number | null, branchIds: number
             '.IncidentCreated',
         ],
         enabled: Boolean(driverId),
+        onEvent: () => reload(),
+    });
+
+    // Inbox/FCM often lands before (or without) OrderAvailable on shared hosting.
+    usePrivateChannelEvents({
+        channels: [userId ? `user.${userId}.notifications` : null],
+        events: ['.UnreadNotificationsUpdated'],
+        enabled: Boolean(userId),
         onEvent: () => reload(),
     });
 

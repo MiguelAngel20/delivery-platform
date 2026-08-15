@@ -123,12 +123,23 @@ test('OrderStatusChanged is emitted when business accepts order', function () {
 
     Event::fake([OrderStatusChanged::class, OrderAvailableToDriver::class]);
 
+    $driverUser = User::factory()->driver()->create();
+    $driver = Driver::factory()->approved()->forUser($driverUser)->create([
+        'driver_scope' => DriverScope::Platform,
+        'availability_status' => DriverAvailabilityStatus::Available,
+    ]);
+
     app(AcceptBusinessOrder::class)->handle($order, $businessUser, 20);
 
     Event::assertDispatched(OrderStatusChanged::class, function (OrderStatusChanged $event) use ($order): bool {
         return $event->payload['order_id'] === $order->id
             && $event->payload['status'] === OrderStatus::Preparing->value
             && $event->payload['previous_status'] === OrderStatus::PendingBusiness->value;
+    });
+
+    Event::assertDispatched(OrderAvailableToDriver::class, function (OrderAvailableToDriver $event) use ($order, $driver): bool {
+        return $event->payload['order_id'] === $order->id
+            && $event->driverId === $driver->id;
     });
 });
 

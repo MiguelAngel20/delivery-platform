@@ -150,6 +150,8 @@ class HandleInertiaRequests extends Middleware
             ];
         }
 
+        $user->loadMissing(['customer', 'driver']);
+
         $branchIds = [];
         $businessId = null;
 
