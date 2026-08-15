@@ -1,5 +1,6 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { consumePendingCartClear } from '@/apps/storefront/cart/use-storefront-cart';
 import { OrderStatusTimeline } from '@/apps/storefront/components/order-status-timeline';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { PageContainer } from '@/components/layout/page';
@@ -70,6 +71,10 @@ export default function CustomerOrderShow({ order }: Props) {
         realtime?: { customer_id?: number | null };
     };
     const [dialog, setDialog] = useState<'cancel' | 'report' | null>(null);
+
+    useEffect(() => {
+        consumePendingCartClear();
+    }, []);
 
     useCustomerOrderEvents(realtime?.customer_id, order.id);
 

@@ -3,6 +3,7 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import type { SelectedProductOption } from '@/apps/storefront/components/product-dialog';
 
 const STORAGE_KEY = 'ride.storefront.cart';
+const PENDING_CLEAR_KEY = 'ride.storefront.cart.pending_clear';
 const listeners = new Set<() => void>();
 
 export type CartExtra = {
@@ -96,6 +97,39 @@ function writeCart(next: CartState): void {
     emit();
 }
 
+/** Mark cart for cleanup if Inertia finishes via full-page reload (asset version mismatch). */
+export function markCartPendingClear(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.sessionStorage.setItem(PENDING_CLEAR_KEY, '1');
+}
+
+export function clearStorefrontCart(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    writeCart(emptyCart);
+    window.sessionStorage.removeItem(PENDING_CLEAR_KEY);
+}
+
+/** Call on app/pages that load after checkout redirect. */
+export function consumePendingCartClear(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    if (window.sessionStorage.getItem(PENDING_CLEAR_KEY) !== '1') {
+        return false;
+    }
+
+    clearStorefrontCart();
+
+    return true;
+}
+
 function subscribe(listener: () => void): () => void {
     listeners.add(listener);
 
@@ -176,7 +210,7 @@ export function useStorefrontCart() {
     const total = Math.max(subtotal + service - discount, 0);
 
     const clear = useCallback(() => {
-        writeCart(emptyCart);
+        clearStorefrontCart();
     }, []);
 
     const addItem = useCallback((input: AddToCartInput): 'ok' | 'conflict' => {

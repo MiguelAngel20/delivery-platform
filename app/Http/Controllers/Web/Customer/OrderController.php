@@ -109,10 +109,8 @@ class OrderController extends Controller
 
         $order = $action->handle($customer, $request->user(), $request->validated());
 
-        Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => 'Pedido creado correctamente.',
-        ]);
+        // Toast is shown client-side on checkout success (more reliable across
+        // full-page redirects from Inertia asset version mismatches).
 
         return to_route('customer.orders.show', $order);
     }

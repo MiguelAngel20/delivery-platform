@@ -1,7 +1,10 @@
 import { router, usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { consumeCheckoutIntent } from '@/apps/storefront/cart/use-storefront-cart';
+import {
+    consumeCheckoutIntent,
+    consumePendingCartClear,
+} from '@/apps/storefront/cart/use-storefront-cart';
 import { StorefrontBottomNav } from '@/apps/storefront/components/storefront-bottom-nav';
 import { StorefrontHeader } from '@/apps/storefront/components/storefront-header';
 import { PushPermissionPrompt } from '@/components/notifications/push-permission-prompt';
@@ -16,6 +19,10 @@ export default function StorefrontLayout({
     const { auth } = usePage().props as { auth: Auth };
 
     useEffect(() => forceLightTheme(), []);
+
+    useEffect(() => {
+        consumePendingCartClear();
+    }, []);
 
     useEffect(() => {
         if (auth.user?.role !== 'customer') {

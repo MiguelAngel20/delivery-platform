@@ -1,8 +1,12 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import { useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
+import {
+    markCartPendingClear,
+    useStorefrontCart,
+} from '@/apps/storefront/cart/use-storefront-cart';
 import { AddressCard } from '@/apps/storefront/components/address-card';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
+import { notify } from '@/components/feedback/toast';
 import { EmptyState } from '@/components/feedback/empty-state';
 import InputError from '@/components/input-error';
 import { PageContainer } from '@/components/layout/page';
@@ -119,9 +123,26 @@ export default function CustomerCheckout({ addresses }: Props) {
             },
             {
                 preserveScroll: true,
-                onStart: () => setProcessing(true),
+                onStart: () => {
+                    setProcessing(true);
+                    markCartPendingClear();
+                },
                 onFinish: () => setProcessing(false),
-                onSuccess: () => clear(),
+                onSuccess: () => {
+                    clear();
+                    notify.success('Pedido creado correctamente.');
+                },
+                onError: () => {
+                    window.sessionStorage.removeItem(
+                        'ride.storefront.cart.pending_clear',
+                    );
+                    notify.error('No se pudo crear el pedido. Revisa los datos.');
+                },
+                onCancel: () => {
+                    window.sessionStorage.removeItem(
+                        'ride.storefront.cart.pending_clear',
+                    );
+                },
             },
         );
     };
