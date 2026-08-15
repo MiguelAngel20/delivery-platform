@@ -1,0 +1,1 @@
+function e(e,t){return`https://www.google.com/maps/search/?api=1&query=${Number(e).toFixed(7)},${Number(t).toFixed(7)}`}function t(e){return e<1e3?`${Math.round(e)} m`:`${(e/1e3).toFixed(1)} km`}export{e as n,t};
