@@ -4,6 +4,7 @@ namespace App\Listeners\Notifications;
 
 use App\Events\Notifications\UnreadNotificationsUpdated;
 use App\Models\User;
+use App\Support\SafeBroadcast;
 use Illuminate\Notifications\Events\NotificationSent;
 
 final class BroadcastUnreadNotificationCount
@@ -20,7 +21,7 @@ final class BroadcastUnreadNotificationCount
             return;
         }
 
-        broadcast(new UnreadNotificationsUpdated(
+        SafeBroadcast::event(new UnreadNotificationsUpdated(
             $notifiable->id,
             $notifiable->unreadNotifications()->count(),
         ));

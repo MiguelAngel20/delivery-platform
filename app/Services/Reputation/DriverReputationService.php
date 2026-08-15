@@ -14,6 +14,7 @@ use App\Models\DriverRating;
 use App\Models\Incident;
 use App\Models\Order;
 use App\Models\OrderCancellation;
+use App\Support\SafeBroadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -241,7 +242,7 @@ final class DriverReputationService
         ];
 
         $callback = static function () use ($payload, $rating): void {
-            broadcast(new DriverRated($payload, [
+            SafeBroadcast::event(new DriverRated($payload, [
                 'driver.'.$rating->driver_id,
                 'admin',
             ]));

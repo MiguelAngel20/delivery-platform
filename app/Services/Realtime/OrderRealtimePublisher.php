@@ -14,6 +14,7 @@ use App\Models\Order;
 use App\Services\Dispatch\DriverEligibilityService;
 use App\Services\Notifications\RideNotificationDispatcher;
 use App\Support\OrderBroadcastPayload;
+use App\Support\SafeBroadcast;
 use Illuminate\Support\Facades\DB;
 
 final class OrderRealtimePublisher
@@ -31,7 +32,7 @@ final class OrderRealtimePublisher
 
         $this->afterCommit(function () use ($payload, $channels, $order): void {
             if ($channels !== []) {
-                broadcast(new OrderCreated($payload, $channels));
+                SafeBroadcast::event(new OrderCreated($payload, $channels));
             }
 
             $this->notifications->orderCreated($order);
@@ -46,7 +47,7 @@ final class OrderRealtimePublisher
 
         $this->afterCommit(function () use ($payload, $channels, $order, $previous): void {
             if ($channels !== []) {
-                broadcast(new OrderStatusChanged($payload, $channels));
+                SafeBroadcast::event(new OrderStatusChanged($payload, $channels));
             }
 
             $this->notifications->statusChanged($order, $previous);
@@ -79,8 +80,8 @@ final class OrderRealtimePublisher
 
         $this->afterCommit(function () use ($payload, $channels, $order): void {
             if ($channels !== []) {
-                broadcast(new DriverAssigned($payload, $channels));
-                broadcast(new OrderStatusChanged($payload, $channels));
+                SafeBroadcast::event(new DriverAssigned($payload, $channels));
+                SafeBroadcast::event(new OrderStatusChanged($payload, $channels));
             }
 
             $this->notifications->driverAssigned($order);
@@ -107,7 +108,7 @@ final class OrderRealtimePublisher
                 continue;
             }
 
-            broadcast(new OrderAvailableToDriver($payload, $driver->id));
+            SafeBroadcast::event(new OrderAvailableToDriver($payload, $driver->id));
             $this->notifications->driverOffer($order, $driver);
         }
     }

@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Notifications\RideNotificationDispatcher;
 use App\Services\Reputation\ReputationRecalculator;
+use App\Support\SafeBroadcast;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -159,7 +160,7 @@ final class IncidentService
         ];
 
         $callback = function () use ($payload, $incident): void {
-            broadcast(new IncidentCreated($payload, ['admin']));
+            SafeBroadcast::event(new IncidentCreated($payload, ['admin']));
             $this->notifications->incidentCreated($incident);
         };
 

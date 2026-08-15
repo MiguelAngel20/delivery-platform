@@ -6,6 +6,7 @@ use App\Events\CustomOrders\CustomOrderUpdated;
 use App\Models\CustomOrderRequest;
 use App\Services\Notifications\RideNotificationDispatcher;
 use App\Support\CustomOrderBroadcastPayload;
+use App\Support\SafeBroadcast;
 use Illuminate\Support\Facades\DB;
 
 final class CustomOrderRealtimePublisher
@@ -56,7 +57,7 @@ final class CustomOrderRealtimePublisher
         $payload = CustomOrderBroadcastPayload::base($request);
 
         $callback = static function () use ($payload, $channels, $eventName): void {
-            broadcast(new CustomOrderUpdated($payload, $channels, $eventName));
+            SafeBroadcast::event(new CustomOrderUpdated($payload, $channels, $eventName));
         };
 
         if (DB::transactionLevel() > 0) {

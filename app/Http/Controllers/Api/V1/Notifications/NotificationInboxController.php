@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Notifications;
 
 use App\Events\Notifications\UnreadNotificationsUpdated;
 use App\Http\Controllers\Controller;
+use App\Support\SafeBroadcast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -51,7 +52,7 @@ class NotificationInboxController extends Controller
         $item->markAsRead();
 
         $unread = $request->user()->unreadNotifications()->count();
-        broadcast(new UnreadNotificationsUpdated($request->user()->id, $unread));
+        SafeBroadcast::event(new UnreadNotificationsUpdated($request->user()->id, $unread));
 
         return response()->json([
             'ok' => true,
@@ -63,7 +64,7 @@ class NotificationInboxController extends Controller
     {
         $request->user()->unreadNotifications->markAsRead();
 
-        broadcast(new UnreadNotificationsUpdated($request->user()->id, 0));
+        SafeBroadcast::event(new UnreadNotificationsUpdated($request->user()->id, 0));
 
         return response()->json([
             'ok' => true,

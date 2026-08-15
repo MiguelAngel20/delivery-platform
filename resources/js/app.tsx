@@ -14,9 +14,22 @@ import MapsLayout from '@/layouts/maps-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { configureEcho } from '@laravel/echo-react';
 
-configureEcho({
-    broadcaster: 'reverb',
-});
+const broadcastConnection =
+    import.meta.env.VITE_BROADCAST_CONNECTION || 'reverb';
+
+if (broadcastConnection === 'pusher') {
+    configureEcho({
+        broadcaster: 'pusher',
+        key: import.meta.env.VITE_PUSHER_APP_KEY,
+        cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
+        forceTLS: true,
+    });
+} else {
+    // Local / VPS: Laravel Reverb (requires `php artisan reverb:start`)
+    configureEcho({
+        broadcaster: 'reverb',
+    });
+}
 
 const appName = import.meta.env.VITE_APP_NAME || 'RIDE';
 
