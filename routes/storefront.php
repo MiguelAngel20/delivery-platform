@@ -1,8 +1,9 @@
 <?php
 
 use App\Http\Controllers\Web\Public\HomeController;
+use App\Http\Controllers\Web\Public\LegalPageController;
 use App\Http\Controllers\Web\Public\RestaurantController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Web\Public\SearchController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -17,11 +18,14 @@ Route::get('categories', fn () => Inertia::render('public/categories/index'))
 Route::get('promotions', fn () => Inertia::render('public/promotions/index'))
     ->name('promotions.index');
 
-Route::get('search', function (Request $request) {
-    return Inertia::render('public/search/index', [
-        'q' => $request->string('q')->toString(),
-    ]);
-})->name('search');
+Route::get('search', SearchController::class)->name('search');
 
 Route::get('cart', fn () => Inertia::render('public/cart/index'))
     ->name('cart');
+
+Route::prefix('legal')->name('legal.')->group(function () {
+    Route::get('terminos-y-condiciones', [LegalPageController::class, 'terms'])->name('terms');
+    Route::get('aviso-de-privacidad', [LegalPageController::class, 'privacy'])->name('privacy');
+    Route::get('quejas-y-sugerencias', [LegalPageController::class, 'feedback'])->name('feedback');
+    Route::get('afiliacion', [LegalPageController::class, 'affiliation'])->name('affiliation');
+});

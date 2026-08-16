@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Public;
 
 use App\Enums\BranchStatus;
+use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
 use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
@@ -15,6 +16,7 @@ use App\Services\Geo\BranchResolverService;
 use App\Services\Geo\CoverageService;
 use App\Services\Geo\DeliveryEstimateService;
 use App\Services\Geo\DistanceService;
+use App\Support\BusinessHours;
 use App\Support\BusinessLogoStorage;
 use App\Support\GeoPoint;
 use Illuminate\Http\Request;
@@ -81,8 +83,15 @@ class RestaurantController extends Controller
             })
             ->when($hasLocation, fn ($collection) => $collection
                 ->sortBy(fn (array $row): array => [
+                    ($row['is_affiliated'] ?? false) ? 0 : 1,
                     ($row['in_coverage'] ?? false) ? 0 : 1,
                     $row['distance_meters'] ?? PHP_INT_MAX,
+                    $row['name'] ?? '',
+                ])
+                ->values(), fn ($collection) => $collection
+                ->sortBy(fn (array $row): array => [
+                    ($row['is_affiliated'] ?? false) ? 0 : 1,
+                    $row['name'] ?? '',
                 ])
                 ->values())
             ->values();
@@ -214,6 +223,8 @@ class RestaurantController extends Controller
         ?int $distanceMeters = null,
     ): array {
         $branch ??= $business->branches->first();
+        $isOpen = BusinessHours::isOpenNow($business->opening_hours);
+        $canAcceptOrders = $business->operation_mode->canAcceptOrders();
 
         return [
             'id' => (string) $business->id,
@@ -221,19 +232,22 @@ class RestaurantController extends Controller
             'name' => $business->name,
             'category' => $business->business_type ?? 'Restaurante',
             'eta' => $eta,
-            'open' => true,
+            'open' => $isOpen,
             'mode' => $business->operation_mode->value,
             'branchName' => $branch?->name ?? 'Sucursal',
-            'schedule' => 'Consulta horario en sucursal',
-            'canOrder' => $business->operation_mode->canAcceptOrders() && $inCoverage,
+            'schedule' => BusinessHours::todayLabel($business->opening_hours),
+            'canOrder' => $canAcceptOrders && $inCoverage && $isOpen,
             'in_coverage' => $inCoverage,
             'distance_meters' => $distanceMeters,
-            'modeLabel' => ! $inCoverage
-                ? 'Fuera de cobertura'
-                : ($business->operation_mode->canAcceptOrders()
-                    ? 'Entrega disponible'
-                    : 'Solo información'),
+            'modeLabel' => ! $isOpen
+                ? 'Cerrado ahora'
+                : (! $inCoverage
+                    ? 'Fuera de cobertura'
+                    : ($canAcceptOrders
+                        ? 'Entrega disponible'
+                        : 'Solo información')),
             'logo_url' => $this->logoStorage->url($business->logo_path),
+            'is_affiliated' => $business->operation_mode === BusinessOperationMode::Partner,
         ];
     }
 

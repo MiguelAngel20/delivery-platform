@@ -23,7 +23,7 @@ export default function AdminBusinessesCreate({ options }: Props) {
                 <ContentCard>
                     <BusinessForm
                         options={options}
-                        action={store()}
+                        action={store.form()}
                         submitLabel="Crear empresa"
                         cancelSlot={
                             <Button variant="outline" asChild>

@@ -6,6 +6,7 @@ import {
     consumePendingCartClear,
 } from '@/apps/storefront/cart/use-storefront-cart';
 import { StorefrontBottomNav } from '@/apps/storefront/components/storefront-bottom-nav';
+import { StorefrontFooter } from '@/apps/storefront/components/storefront-footer';
 import { StorefrontHeader } from '@/apps/storefront/components/storefront-header';
 import { PushPermissionPrompt } from '@/components/notifications/push-permission-prompt';
 import { forceLightTheme } from '@/hooks/use-appearance';
@@ -42,9 +43,12 @@ export default function StorefrontLayout({
                 <PushPermissionPrompt tone="customer" />
             ) : null}
             <StorefrontHeader />
-            <main className="mx-auto w-full max-w-6xl flex-1 pb-24 md:pb-8">
+            <main className="mx-auto w-full max-w-6xl flex-1">
                 {children}
             </main>
+            <div className="pb-24 md:pb-0">
+                <StorefrontFooter />
+            </div>
             <StorefrontBottomNav />
         </div>
     );

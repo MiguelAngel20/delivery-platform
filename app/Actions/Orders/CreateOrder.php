@@ -28,6 +28,7 @@ use App\Services\Geo\OrderLogisticsService;
 use App\Services\Orders\OrderNumberGenerator;
 use App\Services\PricingEngine;
 use App\Services\Realtime\OrderRealtimePublisher;
+use App\Support\BusinessHours;
 use App\Support\GoogleMapsUrl;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -56,6 +57,12 @@ final class CreateOrder
             if ($branch->business === null || ! $branch->business->operation_mode->canAcceptOrders()) {
                 throw ValidationException::withMessages([
                     'branch_id' => 'Este establecimiento no acepta pedidos.',
+                ]);
+            }
+
+            if (! BusinessHours::isOpenNow($branch->business->opening_hours)) {
+                throw ValidationException::withMessages([
+                    'branch_id' => 'Este establecimiento está cerrado en este momento.',
                 ]);
             }
 

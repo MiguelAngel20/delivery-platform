@@ -200,6 +200,40 @@ export default function AdminBusinessesShow({
                                     {business.description ?? '—'}
                                 </dd>
                             </div>
+                            <div className="sm:col-span-2">
+                                <dt className="text-sm text-muted-foreground">
+                                    Días y horarios
+                                </dt>
+                                <dd className="mt-2">
+                                    <ul className="grid gap-2 sm:grid-cols-2">
+                                        {(business.opening_hours ?? []).map(
+                                            (row) => (
+                                                <li
+                                                    key={row.day}
+                                                    className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
+                                                >
+                                                    <span className="font-medium">
+                                                        {row.day_label ??
+                                                            row.day}
+                                                    </span>
+                                                    <span
+                                                        className={
+                                                            row.is_open
+                                                                ? 'text-foreground'
+                                                                : 'text-muted-foreground'
+                                                        }
+                                                    >
+                                                        {row.label ??
+                                                            (row.is_open
+                                                                ? `${row.opens_at} – ${row.closes_at}`
+                                                                : 'Cerrado')}
+                                                    </span>
+                                                </li>
+                                            ),
+                                        )}
+                                    </ul>
+                                </dd>
+                            </div>
                             {business.rejection_reason ? (
                                 <div className="sm:col-span-2">
                                     <dt className="text-sm text-muted-foreground">
@@ -251,6 +285,22 @@ export default function AdminBusinessesShow({
                                             src={business.logo_url}
                                             alt={`Logo de ${business.name}`}
                                             className="h-16 w-16 rounded-md border object-cover"
+                                        />
+                                    ) : (
+                                        '—'
+                                    )}
+                                </dd>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <dt className="text-sm text-muted-foreground">
+                                    Banner del carrusel
+                                </dt>
+                                <dd className="mt-2">
+                                    {business.banner_url ? (
+                                        <img
+                                            src={business.banner_url}
+                                            alt={`Banner de ${business.name}`}
+                                            className="h-28 w-full max-w-xl rounded-md border object-cover"
                                         />
                                     ) : (
                                         '—'

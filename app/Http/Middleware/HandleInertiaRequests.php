@@ -7,6 +7,7 @@ use App\Enums\BusinessUserStatus;
 use App\Enums\UserRole;
 use App\Models\BusinessUser;
 use App\Support\BusinessAccess;
+use App\Support\BusinessTypes;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -58,6 +59,13 @@ class HandleInertiaRequests extends Middleware
             'maps' => [
                 'browser_api_key' => (string) config('maps.browser_api_key', ''),
                 'default_center' => config('maps.default_center'),
+                'default_place_label' => (string) config(
+                    'maps.default_place_label',
+                    'Comitán de Domínguez, Chiapas',
+                ),
+            ],
+            'storefront' => [
+                'categories' => BusinessTypes::categories(),
             ],
             'notifications' => [
                 'unread_count' => $user?->unreadNotifications()->count() ?? 0,

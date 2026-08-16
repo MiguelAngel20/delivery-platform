@@ -6,6 +6,7 @@ use App\Enums\BusinessDeliveryMode;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
 use App\Models\Business;
+use App\Support\BusinessHours;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -32,8 +33,10 @@ class BusinessFactory extends Factory
             'delivery_mode' => BusinessDeliveryMode::PlatformDrivers,
             'status' => BusinessStatus::Active,
             'logo_path' => null,
+            'banner_path' => null,
             'phone' => fake()->numerify('+502########'),
             'email' => fake()->unique()->companyEmail(),
+            'opening_hours' => BusinessHours::alwaysOpen(),
             'created_by_user_id' => null,
             'approved_by_user_id' => null,
             'approved_at' => now(),

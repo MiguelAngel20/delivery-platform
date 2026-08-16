@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Enums\BusinessDeliveryMode;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
+use App\Support\BusinessHours;
 use App\Support\BusinessTypes;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -16,6 +17,11 @@ class UpdateBusinessRequest extends FormRequest
         $business = $this->route('business');
 
         return $this->user()?->can('update', $business) ?? false;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->mergeOpeningHours();
     }
 
     /**
@@ -33,6 +39,45 @@ class UpdateBusinessRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'status' => ['required', Rule::enum(BusinessStatus::class)],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'banner' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            ...BusinessHours::validationRules(),
         ];
+    }
+
+    /**
+     * @return list<\Closure>
+     */
+    public function after(): array
+    {
+        return BusinessHours::afterValidation();
+    }
+
+    private function mergeOpeningHours(): void
+    {
+        $hours = $this->input('opening_hours');
+
+        if (is_string($hours)) {
+            $decoded = json_decode($hours, true);
+            $hours = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($hours)) {
+            $hours = [];
+        }
+
+        $this->merge([
+            'opening_hours' => collect($hours)
+                ->map(function (mixed $row): mixed {
+                    if (! is_array($row)) {
+                        return $row;
+                    }
+
+                    return [
+                        ...$row,
+                        'is_open' => filter_var($row['is_open'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    ];
+                })
+                ->all(),
+        ]);
     }
 }

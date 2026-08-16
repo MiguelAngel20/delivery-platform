@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\BusinessStatus;
+use App\Models\Business;
+use App\Models\BusinessBranch;
 use App\Models\User;
 
 test('guests can browse the public storefront', function (string $routeName) {
@@ -13,12 +16,40 @@ test('guests can browse the public storefront', function (string $routeName) {
     'cart' => 'cart',
 ]);
 
+test('public home and restaurants render without requiring a query', function () {
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('public/home')
+            ->where('maps.default_place_label', 'Comitán de Domínguez, Chiapas'));
+
+    $this->get(route('restaurants.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('public/restaurants/index'));
+
+    $this->get(route('search'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('public/search/index')
+            ->has('q')
+            ->has('restaurants')
+            ->has('products')
+            ->has('promotions')
+            ->has('categories'));
+});
+
 test('guests can open a restaurant menu', function () {
+    $business = Business::factory()->create([
+        'slug' => 'pollo-guero',
+        'status' => BusinessStatus::Active,
+    ]);
+    BusinessBranch::factory()->for($business)->create();
+
     $this->get(route('restaurants.show', ['slug' => 'pollo-guero']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('public/restaurants/show')
-            ->where('slug', 'pollo-guero'));
+            ->where('restaurant.slug', 'pollo-guero'));
 });
 
 test('customer can open customer portal pages', function (string $routeName) {

@@ -10,6 +10,7 @@ use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Models\BusinessUser;
 use App\Models\User;
+use App\Support\BusinessHours;
 use App\Support\UniqueSlug;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -43,14 +44,19 @@ test('system admin can create business', function () {
             'phone' => '+50255551212',
             'email' => 'hola@polloguero.test',
             'status' => BusinessStatus::PendingApproval->value,
+            'opening_hours' => BusinessHours::defaults(),
             'logo' => UploadedFile::fake()->image('logo.jpg'),
+            'banner' => UploadedFile::fake()->image('banner.jpg', 1200, 400),
         ]);
 
     $business = Business::query()->where('email', 'hola@polloguero.test')->first();
 
     expect($business)->not->toBeNull()
         ->and($business?->slug)->toStartWith('pollo-guero')
-        ->and($business?->logo_path)->not->toBeNull();
+        ->and($business?->logo_path)->not->toBeNull()
+        ->and($business?->banner_path)->not->toBeNull()
+        ->and($business?->opening_hours)->toHaveCount(7)
+        ->and(collect($business?->opening_hours)->firstWhere('day', 'monday')['is_open'] ?? false)->toBeTrue();
 
     $response->assertRedirect(route('admin.businesses.show', $business));
 });
@@ -71,11 +77,62 @@ test('system admin can update business', function () {
             'phone' => '+50255559999',
             'email' => 'nuevo@empresa.test',
             'status' => BusinessStatus::Active->value,
+            'opening_hours' => collect(BusinessHours::defaults())
+                ->map(function (array $row): array {
+                    if ($row['day'] === 'saturday') {
+                        return [
+                            'day' => 'saturday',
+                            'is_open' => true,
+                            'opens_at' => '10:00',
+                            'closes_at' => '14:00',
+                        ];
+                    }
+
+                    return $row;
+                })
+                ->all(),
         ])
         ->assertRedirect(route('admin.businesses.show', $business));
 
-    expect($business->fresh()->name)->toBe('Empresa Actualizada')
-        ->and($business->fresh()->business_type)->toBe('Cafetería');
+    $business->refresh();
+
+    expect($business->name)->toBe('Empresa Actualizada')
+        ->and($business->business_type)->toBe('Cafetería')
+        ->and(collect($business->opening_hours)->firstWhere('day', 'saturday'))
+        ->toMatchArray([
+            'day' => 'saturday',
+            'is_open' => true,
+            'opens_at' => '10:00',
+            'closes_at' => '14:00',
+        ]);
+});
+
+test('system admin can update business via multipart form post spoofing put', function () {
+    $admin = User::factory()->systemAdmin()->create();
+    $business = Business::factory()->create([
+        'name' => 'Empresa Original',
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.businesses.update', [
+            'business' => $business,
+            '_method' => 'PUT',
+        ]), [
+            'name' => 'Empresa Multipart',
+            'description' => 'Actualizada con form multipart',
+            'business_type' => 'Restaurante',
+            'operation_mode' => BusinessOperationMode::Partner->value,
+            'delivery_mode' => BusinessDeliveryMode::PlatformDrivers->value,
+            'phone' => '+50255551111',
+            'email' => 'multipart@empresa.test',
+            'status' => BusinessStatus::Active->value,
+            'opening_hours' => json_encode(BusinessHours::defaults()),
+        ])
+        ->assertRedirect(route('admin.businesses.show', $business));
+
+    expect($business->fresh()->name)->toBe('Empresa Multipart')
+        ->and($business->fresh()->email)->toBe('multipart@empresa.test')
+        ->and($business->fresh()->opening_hours)->toHaveCount(7);
 });
 
 test('system admin can approve pending business', function () {

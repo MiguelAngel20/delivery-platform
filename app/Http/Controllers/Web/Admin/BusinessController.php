@@ -17,6 +17,8 @@ use App\Http\Requests\Admin\SuspendBusinessRequest;
 use App\Http\Requests\Admin\UpdateBusinessRequest;
 use App\Models\Business;
 use App\Services\BusinessLimitService;
+use App\Support\BusinessBannerStorage;
+use App\Support\BusinessHours;
 use App\Support\BusinessLogoStorage;
 use App\Support\BusinessMembershipData;
 use App\Support\BusinessTypes;
@@ -31,6 +33,7 @@ class BusinessController extends Controller
 {
     public function __construct(
         private readonly BusinessLogoStorage $logoStorage,
+        private readonly BusinessBannerStorage $bannerStorage,
         private readonly BusinessLimitService $limitService,
     ) {}
 
@@ -114,7 +117,8 @@ class BusinessController extends Controller
 
     public function store(StoreBusinessRequest $request): RedirectResponse
     {
-        $data = $request->safe()->except('logo');
+        $data = collect($request->validated())->except(['logo', 'banner'])->all();
+        $data['opening_hours'] = BusinessHours::normalize($data['opening_hours'] ?? null);
         $status = $data['status'] instanceof BusinessStatus
             ? $data['status']
             : BusinessStatus::from((string) $data['status']);
@@ -137,6 +141,10 @@ class BusinessController extends Controller
 
             if ($request->hasFile('logo')) {
                 $this->logoStorage->replace($business, $request->file('logo'));
+            }
+
+            if ($request->hasFile('banner')) {
+                $this->bannerStorage->replace($business, $request->file('banner'));
             }
 
             return $business;
@@ -197,7 +205,8 @@ class BusinessController extends Controller
 
     public function update(UpdateBusinessRequest $request, Business $business): RedirectResponse
     {
-        $data = $request->safe()->except('logo');
+        $data = collect($request->validated())->except(['logo', 'banner'])->all();
+        $data['opening_hours'] = BusinessHours::normalize($data['opening_hours'] ?? null);
         $nameChanged = $business->name !== $data['name'];
 
         $business->update([
@@ -209,6 +218,10 @@ class BusinessController extends Controller
 
         if ($request->hasFile('logo')) {
             $this->logoStorage->replace($business, $request->file('logo'));
+        }
+
+        if ($request->hasFile('banner')) {
+            $this->bannerStorage->replace($business, $request->file('banner'));
         }
 
         Inertia::flash('toast', [
@@ -299,6 +312,8 @@ class BusinessController extends Controller
                 ])
                 ->values()
                 ->all(),
+            'weekdays' => BusinessHours::dayOptions(),
+            'default_opening_hours' => BusinessHours::defaults(),
         ];
     }
 
@@ -321,8 +336,11 @@ class BusinessController extends Controller
             'status_label' => $business->status->label(),
             'phone' => $business->phone,
             'email' => $business->email,
+            'opening_hours' => BusinessHours::present($business->opening_hours),
             'logo_path' => $business->logo_path,
             'logo_url' => $this->logoStorage->url($business->logo_path),
+            'banner_path' => $business->banner_path,
+            'banner_url' => $this->bannerStorage->url($business->banner_path),
             'rejection_reason' => $business->rejection_reason,
             'suspension_reason' => $business->suspension_reason,
             'approved_at' => $business->approved_at?->toDateTimeString(),

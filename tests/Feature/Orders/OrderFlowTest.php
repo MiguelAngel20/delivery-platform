@@ -22,6 +22,7 @@ use App\Models\ProductOptionGroup;
 use App\Models\ProductPrice;
 use App\Models\User;
 use App\Services\Orders\OrderStateService;
+use App\Support\BusinessHours;
 use Illuminate\Validation\ValidationException;
 
 function seedOrderCustomer(): array
@@ -213,6 +214,28 @@ test('customer cannot order unavailable product', function () {
         $user,
         validOrderPayload($branch, $product, $onion, $cheese, $address),
     ))->toThrow(ValidationException::class);
+});
+
+test('customer cannot order from a closed business', function () {
+    ['user' => $user, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['business' => $business, 'branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $business->update([
+        'opening_hours' => collect(BusinessHours::dayKeys())
+            ->map(fn (string $day): array => [
+                'day' => $day,
+                'is_open' => false,
+                'opens_at' => null,
+                'closes_at' => null,
+            ])
+            ->all(),
+    ]);
+
+    expect(fn () => app(CreateOrder::class)->handle(
+        $customer,
+        $user,
+        validOrderPayload($branch, $product, $onion, $cheese, $address),
+    ))->toThrow(ValidationException::class, 'Este establecimiento está cerrado en este momento.');
 });
 
 test('customer cannot use option from another product', function () {

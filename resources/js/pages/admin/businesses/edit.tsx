@@ -28,7 +28,7 @@ export default function AdminBusinessesEdit({ business, options }: Props) {
                     <BusinessForm
                         options={options}
                         business={business}
-                        action={update(business.id)}
+                        action={update.form(business.id)}
                         submitLabel="Guardar cambios"
                         cancelSlot={
                             <Button variant="outline" asChild>

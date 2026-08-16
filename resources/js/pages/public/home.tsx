@@ -1,46 +1,56 @@
-import { Head, Link } from '@inertiajs/react';
-import { CategoryCard } from '@/apps/storefront/components/category-card';
-import { PromotionCard } from '@/apps/storefront/components/promotion-card';
-import { RestaurantCard } from '@/apps/storefront/components/restaurant-card';
-import { SearchBar } from '@/apps/storefront/components/search-bar';
-import { mockCategories } from '@/apps/storefront/mocks';
-import type { MockPromotion, MockRestaurant } from '@/apps/storefront/mocks';
+import { Head, Link, usePage } from '@inertiajs/react';
+import {
+    AffiliatedPartnersCarousel,
+    type AffiliatedPartner,
+} from '@/apps/storefront/components/affiliated-partners-carousel';
 import { CustomOrderEntry } from '@/apps/storefront/components/custom-order-entry';
+import { MobileCategoryTabs } from '@/apps/storefront/components/mobile-category-tabs';
+import { MobilePromotionsCarousel } from '@/apps/storefront/components/mobile-promotions-carousel';
+import { PromotionsCarousel } from '@/apps/storefront/components/promotions-carousel';
+import { RestaurantsGrid } from '@/apps/storefront/components/restaurants-grid';
+import type {
+    MockCategory,
+    MockPromotion,
+    MockRestaurant,
+} from '@/apps/storefront/mocks';
 import { PageContainer } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
 import promotionsRoute from '@/routes/promotions';
-import restaurantsRoute from '@/routes/restaurants';
 
 type Props = {
     restaurants?: MockRestaurant[];
+    affiliatedPartners?: AffiliatedPartner[];
     promotions?: MockPromotion[];
+    filters?: {
+        category?: string | null;
+    };
 };
 
 export default function PublicHome({
     restaurants = [],
+    affiliatedPartners = [],
     promotions = [],
+    filters = {},
 }: Props) {
+    const page = usePage();
+    const categories =
+        (
+            page.props as {
+                storefront?: { categories?: MockCategory[] };
+            }
+        ).storefront?.categories ?? [];
+    const selectedCategory = filters.category ?? null;
+
     return (
         <>
             <Head title="Inicio" />
             <PageContainer className="gap-6 px-4 py-4 md:px-6">
-                <SearchBar />
+                <MobileCategoryTabs
+                    categories={categories}
+                    selectedSlug={selectedCategory}
+                />
 
-                <section className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <h2 className="text-lg font-semibold text-navy">
-                            Categorías
-                        </h2>
-                    </div>
-                    <div className="flex gap-3 overflow-x-auto pb-1">
-                        {mockCategories.map((category) => (
-                            <CategoryCard
-                                key={category.id}
-                                category={category}
-                            />
-                        ))}
-                    </div>
-                </section>
+                <AffiliatedPartnersCarousel partners={affiliatedPartners} />
 
                 <section className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
@@ -51,34 +61,11 @@ export default function PublicHome({
                             <Link href={promotionsRoute.index()}>Ver todas</Link>
                         </Button>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {promotions.slice(0, 3).map((promotion) => (
-                            <PromotionCard
-                                key={promotion.id}
-                                promotion={promotion}
-                            />
-                        ))}
-                    </div>
+                    <MobilePromotionsCarousel promotions={promotions} />
+                    <PromotionsCarousel promotions={promotions} />
                 </section>
 
-                <section className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <h2 className="text-lg font-semibold text-navy">
-                            Restaurantes
-                        </h2>
-                        <Button asChild variant="ghost" size="sm">
-                            <Link href={restaurantsRoute.index()}>Ver todos</Link>
-                        </Button>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {restaurants.map((restaurant) => (
-                            <RestaurantCard
-                                key={restaurant.id}
-                                restaurant={restaurant}
-                            />
-                        ))}
-                    </div>
-                </section>
+                <RestaurantsGrid restaurants={restaurants} title="Negocios" />
 
                 <CustomOrderEntry />
             </PageContainer>

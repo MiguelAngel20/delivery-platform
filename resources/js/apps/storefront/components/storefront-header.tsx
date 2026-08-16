@@ -1,18 +1,20 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     Bell,
+    ChevronDown,
     ClipboardList,
     LogOut,
-    MapPin,
     MapPinned,
     Search,
-    ShoppingBag,
+    ShoppingCart,
     UserRound,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
-import { DeliveryLocationDialog } from '@/apps/storefront/components/delivery-location-dialog';
-import { useDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-location';
+import { applyStorefrontCategoryFilter } from '@/apps/storefront/components/category-card';
+import { DeliveryLocationCue } from '@/apps/storefront/components/delivery-location-cue';
+import { SearchBar } from '@/apps/storefront/components/search-bar';
+import type { MockCategory } from '@/apps/storefront/mocks';
 import { BrandLogo } from '@/components/brand-logo';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Button } from '@/components/ui/button';
@@ -25,18 +27,104 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { deactivateStoredPushDevice } from '@/lib/push/devices';
-import { cart, home, login, logout, search } from '@/routes';
+import { cart, home, login, logout } from '@/routes';
 import customer from '@/routes/customer';
 import promotions from '@/routes/promotions';
 import restaurants from '@/routes/restaurants';
 import type { Auth } from '@/types';
 
 export function StorefrontHeader() {
-    const { auth } = usePage().props as { auth: Auth };
+    const page = usePage();
+    const { auth, q: searchQuery = '', storefront } = page.props as {
+        auth: Auth;
+        q?: string;
+        storefront?: { categories?: MockCategory[] };
+    };
+    const categories = storefront?.categories ?? [];
     const { itemCount } = useStorefrontCart();
-    const { location, hasCoordinates } = useDeliveryLocation();
-    const [locationOpen, setLocationOpen] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
     const authenticated = auth.user?.role === 'customer';
+    const onSearchPage = page.component === 'public/search/index';
+    const selectedCategory = String(
+        (page.props as { filters?: { category?: string | null } }).filters
+            ?.category ?? '',
+    );
+
+    useEffect(() => {
+        if (onSearchPage) {
+            setSearchOpen(true);
+
+            return;
+        }
+
+        setSearchOpen(false);
+    }, [onSearchPage, page.url]);
+
+    useEffect(() => {
+        if (!searchOpen) {
+            return;
+        }
+
+        const isInsideSearchUi = (target: EventTarget | null): boolean => {
+            if (!(target instanceof Element)) {
+                return false;
+            }
+
+            return Boolean(
+                target.closest('#storefront-search') ||
+                    target.closest('[aria-controls="storefront-search"]'),
+            );
+        };
+
+        const searchInputValue = (): string => {
+            const input = document.querySelector(
+                '#storefront-search input',
+            ) as HTMLInputElement | null;
+
+            return input?.value.trim() ?? '';
+        };
+
+        const onPointerDown = (event: PointerEvent) => {
+            if (isInsideSearchUi(event.target)) {
+                return;
+            }
+
+            setSearchOpen(false);
+
+            // Empty query on search page: leave /search and return home.
+            if (searchInputValue() === '' && onSearchPage) {
+                router.get(
+                    home.url(),
+                    {},
+                    { replace: true, preserveScroll: true },
+                );
+            }
+        };
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            setSearchOpen(false);
+
+            if (searchInputValue() === '' && onSearchPage) {
+                router.get(
+                    home.url(),
+                    {},
+                    { replace: true, preserveScroll: true },
+                );
+            }
+        };
+
+        document.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('keydown', onKeyDown);
+
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown);
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    }, [searchOpen, onSearchPage]);
 
     return (
         <header className="sticky top-0 z-30 border-b border-border bg-surface">
@@ -51,20 +139,81 @@ export function StorefrontHeader() {
 
                     <nav className="hidden items-center gap-1 md:flex">
                         <Button asChild variant="ghost" size="sm">
-                            <Link href={restaurants.index()}>Restaurantes</Link>
+                            <Link href={home()}>Inicio</Link>
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label="Categorías"
+                                >
+                                    Categorías
+                                    <ChevronDown className="size-4 opacity-70" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="min-w-48">
+                                <DropdownMenuLabel>
+                                    Tipo / giro
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {categories.map((category) => (
+                                    <DropdownMenuItem
+                                        key={category.id}
+                                        onSelect={() =>
+                                            applyStorefrontCategoryFilter(
+                                                selectedCategory ===
+                                                    category.slug
+                                                    ? null
+                                                    : category.slug,
+                                            )
+                                        }
+                                        className={
+                                            selectedCategory === category.slug
+                                                ? 'bg-accent'
+                                                : undefined
+                                        }
+                                    >
+                                        {category.name}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button asChild variant="ghost" size="sm">
+                            <Link href={restaurants.index()}>Negocios</Link>
                         </Button>
                         <Button asChild variant="ghost" size="sm">
                             <Link href={promotions.index()}>Promociones</Link>
                         </Button>
-                        <Button asChild variant="ghost" size="sm">
-                            <Link href={search()}>
-                                <Search className="size-4" />
-                                Buscar
-                            </Link>
+                        <Button
+                            type="button"
+                            variant={searchOpen ? 'secondary' : 'ghost'}
+                            size="sm"
+                            aria-expanded={searchOpen}
+                            aria-controls="storefront-search"
+                            onClick={() => setSearchOpen((open) => !open)}
+                        >
+                            <Search className="size-4" />
+                            Buscar
                         </Button>
                     </nav>
 
                     <div className="flex items-center gap-1.5">
+                        <Button
+                            type="button"
+                            variant={searchOpen ? 'secondary' : 'ghost'}
+                            size="icon"
+                            className="md:hidden"
+                            aria-label={
+                                searchOpen ? 'Cerrar búsqueda' : 'Buscar'
+                            }
+                            aria-expanded={searchOpen}
+                            aria-controls="storefront-search"
+                            onClick={() => setSearchOpen((open) => !open)}
+                        >
+                            <Search className="size-5" />
+                        </Button>
                         {authenticated ? <NotificationBell compact /> : null}
                         <Button
                             asChild
@@ -74,7 +223,7 @@ export function StorefrontHeader() {
                             aria-label="Carrito"
                         >
                             <Link href={cart()}>
-                                <ShoppingBag className="size-5" />
+                                <ShoppingCart className="size-5" />
                                 {itemCount > 0 ? (
                                     <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
                                         {itemCount}
@@ -129,7 +278,9 @@ export function StorefrontHeader() {
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem asChild>
-                                        <Link href={customer.profile.notifications.edit()}>
+                                        <Link
+                                            href={customer.profile.notifications.edit()}
+                                        >
                                             <Bell className="size-4" />
                                             Notificaciones
                                         </Link>
@@ -153,28 +304,34 @@ export function StorefrontHeader() {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <Button asChild size="sm" className="min-h-9">
-                                <Link href={login()}>Iniciar sesión</Link>
+                            <Button
+                                asChild
+                                aria-label="Iniciar sesión"
+                                className="group h-9 w-9 gap-0 overflow-hidden px-0 transition-[width,padding,gap] duration-300 ease-out hover:w-auto hover:gap-2 hover:px-3 focus-visible:w-auto focus-visible:gap-2 focus-visible:px-3"
+                            >
+                                <Link href={login()}>
+                                    <UserRound className="size-4 shrink-0" />
+                                    <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:max-w-36 group-hover:opacity-100 group-focus-visible:max-w-36 group-focus-visible:opacity-100">
+                                        Iniciar sesión
+                                    </span>
+                                </Link>
                             </Button>
                         )}
                     </div>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => setLocationOpen(true)}
-                    className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-background px-3 text-left"
-                >
-                    <MapPin className="size-4 shrink-0 text-primary" />
-                    <span className="min-w-0">
-                        <span className="block text-[11px] text-muted-foreground">
-                            Entregar en
-                        </span>
-                        <span className="block truncate text-sm font-medium text-navy">
-                            {hasCoordinates ? location.detail : location.label}
-                        </span>
-                    </span>
-                </button>
+                {searchOpen ? (
+                    <div id="storefront-search">
+                        <SearchBar
+                            key="storefront-search-bar"
+                            defaultValue={searchQuery}
+                            autoFocus
+                            onDismiss={() => setSearchOpen(false)}
+                        />
+                    </div>
+                ) : null}
+
+                <DeliveryLocationCue />
 
                 {authenticated ? (
                     <div className="hidden gap-2 md:flex">
@@ -191,11 +348,6 @@ export function StorefrontHeader() {
                     </div>
                 ) : null}
             </div>
-
-            <DeliveryLocationDialog
-                open={locationOpen}
-                onOpenChange={setLocationOpen}
-            />
         </header>
     );
 }

@@ -23,6 +23,8 @@ export type MockRestaurant = {
     schedule: string;
     canOrder: boolean;
     modeLabel: string;
+    logo_url?: string | null;
+    is_affiliated?: boolean;
 };
 
 export type MockProductOption = {
@@ -45,10 +47,14 @@ export type MockProduct = {
 export type MockPromotion = {
     id: string;
     restaurantSlug?: string;
+    restaurant_name?: string | null;
+    business_type?: string | null;
     name: string;
     description: string;
     price: number;
     composition: string;
+    image_url?: string | null;
+    is_affiliated?: boolean;
 };
 
 export type MockAddress = {

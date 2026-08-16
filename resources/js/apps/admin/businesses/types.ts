@@ -3,11 +3,22 @@ export type EnumOption = {
     label: string;
 };
 
+export type BusinessOpeningHour = {
+    day: string;
+    day_label?: string;
+    is_open: boolean;
+    opens_at: string | null;
+    closes_at: string | null;
+    label?: string;
+};
+
 export type BusinessFormOptions = {
     business_types: string[];
     operation_modes: EnumOption[];
     delivery_modes: EnumOption[];
     statuses: EnumOption[];
+    weekdays: EnumOption[];
+    default_opening_hours: BusinessOpeningHour[];
 };
 
 export type BusinessListItem = {
@@ -69,8 +80,11 @@ export type BusinessDetail = {
     status_label: string;
     phone: string | null;
     email: string | null;
+    opening_hours: BusinessOpeningHour[];
     logo_path: string | null;
     logo_url: string | null;
+    banner_path: string | null;
+    banner_url: string | null;
     rejection_reason: string | null;
     suspension_reason: string | null;
     approved_at: string | null;

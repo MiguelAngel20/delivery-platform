@@ -1,9 +1,17 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { CategoryCard } from '@/apps/storefront/components/category-card';
-import { mockCategories } from '@/apps/storefront/mocks';
+import type { MockCategory } from '@/apps/storefront/mocks';
 import { PageContainer } from '@/components/layout/page';
 
 export default function CategoriesIndex() {
+    const page = usePage();
+    const categories =
+        (
+            page.props as {
+                storefront?: { categories?: MockCategory[] };
+            }
+        ).storefront?.categories ?? [];
+
     return (
         <>
             <Head title="Categorías" />
@@ -13,11 +21,11 @@ export default function CategoriesIndex() {
                         Categorías
                     </h1>
                     <p className="text-sm text-muted-foreground">
-                        Explora por tipo de comida
+                        Filtra restaurantes por tipo o giro
                     </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {mockCategories.map((category) => (
+                    {categories.map((category) => (
                         <CategoryCard key={category.id} category={category} />
                     ))}
                 </div>

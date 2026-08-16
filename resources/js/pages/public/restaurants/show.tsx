@@ -103,6 +103,13 @@ export default function RestaurantShow({
                         <p className="text-sm font-medium text-navy">
                             {restaurant.eta} · {restaurant.modeLabel}
                         </p>
+                        {!restaurant.open ? (
+                            <p className="rounded-md border border-border bg-secondary px-3 py-2 text-sm text-navy">
+                                Este negocio está cerrado ahora. Puedes ver el
+                                menú, pero no agregar productos al carrito hasta
+                                que abra.
+                            </p>
+                        ) : null}
                         {restaurant.branches.length > 1 ? (
                             <select
                                 className="mt-2 flex h-10 w-full max-w-sm rounded-md border border-input bg-background px-3 text-sm"

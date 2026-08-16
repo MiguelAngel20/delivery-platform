@@ -26,6 +26,8 @@ return [
         'zoom' => (int) env('MAPS_DEFAULT_ZOOM', 14),
     ],
 
+    'default_place_label' => env('MAPS_DEFAULT_PLACE_LABEL', 'Comitán de Domínguez, Chiapas'),
+
     /*
     | Preferred distance mode for checkout snapshots.
     | straight_line = Haversine only (no Google call)

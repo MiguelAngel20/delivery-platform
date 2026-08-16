@@ -15,6 +15,12 @@ return [
         'default_preparation_minutes' => (int) env('ORDER_DEFAULT_PREPARATION_MINUTES', 20),
     ],
 
+    /*
+    | Timezone used to evaluate business opening hours for the storefront.
+    | Comitán, Chiapas uses America/Mexico_City.
+    */
+    'hours_timezone' => env('BUSINESS_HOURS_TIMEZONE', 'America/Mexico_City'),
+
     'custom_orders' => [
         'max_active_requests' => (int) env('MAX_ACTIVE_CUSTOM_REQUESTS', 2),
     ],

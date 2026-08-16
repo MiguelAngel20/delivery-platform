@@ -1,24 +1,55 @@
 import { Form } from '@inertiajs/react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type {
     BusinessDetail,
     BusinessFormOptions,
+    BusinessOpeningHour,
 } from '@/apps/admin/businesses/types';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 type BusinessFormProps = {
     options: BusinessFormOptions;
     business?: BusinessDetail;
-    action: {
-        url: string;
-        method: 'post' | 'put' | 'patch' | 'delete' | 'get';
-    };
+    action:
+        | {
+              url: string;
+              method: 'post' | 'put' | 'patch' | 'delete' | 'get';
+          }
+        | {
+              action: string;
+              method: 'get' | 'post';
+          };
     submitLabel: string;
     cancelSlot?: ReactNode;
 };
+
+function initialOpeningHours(
+    business: BusinessDetail | undefined,
+    options: BusinessFormOptions,
+): BusinessOpeningHour[] {
+    const source =
+        business?.opening_hours?.length
+            ? business.opening_hours
+            : options.default_opening_hours;
+
+    return options.weekdays.map((weekday) => {
+        const existing = source.find((row) => row.day === weekday.value);
+
+        return {
+            day: weekday.value,
+            day_label: weekday.label,
+            is_open: existing?.is_open ?? false,
+            opens_at: existing?.opens_at ?? '09:00',
+            closes_at: existing?.closes_at ?? '21:00',
+        };
+    });
+}
 
 export function BusinessForm({
     options,
@@ -27,15 +58,52 @@ export function BusinessForm({
     submitLabel,
     cancelSlot,
 }: BusinessFormProps) {
+    const formProps =
+        'action' in action
+            ? { action: action.action, method: action.method }
+            : { action: action.url, method: action.method };
+
+    const [openingHours, setOpeningHours] = useState(() =>
+        initialOpeningHours(business, options),
+    );
+
+    const updateDay = (
+        day: string,
+        patch: Partial<Pick<BusinessOpeningHour, 'is_open' | 'opens_at' | 'closes_at'>>,
+    ) => {
+        setOpeningHours((current) =>
+            current.map((row) =>
+                row.day === day
+                    ? {
+                          ...row,
+                          ...patch,
+                      }
+                    : row,
+            ),
+        );
+    };
+
     return (
         <Form
-            action={action.url}
-            method={action.method}
+            {...formProps}
             encType="multipart/form-data"
             className="space-y-6"
         >
             {({ processing, errors }) => (
                 <>
+                    <input
+                        type="hidden"
+                        name="opening_hours"
+                        value={JSON.stringify(
+                            openingHours.map((row) => ({
+                                day: row.day,
+                                is_open: row.is_open,
+                                opens_at: row.is_open ? row.opens_at : null,
+                                closes_at: row.is_open ? row.closes_at : null,
+                            })),
+                        )}
+                    />
+
                     <div className="grid gap-4 md:grid-cols-2">
                         <FormField
                             label="Nombre comercial"
@@ -220,6 +288,137 @@ export function BusinessForm({
                                 accept="image/jpeg,image/png,image/webp"
                             />
                         </FormField>
+
+                        <FormField
+                            label="Banner del carrusel"
+                            htmlFor="banner"
+                            error={errors.banner}
+                            hint={
+                                business?.banner_url
+                                    ? 'Imagen horizontal para el inicio. Sube otra para reemplazarla.'
+                                    : 'Imagen horizontal (recomendado ~1200×400). Solo afiliadas aparecen en el carrusel. JPG, PNG o WebP. Máx. 4 MB.'
+                            }
+                            className="md:col-span-2"
+                        >
+                            {business?.banner_url ? (
+                                <img
+                                    src={business.banner_url}
+                                    alt={`Banner de ${business.name}`}
+                                    className="mb-3 h-28 w-full max-w-xl rounded-md border object-cover"
+                                />
+                            ) : null}
+                            <Input
+                                id="banner"
+                                name="banner"
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                            />
+                        </FormField>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div>
+                            <h3 className="text-sm font-medium text-foreground">
+                                Días y horarios de trabajo
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                                Marca los días abiertos e indica el horario de
+                                cada uno.
+                            </p>
+                            {errors.opening_hours ? (
+                                <p className="mt-1 text-sm text-destructive">
+                                    {errors.opening_hours}
+                                </p>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2 rounded-lg border border-border p-3">
+                            {openingHours.map((row, index) => {
+                                const dayError =
+                                    errors[`opening_hours.${index}.opens_at`] ??
+                                    errors[`opening_hours.${index}.closes_at`] ??
+                                    errors[`opening_hours.${index}.is_open`];
+
+                                return (
+                                    <div
+                                        key={row.day}
+                                        className={cn(
+                                            'grid gap-3 rounded-md border border-transparent p-2 sm:grid-cols-[9rem_auto_1fr_1fr]',
+                                            'items-center',
+                                            dayError && 'border-destructive/40 bg-destructive/5',
+                                        )}
+                                    >
+                                        <label className="flex items-center gap-2 text-sm font-medium">
+                                            <Checkbox
+                                                checked={row.is_open}
+                                                onCheckedChange={(checked) =>
+                                                    updateDay(row.day, {
+                                                        is_open: checked === true,
+                                                    })
+                                                }
+                                            />
+                                            <span>
+                                                {row.day_label ?? row.day}
+                                            </span>
+                                        </label>
+
+                                        <span className="text-xs text-muted-foreground sm:text-sm">
+                                            {row.is_open ? 'Abierto' : 'Cerrado'}
+                                        </span>
+
+                                        <div className="space-y-1">
+                                            <Label
+                                                htmlFor={`opens_at_${row.day}`}
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                Abre
+                                            </Label>
+                                            <Input
+                                                id={`opens_at_${row.day}`}
+                                                type="time"
+                                                disabled={!row.is_open}
+                                                value={row.opens_at ?? ''}
+                                                onChange={(event) =>
+                                                    updateDay(row.day, {
+                                                        opens_at:
+                                                            event.target.value ||
+                                                            null,
+                                                    })
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label
+                                                htmlFor={`closes_at_${row.day}`}
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                Cierra
+                                            </Label>
+                                            <Input
+                                                id={`closes_at_${row.day}`}
+                                                type="time"
+                                                disabled={!row.is_open}
+                                                value={row.closes_at ?? ''}
+                                                onChange={(event) =>
+                                                    updateDay(row.day, {
+                                                        closes_at:
+                                                            event.target.value ||
+                                                            null,
+                                                    })
+                                                }
+                                            />
+                                        </div>
+
+                                        {dayError ? (
+                                            <p className="text-sm text-destructive sm:col-span-4">
+                                                {dayError}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
