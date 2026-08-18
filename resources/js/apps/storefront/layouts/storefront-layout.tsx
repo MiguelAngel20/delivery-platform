@@ -38,12 +38,12 @@ export default function StorefrontLayout({
     }, [auth.user?.role]);
 
     return (
-        <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background text-foreground">
             {auth.user?.role === 'customer' ? (
                 <PushPermissionPrompt tone="customer" />
             ) : null}
             <StorefrontHeader />
-            <main className="mx-auto w-full max-w-6xl flex-1">
+            <main className="mx-auto w-full min-w-0 max-w-6xl flex-1">
                 {children}
             </main>
             <div className="pb-24 md:pb-0">

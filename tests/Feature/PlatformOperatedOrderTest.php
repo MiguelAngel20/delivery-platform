@@ -88,7 +88,7 @@ test('business user cannot manage platform-operated catalog', function () {
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $this->actingAs($admin)
         ->post(route('business.categories.store'), [
@@ -115,7 +115,7 @@ test('platform-operated order goes to system admin not business queue', function
         'user_id' => $businessUser->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $order = app(CreateOrder::class)->handle($customer, $user, [
         'branch_id' => $branch->id,
@@ -237,7 +237,7 @@ test('business user cannot accept platform-operated order', function () {
         'user_id' => $businessUser->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $order = app(CreateOrder::class)->handle($customer, $user, [
         'branch_id' => $branch->id,

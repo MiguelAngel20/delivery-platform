@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Web\Public\HomeController;
 use App\Http\Controllers\Web\Public\LegalPageController;
+use App\Http\Controllers\Web\Public\PromotionController;
 use App\Http\Controllers\Web\Public\RestaurantController;
 use App\Http\Controllers\Web\Public\SearchController;
 use Illuminate\Support\Facades\Route;
@@ -15,8 +16,7 @@ Route::get('restaurants/{slug}', [RestaurantController::class, 'show'])->name('r
 Route::get('categories', fn () => Inertia::render('public/categories/index'))
     ->name('categories.index');
 
-Route::get('promotions', fn () => Inertia::render('public/promotions/index'))
-    ->name('promotions.index');
+Route::get('promotions', PromotionController::class)->name('promotions.index');
 
 Route::get('search', SearchController::class)->name('search');
 

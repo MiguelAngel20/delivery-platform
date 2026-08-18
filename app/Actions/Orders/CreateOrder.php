@@ -60,9 +60,9 @@ final class CreateOrder
                 ]);
             }
 
-            if (! BusinessHours::isOpenNow($branch->business->opening_hours)) {
+            if (! BusinessHours::isOpenNow($branch->opening_hours)) {
                 throw ValidationException::withMessages([
-                    'branch_id' => 'Este establecimiento está cerrado en este momento.',
+                    'branch_id' => 'Esta sucursal está cerrada en este momento.',
                 ]);
             }
 

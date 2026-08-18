@@ -216,7 +216,9 @@ final class RideNotificationDispatcher
                 }
 
                 if ($membership->role === BusinessUserRole::BusinessAdmin) {
-                    return true;
+                    return $membership->branches->contains(
+                        fn ($branch): bool => (int) $branch->id === (int) $branchId,
+                    );
                 }
 
                 return $membership->branches->contains(

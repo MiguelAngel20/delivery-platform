@@ -59,11 +59,6 @@ const columns: DataTableColumn<CategoryRow>[] = [
         cell: (row) => row.branch_name ?? '—',
     },
     {
-        key: 'sort_order',
-        header: 'Orden',
-        cell: (row) => row.sort_order,
-    },
-    {
         key: 'status',
         header: 'Estado',
         cell: (row) => (

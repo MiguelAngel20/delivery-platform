@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\BranchStatus;
 use App\Models\Business;
 use App\Models\BusinessBranch;
+use App\Support\BusinessHours;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -28,6 +29,7 @@ class BusinessBranchFactory extends Factory
             'latitude' => fake()->latitude(14.5, 14.7),
             'longitude' => fake()->longitude(-90.6, -90.4),
             'google_maps_url' => null,
+            'opening_hours' => BusinessHours::alwaysOpen(),
             'status' => BranchStatus::Active,
         ];
     }

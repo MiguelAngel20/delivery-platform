@@ -29,7 +29,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $banner_path
  * @property string|null $phone
  * @property string|null $email
- * @property array<int, array{day: string, is_open: bool, opens_at: string|null, closes_at: string|null}>|null $opening_hours
  * @property int|null $created_by_user_id
  * @property int|null $approved_by_user_id
  * @property Carbon|null $approved_at
@@ -51,7 +50,6 @@ use Illuminate\Support\Carbon;
     'banner_path',
     'phone',
     'email',
-    'opening_hours',
     'created_by_user_id',
     'approved_by_user_id',
     'approved_at',
@@ -72,7 +70,6 @@ class Business extends Model
             'operation_mode' => BusinessOperationMode::class,
             'delivery_mode' => BusinessDeliveryMode::class,
             'status' => BusinessStatus::class,
-            'opening_hours' => 'array',
             'approved_at' => 'datetime',
         ];
     }

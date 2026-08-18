@@ -81,30 +81,17 @@ export function CategoryForm({
                             ) : null}
                         </FormField>
                         <FormField
-                            label="Orden"
-                            htmlFor="sort_order"
-                            error={errors.sort_order}
-                        >
-                            <Input
-                                id="sort_order"
-                                name="sort_order"
-                                type="number"
-                                min={0}
-                                defaultValue={category?.sort_order ?? 0}
-                            />
-                        </FormField>
-                        <FormField
                             label="Nombre"
                             htmlFor="name"
                             required
                             error={errors.name}
-                            className="md:col-span-2"
                         >
                             <Input
                                 id="name"
                                 name="name"
                                 required
                                 maxLength={100}
+                                placeholder="Ej. Desayunos, Bebidas, Postres"
                                 defaultValue={category?.name ?? ''}
                             />
                         </FormField>
@@ -118,6 +105,7 @@ export function CategoryForm({
                                 id="description"
                                 name="description"
                                 rows={3}
+                                placeholder="Breve descripción de esta categoría (opcional)"
                                 defaultValue={category?.description ?? ''}
                             />
                         </FormField>

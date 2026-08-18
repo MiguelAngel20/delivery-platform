@@ -92,7 +92,7 @@ test('new partner order notifies permitted Business users', function () {
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $order = Order::factory()->create([
         'branch_id' => $branch->id,

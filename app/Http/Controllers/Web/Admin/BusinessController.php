@@ -118,7 +118,6 @@ class BusinessController extends Controller
     public function store(StoreBusinessRequest $request): RedirectResponse
     {
         $data = collect($request->validated())->except(['logo', 'banner'])->all();
-        $data['opening_hours'] = BusinessHours::normalize($data['opening_hours'] ?? null);
         $status = $data['status'] instanceof BusinessStatus
             ? $data['status']
             : BusinessStatus::from((string) $data['status']);
@@ -206,7 +205,6 @@ class BusinessController extends Controller
     public function update(UpdateBusinessRequest $request, Business $business): RedirectResponse
     {
         $data = collect($request->validated())->except(['logo', 'banner'])->all();
-        $data['opening_hours'] = BusinessHours::normalize($data['opening_hours'] ?? null);
         $nameChanged = $business->name !== $data['name'];
 
         $business->update([
@@ -336,7 +334,6 @@ class BusinessController extends Controller
             'status_label' => $business->status->label(),
             'phone' => $business->phone,
             'email' => $business->email,
-            'opening_hours' => BusinessHours::present($business->opening_hours),
             'logo_path' => $business->logo_path,
             'logo_url' => $this->logoStorage->url($business->logo_path),
             'banner_path' => $business->banner_path,
@@ -357,6 +354,8 @@ class BusinessController extends Controller
                     'latitude' => $branch->latitude,
                     'longitude' => $branch->longitude,
                     'google_maps_url' => $branch->google_maps_url,
+                    'opening_hours' => BusinessHours::present($branch->opening_hours),
+                    'schedule_label' => BusinessHours::todayLabel($branch->opening_hours),
                     'status' => $branch->status->value,
                     'status_label' => $branch->status->label(),
                 ])->values()->all()

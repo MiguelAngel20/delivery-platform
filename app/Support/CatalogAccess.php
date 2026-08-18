@@ -36,7 +36,8 @@ final class CatalogAccess
             return false;
         }
 
-        return $this->canManageCatalog($user, $business);
+        return $this->canManageCatalog($user, $business)
+            && $user->canAccessBranch($branch);
     }
 
     public function canManagePricingRules(User $user, Business $business): bool

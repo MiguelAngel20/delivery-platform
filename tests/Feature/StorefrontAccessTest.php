@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\BusinessStatus;
+use App\Enums\PromotionStatus;
 use App\Models\Business;
 use App\Models\BusinessBranch;
+use App\Models\Promotion;
 use App\Models\User;
 
 test('guests can browse the public storefront', function (string $routeName) {
@@ -50,6 +52,33 @@ test('guests can open a restaurant menu', function () {
         ->assertInertia(fn ($page) => $page
             ->component('public/restaurants/show')
             ->where('restaurant.slug', 'pollo-guero'));
+});
+
+test('promotions index lists real promotions and links to an existing business', function () {
+    $business = Business::factory()->create([
+        'slug' => 'promo-partner',
+        'status' => BusinessStatus::Active,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+    $promotion = Promotion::factory()->create([
+        'branch_id' => $branch->id,
+        'name' => 'Combo demo',
+        'status' => PromotionStatus::Active,
+    ]);
+
+    $this->get(route('promotions.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('public/promotions/index')
+            ->has('promotions', 1)
+            ->where('promotions.0.id', (string) $promotion->id)
+            ->where('promotions.0.restaurantSlug', 'promo-partner'));
+
+    $this->get(route('restaurants.show', ['slug' => 'promo-partner']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('public/restaurants/show')
+            ->where('restaurant.slug', 'promo-partner'));
 });
 
 test('customer can open customer portal pages', function (string $routeName) {

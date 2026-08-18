@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
 import { applyStorefrontCategoryFilter } from '@/apps/storefront/components/category-card';
 import { DeliveryLocationCue } from '@/apps/storefront/components/delivery-location-cue';
+import { MobileCategoryTabs } from '@/apps/storefront/components/mobile-category-tabs';
 import { SearchBar } from '@/apps/storefront/components/search-bar';
 import type { MockCategory } from '@/apps/storefront/mocks';
 import { BrandLogo } from '@/components/brand-logo';
@@ -44,6 +45,7 @@ export function StorefrontHeader() {
     const { itemCount } = useStorefrontCart();
     const [searchOpen, setSearchOpen] = useState(false);
     const authenticated = auth.user?.role === 'customer';
+    const onHomePage = page.component === 'public/home';
     const onSearchPage = page.component === 'public/search/index';
     const selectedCategory = String(
         (page.props as { filters?: { category?: string | null } }).filters
@@ -72,6 +74,7 @@ export function StorefrontHeader() {
 
             return Boolean(
                 target.closest('#storefront-search') ||
+                    target.closest('#storefront-search-desktop') ||
                     target.closest('[aria-controls="storefront-search"]'),
             );
         };
@@ -128,14 +131,17 @@ export function StorefrontHeader() {
 
     return (
         <header className="sticky top-0 z-30 border-b border-border bg-surface">
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 md:px-6">
-                <div className="flex items-center justify-between gap-3">
-                    <Link href={home()} className="shrink-0">
-                        <BrandLogo
-                            variant="horizontal"
-                            className="h-7 md:h-8"
-                        />
-                    </Link>
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-2 md:gap-3 md:px-6 md:py-3">
+                <div className="flex items-center justify-between gap-2 md:gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5 md:flex-none md:gap-3">
+                        <Link href={home()} className="shrink-0">
+                            <BrandLogo
+                                variant="horizontal"
+                                className="h-6 md:h-8"
+                            />
+                        </Link>
+                        <DeliveryLocationCue />
+                    </div>
 
                     <nav className="hidden items-center gap-1 md:flex">
                         <Button asChild variant="ghost" size="sm">
@@ -199,33 +205,19 @@ export function StorefrontHeader() {
                         </Button>
                     </nav>
 
-                    <div className="flex items-center gap-1.5">
-                        <Button
-                            type="button"
-                            variant={searchOpen ? 'secondary' : 'ghost'}
-                            size="icon"
-                            className="md:hidden"
-                            aria-label={
-                                searchOpen ? 'Cerrar búsqueda' : 'Buscar'
-                            }
-                            aria-expanded={searchOpen}
-                            aria-controls="storefront-search"
-                            onClick={() => setSearchOpen((open) => !open)}
-                        >
-                            <Search className="size-5" />
-                        </Button>
+                    <div className="flex shrink-0 items-center gap-0.5 md:gap-1.5">
                         {authenticated ? <NotificationBell compact /> : null}
                         <Button
                             asChild
                             variant="ghost"
                             size="icon"
-                            className="relative"
+                            className="relative size-8 md:size-9"
                             aria-label="Carrito"
                         >
                             <Link href={cart()}>
-                                <ShoppingCart className="size-5" />
+                                <ShoppingCart className="size-4 md:size-5" />
                                 {itemCount > 0 ? (
-                                    <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                                    <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground md:size-5 md:text-[10px]">
                                         {itemCount}
                                     </span>
                                 ) : null}
@@ -237,11 +229,12 @@ export function StorefrontHeader() {
                                 <DropdownMenuTrigger asChild>
                                     <Button
                                         variant="ghost"
-                                        size="sm"
+                                        size="icon"
+                                        className="size-8 md:size-9 md:w-auto md:px-3"
                                         aria-label="Menú de cuenta"
                                     >
                                         <UserRound className="size-4" />
-                                        <span className="hidden sm:inline">
+                                        <span className="hidden md:inline">
                                             {auth.user?.name.split(' ')[0]}
                                         </span>
                                     </Button>
@@ -307,11 +300,11 @@ export function StorefrontHeader() {
                             <Button
                                 asChild
                                 aria-label="Iniciar sesión"
-                                className="group h-9 w-9 gap-0 overflow-hidden px-0 transition-[width,padding,gap] duration-300 ease-out hover:w-auto hover:gap-2 hover:px-3 focus-visible:w-auto focus-visible:gap-2 focus-visible:px-3"
+                                className="group h-8 min-w-8 max-w-8 gap-0 overflow-hidden px-0 transition-[max-width,height,padding,gap] duration-700 ease-in-out hover:h-9 hover:max-w-48 hover:gap-2 hover:px-3 focus-visible:h-9 focus-visible:max-w-48 focus-visible:gap-2 focus-visible:px-3 md:h-9 md:min-w-9 md:max-w-9"
                             >
                                 <Link href={login()}>
                                     <UserRound className="size-4 shrink-0" />
-                                    <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:max-w-36 group-hover:opacity-100 group-focus-visible:max-w-36 group-focus-visible:opacity-100">
+                                    <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-700 ease-in-out group-hover:max-w-40 group-hover:opacity-100 group-focus-visible:max-w-40 group-focus-visible:opacity-100">
                                         Iniciar sesión
                                     </span>
                                 </Link>
@@ -320,8 +313,16 @@ export function StorefrontHeader() {
                     </div>
                 </div>
 
+                <div id="storefront-search" className="md:hidden">
+                    <SearchBar
+                        key="storefront-search-bar-mobile"
+                        defaultValue={searchQuery}
+                        compact
+                    />
+                </div>
+
                 {searchOpen ? (
-                    <div id="storefront-search">
+                    <div id="storefront-search-desktop" className="hidden md:block">
                         <SearchBar
                             key="storefront-search-bar"
                             defaultValue={searchQuery}
@@ -331,7 +332,12 @@ export function StorefrontHeader() {
                     </div>
                 ) : null}
 
-                <DeliveryLocationCue />
+                {onHomePage ? (
+                    <MobileCategoryTabs
+                        categories={categories}
+                        selectedSlug={selectedCategory || null}
+                    />
+                ) : null}
 
                 {authenticated ? (
                     <div className="hidden gap-2 md:flex">

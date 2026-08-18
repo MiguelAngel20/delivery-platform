@@ -64,6 +64,48 @@ type ProductDialogProps = {
     }) => void;
 };
 
+function isSingleChoiceGroup(group: StorefrontOptionGroup): boolean {
+    return group.type === 'choice' && group.max_selection === 1;
+}
+
+function selectionHint(group: StorefrontOptionGroup): string | null {
+    if (group.type === 'removable') {
+        return null;
+    }
+
+    const { min_selection: min, max_selection: max } = group;
+
+    if (min === max) {
+        return min === 1 ? 'Elige 1 opción' : `Elige exactamente ${min} opciones`;
+    }
+
+    if (min === 0) {
+        return max === 1
+            ? 'Opcional · hasta 1 opción'
+            : `Opcional · hasta ${max} opciones`;
+    }
+
+    return `Elige entre ${min} y ${max} opciones`;
+}
+
+function isGroupSelectionValid(
+    group: StorefrontOptionGroup,
+    selectedCount: number,
+): boolean {
+    if (group.type === 'removable') {
+        return true;
+    }
+
+    if (group.type === 'choice' || group.is_required) {
+        return (
+            selectedCount >= group.min_selection &&
+            selectedCount <= group.max_selection
+        );
+    }
+
+    return selectedCount <= group.max_selection;
+}
+
 export function ProductDialog({
     product,
     open,
@@ -91,12 +133,21 @@ export function ProductDialog({
                     .filter((option) => option.is_default)
                     .map((option) => option.id);
             } else if (group.type === 'choice') {
-                const defaults = group.options.filter((option) => option.is_default);
-                initial[group.id] = defaults.length
-                    ? [defaults[0].id]
-                    : group.is_required && group.options[0]
-                      ? [group.options[0].id]
-                      : [];
+                const defaults = group.options.filter(
+                    (option) => option.is_default,
+                );
+
+                if (defaults.length > 0) {
+                    initial[group.id] = defaults
+                        .slice(0, group.max_selection)
+                        .map((option) => option.id);
+                } else if (group.is_required && group.options.length > 0) {
+                    initial[group.id] = group.options
+                        .slice(0, group.min_selection)
+                        .map((option) => option.id);
+                } else {
+                    initial[group.id] = [];
+                }
             } else {
                 initial[group.id] = [];
             }
@@ -133,6 +184,18 @@ export function ProductDialog({
         return total;
     }, [product, groups, selectedByGroup]);
 
+    const selectionValid = useMemo(() => {
+        if (!product) {
+            return false;
+        }
+
+        return groups.every((group) => {
+            const selectedCount = (selectedByGroup[group.id] ?? []).length;
+
+            return isGroupSelectionValid(group, selectedCount);
+        });
+    }, [product, groups, selectedByGroup]);
+
     if (!product) {
         return null;
     }
@@ -141,7 +204,7 @@ export function ProductDialog({
         setSelectedByGroup((current) => {
             const selected = new Set(current[group.id] ?? []);
 
-            if (group.type === 'choice') {
+            if (isSingleChoiceGroup(group)) {
                 return { ...current, [group.id]: [optionId] };
             }
 
@@ -210,19 +273,45 @@ export function ProductDialog({
                         {product.description}
                     </p>
 
-                    {groups.map((group) => (
+                    {groups.map((group) => {
+                        const selectedIds = selectedByGroup[group.id] ?? [];
+                        const selectedCount = selectedIds.length;
+                        const atMax = selectedCount >= group.max_selection;
+                        const hint = selectionHint(group);
+                        const groupValid = isGroupSelectionValid(
+                            group,
+                            selectedCount,
+                        );
+
+                        return (
                         <div key={group.id} className="space-y-2">
-                            <p className="text-sm font-medium text-navy">
-                                {group.name}
-                                {group.is_required ? ' *' : ''}
-                            </p>
+                            <div>
+                                <p className="text-sm font-medium text-navy">
+                                    {group.name}
+                                    {group.is_required ? ' *' : ''}
+                                </p>
+                                {hint ? (
+                                    <p
+                                        className={`text-xs ${groupValid ? 'text-muted-foreground' : 'text-destructive'}`}
+                                    >
+                                        {hint}
+                                        {group.max_selection > 1
+                                            ? ` · ${selectedCount} de ${group.max_selection}`
+                                            : ''}
+                                    </p>
+                                ) : null}
+                            </div>
                             <ul className="space-y-2">
                                 {group.options.map((option) => {
-                                    const selected = (
-                                        selectedByGroup[group.id] ?? []
-                                    ).includes(option.id);
+                                    const selected = selectedIds.includes(
+                                        option.id,
+                                    );
+                                    const optionDisabled =
+                                        !selected &&
+                                        atMax &&
+                                        group.type !== 'removable';
 
-                                    if (group.type === 'choice') {
+                                    if (isSingleChoiceGroup(group)) {
                                         return (
                                             <li
                                                 key={option.id}
@@ -262,6 +351,7 @@ export function ProductDialog({
                                             <div className="flex items-center gap-2">
                                                 <Checkbox
                                                     checked={selected}
+                                                    disabled={optionDisabled}
                                                     onCheckedChange={() =>
                                                         toggleOption(
                                                             group,
@@ -269,7 +359,9 @@ export function ProductDialog({
                                                         )
                                                     }
                                                 />
-                                                <Label className="font-normal">
+                                                <Label
+                                                    className={`font-normal ${optionDisabled ? 'text-muted-foreground' : ''}`}
+                                                >
                                                     {option.name}
                                                 </Label>
                                             </div>
@@ -287,7 +379,8 @@ export function ProductDialog({
                                 })}
                             </ul>
                         </div>
-                    ))}
+                        );
+                    })}
 
                     {product.allow_special_instructions !== false ? (
                         <div className="space-y-2">
@@ -337,10 +430,15 @@ export function ProductDialog({
                     <Button
                         type="button"
                         className="min-h-12 w-full"
+                        disabled={!selectionValid}
                         onClick={() => {
                             const selectedOptions = buildSelection();
                             const extras = selectedOptions
-                                .filter((option) => option.action === 'selected')
+                                .filter(
+                                    (option) =>
+                                        option.action === 'added' ||
+                                        option.action === 'selected',
+                                )
                                 .filter((option) => option.price_modifier !== 0)
                                 .map((option) => ({
                                     id: String(option.option_id),

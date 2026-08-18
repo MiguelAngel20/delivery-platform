@@ -1,3 +1,4 @@
+import { MapPin } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { FormField } from '@/components/forms/form-field';
 import { useGoogleMaps } from '@/components/maps/google-maps-provider';
@@ -6,7 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useBrowserGeolocation } from '@/hooks/use-browser-geolocation';
 import { googleMapsSearchUrl } from '@/lib/maps/google-maps-url';
+import {
+    createAutocompleteSessionToken,
+    fetchAddressSuggestions,
+    resolvePlaceFromSuggestion,
+    type AddressAutocompleteSuggestion,
+} from '@/lib/maps/places-autocomplete';
 import type { AddressValue } from '@/lib/maps/types';
+import { cn } from '@/lib/utils';
 
 type AddressPickerProps = {
     value?: Partial<AddressValue> | null;
@@ -16,6 +24,35 @@ type AddressPickerProps = {
     mapHeightClassName?: string;
     disabled?: boolean;
 };
+
+type PlaceSuggestion = AddressAutocompleteSuggestion;
+
+const SEARCH_DEBOUNCE_MS = 250;
+
+function readLatLng(location: google.maps.LatLng | google.maps.LatLngLiteral): {
+    lat: number;
+    lng: number;
+} | null {
+    if (typeof (location as google.maps.LatLng).lat === 'function') {
+        const latLng = location as google.maps.LatLng;
+
+        return {
+            lat: latLng.lat(),
+            lng: latLng.lng(),
+        };
+    }
+
+    const literal = location as google.maps.LatLngLiteral;
+
+    if (typeof literal.lat !== 'number' || typeof literal.lng !== 'number') {
+        return null;
+    }
+
+    return {
+        lat: literal.lat,
+        lng: literal.lng,
+    };
+}
 
 export function AddressPicker({
     value,
@@ -31,15 +68,19 @@ export function AddressPicker({
         useBrowserGeolocation();
 
     const mapNodeRef = useRef<HTMLDivElement | null>(null);
-    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    const searchBoxRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<google.maps.Map | null>(null);
     const markerRef = useRef<google.maps.Marker | null>(null);
-    const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
     const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+    const sessionTokenRef =
+        useRef<google.maps.places.AutocompleteSessionToken | null>(null);
 
     const [search, setSearch] = useState(value?.address_text ?? '');
     const [reference, setReference] = useState(value?.reference ?? '');
     const [localError, setLocalError] = useState<string | null>(null);
+    const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+    const [highlightIndex, setHighlightIndex] = useState(0);
+    const skipPredictionsRef = useRef(false);
 
     const emit = (partial: Partial<AddressValue> & { latitude: number; longitude: number }) => {
         const next: AddressValue = {
@@ -53,6 +94,47 @@ export function AddressPicker({
         };
 
         onChange(next);
+    };
+
+    const applyResolvedPlace = (
+        place: google.maps.places.Place,
+        fallback: string,
+    ) => {
+        const coordinates = place.location ? readLatLng(place.location) : null;
+
+        if (!coordinates || !mapRef.current || !markerRef.current) {
+            setLocalError('Selecciona una sugerencia válida.');
+
+            return;
+        }
+
+        const { lat, lng } = coordinates;
+        const formatted =
+            place.formattedAddress ?? place.displayName ?? fallback;
+
+        setSearch(formatted);
+        setSuggestions([]);
+        skipPredictionsRef.current = true;
+        setLocalError(null);
+        mapRef.current.setCenter({ lat, lng });
+        markerRef.current.setPosition({ lat, lng });
+        emit({
+            latitude: lat,
+            longitude: lng,
+            address_text: formatted,
+            formatted_address: formatted,
+            place_id: place.id ?? null,
+        });
+    };
+
+    const selectSuggestion = async (suggestion: PlaceSuggestion) => {
+        try {
+            const place = await resolvePlaceFromSuggestion(suggestion);
+            applyResolvedPlace(place, suggestion.description);
+            sessionTokenRef.current = await createAutocompleteSessionToken();
+        } catch {
+            setLocalError('No se pudo cargar esa dirección.');
+        }
     };
 
     const reverseGeocode = (lat: number, lng: number) => {
@@ -75,6 +157,8 @@ export function AddressPicker({
             const formatted = result.formatted_address ?? search;
 
             setSearch(formatted);
+            setSuggestions([]);
+            skipPredictionsRef.current = true;
             emit({
                 latitude: lat,
                 longitude: lng,
@@ -124,44 +208,14 @@ export function AddressPicker({
         markerRef.current = marker;
         geocoderRef.current = new googleApi.maps.Geocoder();
 
-        if (searchInputRef.current) {
-            const autocomplete = new googleApi.maps.places.Autocomplete(
-                searchInputRef.current,
-                {
-                    fields: ['formatted_address', 'geometry', 'place_id', 'name'],
-                    componentRestrictions: { country: 'mx' },
-                },
-            );
+        void createAutocompleteSessionToken().then((token) => {
+            sessionTokenRef.current = token;
+        });
 
-            autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace();
-                const location = place.geometry?.location;
-
-                if (!location) {
-                    setLocalError('Selecciona una sugerencia válida.');
-
-                    return;
-                }
-
-                const lat = location.lat();
-                const lng = location.lng();
-                const formatted = place.formatted_address ?? place.name ?? search;
-
-                setSearch(formatted);
-                setLocalError(null);
-                map.setCenter({ lat, lng });
-                marker.setPosition({ lat, lng });
-                emit({
-                    latitude: lat,
-                    longitude: lng,
-                    address_text: formatted,
-                    formatted_address: formatted,
-                    place_id: place.place_id ?? null,
-                });
-            });
-
-            autocompleteRef.current = autocomplete;
-        }
+        const fitMap = window.setTimeout(() => {
+            googleApi.maps.event.trigger(map, 'resize');
+            map.setCenter(center);
+        }, 250);
 
         if (value?.latitude && value?.longitude) {
             emit({
@@ -175,9 +229,7 @@ export function AddressPicker({
         }
 
         return () => {
-            if (autocompleteRef.current) {
-                googleApi.maps.event.clearInstanceListeners(autocompleteRef.current);
-            }
+            window.clearTimeout(fitMap);
 
             if (markerRef.current) {
                 googleApi.maps.event.clearInstanceListeners(markerRef.current);
@@ -186,10 +238,67 @@ export function AddressPicker({
 
             mapRef.current = null;
             markerRef.current = null;
-            autocompleteRef.current = null;
+            geocoderRef.current = null;
+            sessionTokenRef.current = null;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ready, googleApi, disabled]);
+
+    useEffect(() => {
+        if (!ready || disabled) {
+            return;
+        }
+
+        if (skipPredictionsRef.current) {
+            skipPredictionsRef.current = false;
+            setSuggestions([]);
+
+            return;
+        }
+
+        const query = search.trim();
+
+        if (query.length < 3) {
+            setSuggestions([]);
+
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            const sessionToken = sessionTokenRef.current;
+
+            if (!sessionToken) {
+                return;
+            }
+
+            void fetchAddressSuggestions(query, sessionToken)
+                .then((nextSuggestions) => {
+                    setSuggestions(nextSuggestions);
+                    setHighlightIndex(0);
+                })
+                .catch(() => {
+                    setSuggestions([]);
+                });
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => window.clearTimeout(timeout);
+    }, [disabled, ready, search]);
+
+    useEffect(() => {
+        const onPointerDown = (event: MouseEvent) => {
+            if (
+                searchBoxRef.current &&
+                event.target instanceof Node &&
+                !searchBoxRef.current.contains(event.target)
+            ) {
+                setSuggestions([]);
+            }
+        };
+
+        document.addEventListener('mousedown', onPointerDown);
+
+        return () => document.removeEventListener('mousedown', onPointerDown);
+    }, []);
 
     useEffect(() => {
         if (!mapRef.current || !markerRef.current || value?.latitude == null || value?.longitude == null) {
@@ -204,19 +313,95 @@ export function AddressPicker({
     return (
         <div className="space-y-3">
             <FormField label="Buscar dirección" error={localError ?? mapsError ?? undefined}>
-                <Input
-                    ref={searchInputRef}
-                    value={search}
-                    disabled={disabled || !ready}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Calle, colonia, ciudad"
-                    autoComplete="off"
-                />
+                <div ref={searchBoxRef} className="relative z-20">
+                    <Input
+                        value={search}
+                        disabled={disabled || !ready}
+                        onChange={(event) => setSearch(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+
+                                if (suggestions[highlightIndex]) {
+                                    void selectSuggestion(suggestions[highlightIndex]);
+                                }
+
+                                return;
+                            }
+
+                            if (event.key === 'ArrowDown' && suggestions.length > 0) {
+                                event.preventDefault();
+                                setHighlightIndex((current) =>
+                                    current + 1 >= suggestions.length ? 0 : current + 1,
+                                );
+
+                                return;
+                            }
+
+                            if (event.key === 'ArrowUp' && suggestions.length > 0) {
+                                event.preventDefault();
+                                setHighlightIndex((current) =>
+                                    current - 1 < 0 ? suggestions.length - 1 : current - 1,
+                                );
+
+                                return;
+                            }
+
+                            if (event.key === 'Escape') {
+                                setSuggestions([]);
+                            }
+                        }}
+                        placeholder="Calle, colonia, ciudad"
+                        autoComplete="off"
+                    />
+                    {suggestions.length > 0 ? (
+                        <ul
+                            role="listbox"
+                            className="absolute z-[200] mt-1 max-h-64 w-full overflow-auto rounded-md border border-border bg-popover py-1 shadow-lg"
+                        >
+                            {suggestions.map((suggestion, index) => (
+                                <li key={suggestion.placeId} role="option">
+                                    <button
+                                        type="button"
+                                        className={cn(
+                                            'flex w-full items-start gap-2 px-3 py-2 text-left text-sm',
+                                            index === highlightIndex
+                                                ? 'bg-accent'
+                                                : 'hover:bg-accent',
+                                        )}
+                                        onMouseEnter={() => setHighlightIndex(index)}
+                                        onPointerDown={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            void selectSuggestion(suggestion);
+                                        }}
+                                    >
+                                        <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                        <span className="min-w-0">
+                                            <span className="block font-medium text-foreground">
+                                                {suggestion.mainText}
+                                            </span>
+                                            {suggestion.secondaryText ? (
+                                                <span className="block truncate text-xs text-muted-foreground">
+                                                    {suggestion.secondaryText}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </div>
             </FormField>
 
             <div
                 ref={mapNodeRef}
-                className={`${mapHeightClassName} w-full overflow-hidden rounded-xl border border-border bg-muted`}
+                className={cn(
+                    mapHeightClassName,
+                    'relative z-0 w-full overflow-hidden rounded-xl border border-border bg-muted',
+                    suggestions.length > 0 && 'pointer-events-none',
+                )}
             />
 
             {showCurrentLocation ? (

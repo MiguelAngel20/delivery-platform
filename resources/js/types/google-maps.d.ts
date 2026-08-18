@@ -28,11 +28,56 @@ declare namespace google.maps {
         ): void;
     }
 
+    interface PlacesLibrary {
+        AutocompleteSuggestion: typeof places.AutocompleteSuggestion;
+        AutocompleteSessionToken: typeof places.AutocompleteSessionToken;
+        Place: typeof places.Place;
+    }
+
     namespace places {
-        class Autocomplete {
-            constructor(inputField: HTMLInputElement, opts?: AutocompleteOptions);
-            getPlace(): PlaceResult;
-            addListener(eventName: string, handler: (...args: any[]) => void): MapsEventListener;
+        class Place {
+            id?: string;
+            displayName?: string;
+            formattedAddress?: string;
+            location?: LatLng | LatLngLiteral | null;
+            fetchFields(options: PlaceFetchFieldsRequest): Promise<{ place: Place }>;
+        }
+
+        class AutocompleteSuggestion {
+            static fetchAutocompleteSuggestions(
+                request: AutocompleteRequest,
+            ): Promise<{ suggestions: AutocompleteSuggestionResult[] }>;
+        }
+
+        class AutocompleteSessionToken {}
+
+        interface AutocompleteSuggestionResult {
+            placePrediction?: PlacePrediction | null;
+        }
+
+        interface PlacePrediction {
+            placeId: string;
+            text: FormattableText;
+            mainText?: FormattableText;
+            secondaryText?: FormattableText;
+            toPlace(): Place;
+        }
+
+        interface FormattableText {
+            text: string;
+        }
+
+        interface AutocompleteRequest {
+            input: string;
+            sessionToken?: AutocompleteSessionToken;
+            includedRegionCodes?: string[];
+            locationBias?: LatLngBoundsLiteral;
+            locationRestriction?: LatLngBoundsLiteral;
+            origin?: LatLng | LatLngLiteral;
+        }
+
+        interface PlaceFetchFieldsRequest {
+            fields: string[];
         }
     }
 
@@ -57,6 +102,13 @@ declare namespace google.maps {
         lng: number;
     }
 
+    interface LatLngBoundsLiteral {
+        west: number;
+        north: number;
+        east: number;
+        south: number;
+    }
+
     interface MapsEventListener {
         remove(): void;
     }
@@ -74,25 +126,25 @@ declare namespace google.maps {
         };
     }
 
-    interface AutocompleteOptions {
-        fields?: string[];
-        componentRestrictions?: { country: string | string[] };
-    }
-
-    interface PlaceResult {
-        formatted_address?: string;
-        name?: string;
-        place_id?: string;
-        geometry?: {
-            location: LatLng;
-        };
-    }
-
     const event: {
         clearInstanceListeners(instance: object): void;
+        trigger(instance: object, eventName: string): void;
     };
+
+    const importLibrary: (
+        library: 'places' | 'maps' | 'marker',
+    ) => Promise<PlacesLibrary | unknown>;
 }
 
 declare const google: {
     maps: typeof google.maps;
 };
+
+declare global {
+    interface Window {
+        google?: typeof google;
+        __rideGoogleMapsPromise?: Promise<typeof google>;
+    }
+}
+
+export {};

@@ -3,12 +3,16 @@
 namespace App\Http\Middleware;
 
 use App\Enums\BranchStatus;
+use App\Enums\BusinessOperationMode;
+use App\Enums\BusinessStatus;
 use App\Enums\BusinessUserStatus;
 use App\Enums\UserRole;
+use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Support\BusinessAccess;
 use App\Support\BusinessTypes;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -66,6 +70,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'storefront' => [
                 'categories' => BusinessTypes::categories(),
+                'searchSuggestions' => $this->searchSuggestions($request),
             ],
             'notifications' => [
                 'unread_count' => $user?->unreadNotifications()->count() ?? 0,
@@ -84,6 +89,46 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function searchSuggestions(Request $request): array
+    {
+        if ($request->is(['admin', 'admin/*', 'business', 'business/*', 'driver', 'driver/*'])) {
+            return [];
+        }
+
+        if (app()->runningUnitTests()) {
+            return $this->activeBusinessNames();
+        }
+
+        return Cache::remember(
+            'storefront.search_suggestions',
+            now()->addMinutes(5),
+            fn (): array => $this->activeBusinessNames(),
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function activeBusinessNames(): array
+    {
+        return Business::query()
+            ->where('status', BusinessStatus::Active)
+            ->whereHas('branches', fn ($query) => $query->where('status', BranchStatus::Active))
+            ->orderByRaw('case when operation_mode = ? then 0 else 1 end', [
+                BusinessOperationMode::Partner->value,
+            ])
+            ->orderBy('name')
+            ->limit(24)
+            ->pluck('name')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

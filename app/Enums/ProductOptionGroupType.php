@@ -11,18 +11,18 @@ enum ProductOptionGroupType: string
     public function label(): string
     {
         return match ($this) {
-            self::Removable => 'Removable',
-            self::Addon => 'Addon',
-            self::Choice => 'Choice',
+            self::Removable => 'Quitar ingredientes',
+            self::Addon => 'Extras',
+            self::Choice => 'Variantes',
         };
     }
 
     public function displayLabel(): string
     {
         return match ($this) {
-            self::Removable => 'Ingredientes removibles',
+            self::Removable => 'Quitar ingredientes',
             self::Addon => 'Extras',
-            self::Choice => 'Elección',
+            self::Choice => 'Variantes',
         };
     }
 }

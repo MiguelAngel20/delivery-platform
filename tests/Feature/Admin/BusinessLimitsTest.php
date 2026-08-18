@@ -73,6 +73,7 @@ test('system admin can approve upgrade request', function () {
     $admin = User::factory()->systemAdmin()->create();
     $businessAdmin = User::factory()->businessAdmin()->create();
     $business = Business::factory()->create();
+    $branch = BusinessBranch::factory()->for($business)->create();
     $business->limits()->update(['max_employees_per_branch' => 3]);
 
     BusinessUser::query()->create([
@@ -80,7 +81,7 @@ test('system admin can approve upgrade request', function () {
         'user_id' => $businessAdmin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $request = BusinessUpgradeRequest::query()->create([
         'business_id' => $business->id,

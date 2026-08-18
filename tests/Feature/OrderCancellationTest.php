@@ -71,12 +71,15 @@ function cancellationCustomer(): array
 function cancellationBusinessAdmin(Business $business): User
 {
     $admin = User::factory()->businessAdmin()->create();
+    $branchId = $business->branches()->orderBy('id')->value('id')
+        ?? BusinessBranch::factory()->for($business)->create()->id;
+
     BusinessUser::query()->create([
         'business_id' => $business->id,
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branchId]);
 
     return $admin;
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            EnsurePasswordIsChanged::class,
         ]);
 
         $middleware->alias([
@@ -37,6 +39,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo(function (): string {
             /** @var User|null $user */
             $user = Auth::user();
+
+            if ($user?->mustChangePassword()) {
+                return route('password.force.edit');
+            }
 
             return $user?->homeRoute() ?? route('home');
         });

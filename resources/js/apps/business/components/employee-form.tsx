@@ -2,6 +2,7 @@ import { Form } from '@inertiajs/react';
 import { useState  } from 'react';
 import type {ReactNode} from 'react';
 import { BranchMultiSelect } from '@/apps/business/components/branch-multi-select';
+import { BranchSingleSelect } from '@/apps/business/components/branch-single-select';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,8 +53,14 @@ export function EmployeeForm({
     const [branchIds, setBranchIds] = useState<number[]>(
         employee?.branch_ids ?? [],
     );
+    const [adminBranchId, setAdminBranchId] = useState<number | null>(
+        employee?.role === 'business_admin'
+            ? (employee.branch_ids[0] ?? null)
+            : null,
+    );
 
-    const requiresBranches = role === 'business_employee';
+    const isAdmin = role === 'business_admin';
+    const requiresBranches = !isAdmin;
 
     return (
         <Form action={action.url} method={action.method} className="space-y-6">
@@ -130,6 +137,13 @@ export function EmployeeForm({
 
                                     if (nextRole === 'business_admin') {
                                         setBranchIds([]);
+                                        setAdminBranchId(
+                                            options.branches.length === 1
+                                                ? options.branches[0].id
+                                                : null,
+                                        );
+                                    } else {
+                                        setAdminBranchId(null);
                                     }
                                 }}
                                 className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -168,25 +182,44 @@ export function EmployeeForm({
                             </select>
                         </FormField>
                         <FormField
-                            label="Sucursales asignadas"
+                            label={isAdmin ? 'Sucursal asignada' : 'Sucursales asignadas'}
                             htmlFor="branch_ids"
-                            required={requiresBranches}
+                            required
                             error={errors.branch_ids}
                             hint={
-                                requiresBranches
-                                    ? 'Selecciona al menos una sucursal.'
-                                    : 'Los administradores tienen acceso a todas las sucursales.'
+                                isAdmin
+                                    ? 'Cada administrador pertenece a una sola sucursal.'
+                                    : 'Selecciona al menos una sucursal.'
                             }
                             className="md:col-span-2"
                         >
-                            <BranchMultiSelect
-                                options={options.branches}
-                                value={branchIds}
-                                onChange={setBranchIds}
-                                disabled={!requiresBranches}
-                            />
+                            {isAdmin ? (
+                                <BranchSingleSelect
+                                    options={options.branches}
+                                    value={adminBranchId}
+                                    onChange={setAdminBranchId}
+                                />
+                            ) : (
+                                <BranchMultiSelect
+                                    options={options.branches}
+                                    value={branchIds}
+                                    onChange={setBranchIds}
+                                />
+                            )}
                         </FormField>
                     </div>
+
+                    <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                        El usuario entra en{' '}
+                        <span className="font-medium text-foreground">
+                            Acceso negocio
+                        </span>{' '}
+                        con su correo y la contraseña temporal{' '}
+                        <span className="font-medium text-foreground">
+                            12344321
+                        </span>
+                        . Al iniciar sesión deberá cambiarla.
+                    </p>
 
                     <div className="flex flex-wrap items-center gap-2">
                         <Button type="submit" loading={processing}>

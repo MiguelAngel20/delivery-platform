@@ -49,7 +49,7 @@ export function AffiliatedPartnersCarousel({
             aria-label="Empresas afiliadas a RIDE"
             aria-roledescription="carrusel"
             className={cn(
-                'relative -mx-4 overflow-hidden bg-secondary md:mx-0 md:rounded-2xl',
+                'relative min-w-0 w-full overflow-hidden rounded-2xl bg-secondary',
                 className,
             )}
         >

@@ -1,10 +1,10 @@
 import { Form, router } from '@inertiajs/react';
 import { useState } from 'react';
+import { OpeningHoursFields } from '@/apps/admin/businesses/opening-hours-fields';
 import {
     branchStatusTone
-    
 } from '@/apps/admin/businesses/types';
-import type {BusinessBranchItem} from '@/apps/admin/businesses/types';
+import type {BusinessBranchItem, BusinessOpeningHour, EnumOption} from '@/apps/admin/businesses/types';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { ConfirmDialog, Modal } from '@/components/dialogs/modal';
 import { EmptyState } from '@/components/feedback/empty-state';
@@ -22,10 +22,17 @@ import {
 
 type BranchFormFieldsProps = {
     branch?: BusinessBranchItem;
+    weekdays: EnumOption[];
+    defaultOpeningHours: BusinessOpeningHour[];
     errors: Record<string, string>;
 };
 
-function BranchFormFields({ branch, errors }: BranchFormFieldsProps) {
+function BranchFormFields({
+    branch,
+    weekdays,
+    defaultOpeningHours,
+    errors,
+}: BranchFormFieldsProps) {
     const [address, setAddress] = useState<Partial<AddressValue>>({
         address_text: branch?.address_text ?? '',
         reference: branch?.reference ?? '',
@@ -79,6 +86,7 @@ function BranchFormFields({ branch, errors }: BranchFormFieldsProps) {
                 <AddressPicker
                     value={address}
                     onChange={setAddress}
+                    mapHeightClassName="h-[min(58vh,32rem)]"
                 />
                 <input type="hidden" name="address_text" value={address.address_text ?? ''} />
                 <input type="hidden" name="formatted_address" value={address.formatted_address ?? ''} />
@@ -93,6 +101,13 @@ function BranchFormFields({ branch, errors }: BranchFormFieldsProps) {
                     </p>
                 ) : null}
             </div>
+            <OpeningHoursFields
+                weekdays={weekdays}
+                defaultHours={defaultOpeningHours}
+                value={branch?.opening_hours}
+                errors={errors}
+                idPrefix={branch ? `branch-${branch.id}` : 'branch-create'}
+            />
         </div>
     );
 }
@@ -100,6 +115,8 @@ function BranchFormFields({ branch, errors }: BranchFormFieldsProps) {
 type BranchListProps = {
     businessId: number;
     branches: BusinessBranchItem[];
+    weekdays: EnumOption[];
+    defaultOpeningHours: BusinessOpeningHour[];
     canCreateBranch?: boolean;
     branchesUsed?: number;
     maxBranches?: number;
@@ -108,6 +125,8 @@ type BranchListProps = {
 export function BranchList({
     businessId,
     branches,
+    weekdays,
+    defaultOpeningHours,
     canCreateBranch = true,
     branchesUsed,
     maxBranches,
@@ -162,6 +181,9 @@ export function BranchList({
                                 <th className="px-4 py-3 font-medium">
                                     Teléfono
                                 </th>
+                                <th className="px-4 py-3 font-medium">
+                                    Horario
+                                </th>
                                 <th className="px-4 py-3 font-medium">Estado</th>
                                 <th className="px-4 py-3 text-right font-medium">
                                     Acciones
@@ -182,6 +204,9 @@ export function BranchList({
                                     </td>
                                     <td className="px-4 py-3 text-[#475569]">
                                         {branch.phone ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-[#475569]">
+                                        {branch.schedule_label ?? '—'}
                                     </td>
                                     <td className="px-4 py-3">
                                         <StatusBadge
@@ -259,7 +284,8 @@ export function BranchList({
                 open={createOpen}
                 onOpenChange={setCreateOpen}
                 title="Nueva sucursal"
-                description="Captura la ubicación manualmente. El mapa se integrará más adelante."
+                description="Captura la ubicación y el horario de esta sucursal."
+                className="flex max-h-[94vh] w-[min(96vw,80rem)] flex-col overflow-y-auto sm:max-w-6xl"
             >
                 <Form
                     {...store.form(businessId)}
@@ -269,7 +295,11 @@ export function BranchList({
                 >
                     {({ processing, errors }) => (
                         <>
-                            <BranchFormFields errors={errors} />
+                            <BranchFormFields
+                                weekdays={weekdays}
+                                defaultOpeningHours={defaultOpeningHours}
+                                errors={errors}
+                            />
                             <div className="flex justify-end gap-2">
                                 <Button
                                     type="button"
@@ -295,6 +325,7 @@ export function BranchList({
                     }
                 }}
                 title="Editar sucursal"
+                className="flex max-h-[94vh] w-[min(96vw,80rem)] flex-col overflow-y-auto sm:max-w-6xl"
             >
                 {editing ? (
                     <Form
@@ -309,7 +340,10 @@ export function BranchList({
                         {({ processing, errors }) => (
                             <>
                                 <BranchFormFields
+                                    key={editing.id}
                                     branch={editing}
+                                    weekdays={weekdays}
+                                    defaultOpeningHours={defaultOpeningHours}
                                     errors={errors}
                                 />
                                 <div className="flex justify-end gap-2">

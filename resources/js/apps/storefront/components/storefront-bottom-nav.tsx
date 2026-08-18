@@ -1,33 +1,23 @@
-import { Link, usePage } from '@inertiajs/react';
-import { ClipboardList, Home, Search, UserRound } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { Home, Store, Tag } from 'lucide-react';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn, toUrl } from '@/lib/utils';
-import { home, login, search } from '@/routes';
-import customer from '@/routes/customer';
-import type { Auth, NavItem } from '@/types';
+import { home } from '@/routes';
+import promotions from '@/routes/promotions';
+import restaurants from '@/routes/restaurants';
+import type { NavItem } from '@/types';
 
-function guestItems(): NavItem[] {
+function storefrontItems(): NavItem[] {
     return [
         { title: 'Inicio', href: home(), icon: Home },
-        { title: 'Buscar', href: search(), icon: Search },
-        { title: 'Entrar', href: login(), icon: UserRound },
-    ];
-}
-
-function customerItems(): NavItem[] {
-    return [
-        { title: 'Inicio', href: home(), icon: Home },
-        { title: 'Buscar', href: search(), icon: Search },
-        { title: 'Pedidos', href: customer.orders.index(), icon: ClipboardList },
-        { title: 'Perfil', href: customer.profile.index(), icon: UserRound },
+        { title: 'Negocios', href: restaurants.index(), icon: Store },
+        { title: 'Promociones', href: promotions.index(), icon: Tag },
     ];
 }
 
 export function StorefrontBottomNav() {
-    const { auth } = usePage().props as { auth: Auth };
-    const { isCurrentUrl } = useCurrentUrl();
-    const items =
-        auth.user?.role === 'customer' ? customerItems() : guestItems();
+    const { isCurrentUrl, isCurrentOrParentUrl } = useCurrentUrl();
+    const items = storefrontItems();
 
     return (
         <nav
@@ -36,10 +26,14 @@ export function StorefrontBottomNav() {
         >
             <ul className="mx-auto flex max-w-6xl items-stretch justify-around gap-1 px-2 py-2">
                 {items.map((item) => {
-                    const active = isCurrentUrl(item.href);
+                    const href = toUrl(item.href);
+                    const active =
+                        href === toUrl(home())
+                            ? isCurrentUrl(item.href)
+                            : isCurrentOrParentUrl(item.href);
 
                     return (
-                        <li key={toUrl(item.href)} className="flex-1">
+                        <li key={href} className="flex-1">
                             <Link
                                 href={item.href}
                                 prefetch

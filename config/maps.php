@@ -7,9 +7,11 @@ return [
     | Google Maps API keys
     |--------------------------------------------------------------------------
     |
-    | Browser key (frontend): restrict by HTTP referrers in Google Cloud Console
-    | for each environment (local, staging, production). Enable Maps JavaScript
-    | API and Places API.
+    | Browser key (frontend): one GOOGLE_MAPS_API_KEY per environment (.env).
+    | Restrict each key by HTTP referrers in Google Cloud Console:
+    | local → localhost / delivery-platform.test
+    | production → https://ride.balamlab.com/*
+    | Enable Maps JavaScript API and Places API (New) on both keys.
     |
     | Server key (optional): restrict by IP. Enable Distance Matrix API and/or
     | Routes API. Never expose this key to Vite or the browser.

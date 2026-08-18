@@ -176,7 +176,7 @@ class DemoDomainSeeder extends Seeder
                 'role' => BusinessUserRole::BusinessAdmin,
                 'status' => BusinessUserStatus::Active,
             ],
-        );
+        )->branches()->sync([$branch->id]);
 
         $employeeMembership = BusinessUser::query()->updateOrCreate(
             [

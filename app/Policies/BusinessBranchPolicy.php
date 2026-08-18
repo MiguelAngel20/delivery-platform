@@ -26,7 +26,7 @@ class BusinessBranchPolicy
         }
 
         return $user->hasRole(UserRole::BusinessAdmin)
-            && $user->managesBusiness($branch->business);
+            && $user->canAccessBranch($branch);
     }
 
     public function deactivate(User $user, BusinessBranch $branch): bool

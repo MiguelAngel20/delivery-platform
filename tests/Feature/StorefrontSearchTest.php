@@ -48,6 +48,25 @@ test('search page includes products linked to restaurant slugs', function () {
             ->where('products.0.name', 'Hamburguesa clásica'));
 });
 
+test('storefront shares active business names for the search placeholder', function () {
+    $active = Business::factory()->create([
+        'name' => 'Pollo Güero',
+        'status' => BusinessStatus::Active,
+    ]);
+    BusinessBranch::factory()->for($active)->create();
+
+    $inactive = Business::factory()->create([
+        'name' => 'Local Cerrado',
+        'status' => BusinessStatus::Inactive,
+    ]);
+    BusinessBranch::factory()->for($inactive)->create();
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('storefront.searchSuggestions', ['Pollo Güero']));
+});
+
 test('restaurant from search catalog can be opened by slug', function () {
     $business = Business::factory()->create([
         'name' => 'Pizza Roma',

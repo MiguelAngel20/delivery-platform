@@ -223,7 +223,8 @@ class RestaurantController extends Controller
         ?int $distanceMeters = null,
     ): array {
         $branch ??= $business->branches->first();
-        $isOpen = BusinessHours::isOpenNow($business->opening_hours);
+        $hours = $branch?->opening_hours;
+        $isOpen = BusinessHours::isOpenNow($hours);
         $canAcceptOrders = $business->operation_mode->canAcceptOrders();
 
         return [
@@ -235,7 +236,7 @@ class RestaurantController extends Controller
             'open' => $isOpen,
             'mode' => $business->operation_mode->value,
             'branchName' => $branch?->name ?? 'Sucursal',
-            'schedule' => BusinessHours::todayLabel($business->opening_hours),
+            'schedule' => BusinessHours::todayLabel($hours),
             'canOrder' => $canAcceptOrders && $inCoverage && $isOpen,
             'in_coverage' => $inCoverage,
             'distance_meters' => $distanceMeters,

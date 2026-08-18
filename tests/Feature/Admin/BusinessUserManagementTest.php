@@ -58,6 +58,7 @@ test('system admin can create business employee', function () {
 test('system admin can create business admin', function () {
     $admin = User::factory()->systemAdmin()->create();
     $business = Business::factory()->create();
+    $branch = BusinessBranch::factory()->for($business)->create();
 
     $this->actingAs($admin)
         ->post(route('admin.businesses.users.store', $business), [
@@ -67,7 +68,7 @@ test('system admin can create business admin', function () {
             'phone' => '+50255557702',
             'role' => BusinessUserRole::BusinessAdmin->value,
             'status' => BusinessUserStatus::Active->value,
-            'branch_ids' => [],
+            'branch_ids' => [$branch->id],
         ])
         ->assertRedirect();
 
@@ -77,7 +78,8 @@ test('system admin can create business admin', function () {
         ->first();
 
     expect($membership?->role)->toBe(BusinessUserRole::BusinessAdmin)
-        ->and($membership?->branches)->toHaveCount(0);
+        ->and($membership?->branches)->toHaveCount(1)
+        ->and($membership?->branches->first()?->id)->toBe($branch->id);
 });
 
 test('system admin can assign employee to multiple branches', function () {
@@ -182,6 +184,50 @@ test('existing user is reused instead of duplicated', function () {
 
     expect(User::query()->where('email', 'reutilizado@ride.test')->count())->toBe(1)
         ->and(BusinessUser::query()->where('user_id', $existing->id)->where('business_id', $business->id)->exists())->toBeTrue();
+});
+
+test('branch cannot have more than one active admin', function () {
+    $admin = User::factory()->systemAdmin()->create();
+    $business = Business::factory()->create();
+    $branchA = BusinessBranch::factory()->for($business)->create();
+    $branchB = BusinessBranch::factory()->for($business)->create();
+    $business->limits()->update(['max_business_admins' => 5]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.businesses.users.store', $business), [
+            'first_name' => 'Admin',
+            'last_name' => 'Centro',
+            'email' => 'admin.centro@ride.test',
+            'phone' => '+50255557710',
+            'role' => BusinessUserRole::BusinessAdmin->value,
+            'status' => BusinessUserStatus::Active->value,
+            'branch_ids' => [$branchA->id],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->post(route('admin.businesses.users.store', $business), [
+            'first_name' => 'Admin',
+            'last_name' => 'Norte',
+            'email' => 'admin.norte@ride.test',
+            'phone' => '+50255557711',
+            'role' => BusinessUserRole::BusinessAdmin->value,
+            'status' => BusinessUserStatus::Active->value,
+            'branch_ids' => [$branchB->id],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->post(route('admin.businesses.users.store', $business), [
+            'first_name' => 'Duplicado',
+            'last_name' => 'Centro',
+            'email' => 'admin.duplicado@ride.test',
+            'phone' => '+50255557712',
+            'role' => BusinessUserRole::BusinessAdmin->value,
+            'status' => BusinessUserStatus::Active->value,
+            'branch_ids' => [$branchA->id],
+        ])
+        ->assertSessionHasErrors('branch_ids');
 });
 
 test('employee cannot be assigned to branch belonging to another business', function () {

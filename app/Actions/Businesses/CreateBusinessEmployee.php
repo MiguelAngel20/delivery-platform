@@ -7,13 +7,13 @@ use App\Enums\BusinessUserStatus;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Models\Business;
+use App\Models\BusinessBranch;
 use App\Models\BusinessUser;
 use App\Models\User;
 use App\Services\BusinessLimitService;
 use App\Support\BusinessAccess;
+use App\Support\BusinessMembershipBranchRules;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CreateBusinessEmployee
@@ -34,7 +34,7 @@ class CreateBusinessEmployee
      *     branch_ids?: list<int|string>
      * }  $data
      */
-    public function handle(Business $business, array $data): BusinessUser
+    public function handle(Business $business, array $data, ?User $actor = null): BusinessUser
     {
         $role = $data['role'] instanceof BusinessUserRole
             ? $data['role']
@@ -42,25 +42,29 @@ class CreateBusinessEmployee
         $status = $data['status'] instanceof BusinessUserStatus
             ? $data['status']
             : BusinessUserStatus::from((string) $data['status']);
-        $branchIds = array_map('intval', $data['branch_ids'] ?? []);
+        $branchIds = BusinessMembershipBranchRules::normalizeBranchIds($data['branch_ids'] ?? []);
+
+        BusinessMembershipBranchRules::assertValidForRole($role, $branchIds);
+
+        if ($actor !== null) {
+            BusinessMembershipBranchRules::assertActorCanAssignBranches($actor, $business, $branchIds);
+        }
 
         $ownedBranchIds = $this->businessAccess->ownedBranchIds($business, $branchIds);
 
-        if (count($ownedBranchIds) !== count(array_unique($branchIds))) {
+        if (count($ownedBranchIds) !== count($branchIds)) {
             throw ValidationException::withMessages([
                 'branch_ids' => 'Una o más sucursales no pertenecen a tu empresa.',
-            ]);
-        }
-
-        if ($role === BusinessUserRole::BusinessEmployee && $ownedBranchIds === []) {
-            throw ValidationException::withMessages([
-                'branch_ids' => 'El empleado debe tener al menos una sucursal asignada.',
             ]);
         }
 
         return DB::transaction(function () use ($business, $data, $role, $status, $ownedBranchIds): BusinessUser {
             if ($role === BusinessUserRole::BusinessAdmin && $status === BusinessUserStatus::Active) {
                 $this->limitService->assertCanAddBusinessAdmin($business);
+
+                /** @var BusinessBranch $branch */
+                $branch = $business->branches()->whereKey($ownedBranchIds[0])->lockForUpdate()->firstOrFail();
+                $this->limitService->assertCanAssignAdminToBranch($branch);
             }
 
             if ($role === BusinessUserRole::BusinessEmployee && $status === BusinessUserStatus::Active) {
@@ -88,11 +92,7 @@ class CreateBusinessEmployee
                 'status' => $status,
             ]);
 
-            if ($role === BusinessUserRole::BusinessEmployee) {
-                $membership->branches()->sync($ownedBranchIds);
-            } else {
-                $membership->branches()->sync([]);
-            }
+            $membership->branches()->sync($ownedBranchIds);
 
             return $membership->load(['user', 'branches']);
         });
@@ -162,7 +162,8 @@ class CreateBusinessEmployee
             'last_name' => $data['last_name'],
             'email' => $data['email'],
             'phone' => $data['phone'],
-            'password' => Hash::make($this->temporaryPassword()),
+            'password' => $this->temporaryPassword(),
+            'must_change_password' => true,
             'role' => $role === BusinessUserRole::BusinessAdmin
                 ? UserRole::BusinessAdmin
                 : UserRole::BusinessEmployee,
@@ -173,10 +174,6 @@ class CreateBusinessEmployee
 
     private function temporaryPassword(): string
     {
-        if (app()->environment(['local', 'testing'])) {
-            return 'password';
-        }
-
-        return Str::password(16);
+        return (string) config('business.users.temporary_password', '12344321');
     }
 }

@@ -46,13 +46,14 @@ test('business has branches', function () {
 test('business admin belongs to business', function () {
     $user = User::factory()->businessAdmin()->create();
     $business = Business::factory()->create();
+    $branch = BusinessBranch::factory()->for($business)->create();
 
     BusinessUser::query()->create([
         'business_id' => $business->id,
         'user_id' => $user->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     expect($user->fresh()->businessMemberships)->toHaveCount(1)
         ->and($business->users()->where('users.id', $user->id)->exists())->toBeTrue();
@@ -85,13 +86,14 @@ test('driver can belong to business', function () {
 test('same user cannot be duplicated in same business', function () {
     $user = User::factory()->businessAdmin()->create();
     $business = Business::factory()->create();
+    $branch = BusinessBranch::factory()->for($business)->create();
 
     BusinessUser::query()->create([
         'business_id' => $business->id,
         'user_id' => $user->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     expect(fn () => BusinessUser::query()->create([
         'business_id' => $business->id,

@@ -44,6 +44,8 @@ export type BusinessBranchItem = {
     latitude: string;
     longitude: string;
     google_maps_url: string | null;
+    opening_hours: BusinessOpeningHour[];
+    schedule_label?: string;
     status: string;
     status_label: string;
 };
@@ -80,7 +82,6 @@ export type BusinessDetail = {
     status_label: string;
     phone: string | null;
     email: string | null;
-    opening_hours: BusinessOpeningHour[];
     logo_path: string | null;
     logo_url: string | null;
     banner_path: string | null;

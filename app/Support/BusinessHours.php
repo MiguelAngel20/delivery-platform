@@ -192,6 +192,35 @@ final class BusinessHours
     }
 
     /**
+     * @return list<mixed>
+     */
+    public static function prepareInput(mixed $hours): array
+    {
+        if (is_string($hours)) {
+            $decoded = json_decode($hours, true);
+            $hours = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($hours)) {
+            $hours = [];
+        }
+
+        return collect($hours)
+            ->map(function (mixed $row): mixed {
+                if (! is_array($row)) {
+                    return $row;
+                }
+
+                return [
+                    ...$row,
+                    'is_open' => filter_var($row['is_open'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public static function validationRules(): array

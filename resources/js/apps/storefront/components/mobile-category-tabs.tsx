@@ -21,11 +21,11 @@ export function MobileCategoryTabs({
         <nav
             aria-label="Filtrar por giro"
             className={cn(
-                '-mx-4 border-b border-border bg-surface px-4 md:hidden',
+                'min-w-0 max-w-full border-b border-border bg-surface md:hidden',
                 className,
             )}
         >
-            <div className="flex gap-5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-0 max-w-full gap-5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                     type="button"
                     onClick={() => applyStorefrontCategoryFilter(null)}

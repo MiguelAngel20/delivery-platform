@@ -81,7 +81,7 @@ export function PromotionCard({
 
     return (
         <Link
-            href={restaurants.show(promotion.restaurantSlug)}
+            href={restaurants.show.url(promotion.restaurantSlug)}
             className={cn(square && 'block')}
         >
             {content}

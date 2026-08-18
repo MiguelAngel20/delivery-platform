@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\UpdateBusinessBranchRequest;
 use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Services\BusinessLimitService;
+use App\Support\BusinessHours;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -26,7 +27,9 @@ class BusinessBranchController extends Controller
 
         DB::transaction(function () use ($request, $business): void {
             $this->limitService->assertCanCreateBranch($business);
-            $business->branches()->create($request->validated());
+            $data = $request->validated();
+            $data['opening_hours'] = BusinessHours::normalize($data['opening_hours'] ?? null);
+            $business->branches()->create($data);
         });
 
         Inertia::flash('toast', [
@@ -44,7 +47,9 @@ class BusinessBranchController extends Controller
     ): RedirectResponse {
         $this->ensureBranchBelongsToBusiness($business, $branch);
 
-        $branch->update($request->validated());
+        $data = $request->validated();
+        $data['opening_hours'] = BusinessHours::normalize($data['opening_hours'] ?? null);
+        $branch->update($data);
 
         Inertia::flash('toast', [
             'type' => 'success',

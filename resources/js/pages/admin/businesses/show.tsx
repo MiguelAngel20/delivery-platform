@@ -1,5 +1,6 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
+import BusinessLimitController from '@/actions/App/Http/Controllers/Web/Admin/BusinessLimitController';
 import { BranchList } from '@/apps/admin/businesses/branch-list';
 import {
     businessStatusTone
@@ -16,7 +17,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import admin from '@/routes/admin';
 import {
     activate,
     approve,
@@ -25,7 +25,6 @@ import {
     reject,
     suspend,
 } from '@/routes/admin/businesses';
-import { update as updateLimits } from '@/routes/admin/businesses/limits';
 import {
     approve as approveUpgrade,
     reject as rejectUpgrade,
@@ -71,6 +70,7 @@ type Props = {
 
 export default function AdminBusinessesShow({
     business,
+    options,
     limits,
     upgradeRequests,
 }: Props) {
@@ -200,40 +200,6 @@ export default function AdminBusinessesShow({
                                     {business.description ?? '—'}
                                 </dd>
                             </div>
-                            <div className="sm:col-span-2">
-                                <dt className="text-sm text-muted-foreground">
-                                    Días y horarios
-                                </dt>
-                                <dd className="mt-2">
-                                    <ul className="grid gap-2 sm:grid-cols-2">
-                                        {(business.opening_hours ?? []).map(
-                                            (row) => (
-                                                <li
-                                                    key={row.day}
-                                                    className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
-                                                >
-                                                    <span className="font-medium">
-                                                        {row.day_label ??
-                                                            row.day}
-                                                    </span>
-                                                    <span
-                                                        className={
-                                                            row.is_open
-                                                                ? 'text-foreground'
-                                                                : 'text-muted-foreground'
-                                                        }
-                                                    >
-                                                        {row.label ??
-                                                            (row.is_open
-                                                                ? `${row.opens_at} – ${row.closes_at}`
-                                                                : 'Cerrado')}
-                                                    </span>
-                                                </li>
-                                            ),
-                                        )}
-                                    </ul>
-                                </dd>
-                            </div>
                             {business.rejection_reason ? (
                                 <div className="sm:col-span-2">
                                     <dt className="text-sm text-muted-foreground">
@@ -315,6 +281,8 @@ export default function AdminBusinessesShow({
                     <BranchList
                         businessId={business.id}
                         branches={business.branches}
+                        weekdays={options.weekdays}
+                        defaultOpeningHours={options.default_opening_hours}
                         canCreateBranch={limits.can_create_branch}
                         branchesUsed={limits.branches_used}
                         maxBranches={limits.max_branches}
@@ -477,7 +445,7 @@ export default function AdminBusinessesShow({
                         </p>
                     </div>
                     <Form
-                        {...updateLimits.form(business.id)}
+                        {...BusinessLimitController.update.form(business.id)}
                         className="grid gap-4 md:grid-cols-4"
                         options={{ preserveScroll: true }}
                     >
@@ -725,7 +693,7 @@ AdminBusinessesShow.layout = {
     breadcrumbs: [
         {
             title: 'Empresas',
-            href: admin.businesses.index(),
+            href: index.url(),
         },
         {
             title: 'Detalle',

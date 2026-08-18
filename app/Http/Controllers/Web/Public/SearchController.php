@@ -35,7 +35,8 @@ class SearchController extends Controller
             ->get()
             ->map(function (Business $business): array {
                 $branch = $business->branches->first();
-                $isOpen = BusinessHours::isOpenNow($business->opening_hours);
+                $hours = $branch?->opening_hours;
+                $isOpen = BusinessHours::isOpenNow($hours);
                 $canAcceptOrders = $business->operation_mode->canAcceptOrders();
 
                 return [
@@ -47,7 +48,7 @@ class SearchController extends Controller
                     'open' => $isOpen,
                     'mode' => $business->operation_mode->value,
                     'branchName' => $branch?->name ?? 'Sucursal',
-                    'schedule' => BusinessHours::todayLabel($business->opening_hours),
+                    'schedule' => BusinessHours::todayLabel($hours),
                     'canOrder' => $canAcceptOrders && $isOpen,
                     'modeLabel' => ! $isOpen
                         ? 'Cerrado ahora'

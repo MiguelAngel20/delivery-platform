@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string $longitude
  * @property string|null $place_id
  * @property string|null $google_maps_url
+ * @property array<int, array{day: string, is_open: bool, opens_at: string|null, closes_at: string|null}>|null $opening_hours
  * @property BranchStatus $status
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -41,6 +42,7 @@ use Illuminate\Support\Carbon;
     'longitude',
     'place_id',
     'google_maps_url',
+    'opening_hours',
     'status',
 ])]
 class BusinessBranch extends Model
@@ -54,6 +56,7 @@ class BusinessBranch extends Model
     protected function casts(): array
     {
         return [
+            'opening_hours' => 'array',
             'status' => BranchStatus::class,
         ];
     }

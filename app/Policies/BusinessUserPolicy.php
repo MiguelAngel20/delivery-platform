@@ -6,9 +6,14 @@ use App\Enums\UserRole;
 use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\User;
+use App\Support\BusinessAccess;
 
 class BusinessUserPolicy
 {
+    public function __construct(
+        private readonly BusinessAccess $businessAccess,
+    ) {}
+
     public function viewAny(User $user): bool
     {
         return $user->hasRole(UserRole::SystemAdmin, UserRole::BusinessAdmin);
@@ -20,7 +25,8 @@ class BusinessUserPolicy
             return true;
         }
 
-        return $user->managesBusiness($businessUser->business);
+        return $user->managesBusiness($businessUser->business)
+            && $this->sharesBranchScope($user, $businessUser);
     }
 
     public function create(User $user, ?Business $business = null): bool
@@ -33,7 +39,8 @@ class BusinessUserPolicy
             return false;
         }
 
-        return $user->managesBusiness($business);
+        return $user->managesBusiness($business)
+            && $this->businessAccess->accessibleBranchIds($user, $business) !== [];
     }
 
     public function update(User $user, BusinessUser $businessUser): bool
@@ -55,5 +62,28 @@ class BusinessUserPolicy
     public function assignBranches(User $user, BusinessUser $businessUser): bool
     {
         return $this->update($user, $businessUser);
+    }
+
+    private function sharesBranchScope(User $user, BusinessUser $businessUser): bool
+    {
+        $business = $businessUser->business;
+
+        if ($business === null) {
+            return false;
+        }
+
+        if (! $businessUser->branches()->exists()) {
+            return $user->managesBusiness($business);
+        }
+
+        $accessibleBranchIds = $this->businessAccess->accessibleBranchIds($user, $business);
+
+        if ($accessibleBranchIds === []) {
+            return false;
+        }
+
+        return $businessUser->branches()
+            ->whereIn('business_branches.id', $accessibleBranchIds)
+            ->exists();
     }
 }

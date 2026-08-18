@@ -63,11 +63,14 @@ class BusinessUserController extends Controller
         Business $business,
         CreateBusinessEmployee $action,
     ): RedirectResponse {
-        $membership = $action->handle($business, $request->validated());
+        $membership = $action->handle($business, $request->validated(), $request->user());
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Usuario asociado a la empresa correctamente.',
+            'message' => sprintf(
+                'Usuario creado. Entra en Acceso negocio con el correo y la contraseña %s. Deberá cambiarla al iniciar sesión.',
+                config('business.users.temporary_password'),
+            ),
         ]);
 
         return to_route('admin.businesses.users.edit', [$business, $membership]);
@@ -98,7 +101,7 @@ class BusinessUserController extends Controller
     ): RedirectResponse {
         $this->ensureSameBusiness($business, $businessUser);
 
-        $action->handle($businessUser, $request->validated());
+        $action->handle($businessUser, $request->validated(), $request->user());
 
         Inertia::flash('toast', [
             'type' => 'success',

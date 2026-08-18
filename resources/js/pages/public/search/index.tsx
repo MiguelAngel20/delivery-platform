@@ -78,13 +78,6 @@ export default function SearchIndex({
         <>
             <Head title={`Buscar: ${query}`} />
             <PageContainer className="gap-6 px-4 py-4 md:px-6">
-                <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold text-navy">Buscar</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Resultados para “{query}”
-                    </p>
-                </div>
-
                 {!hasResults ? (
                     <EmptyState
                         title="Sin resultados"

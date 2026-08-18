@@ -60,12 +60,15 @@ function incidentCustomer(): array
 function incidentBusinessAdmin(Business $business): User
 {
     $admin = User::factory()->businessAdmin()->create();
+    $branchId = $business->branches()->orderBy('id')->value('id')
+        ?? BusinessBranch::factory()->for($business)->create()->id;
+
     BusinessUser::query()->create([
         'business_id' => $business->id,
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branchId]);
 
     return $admin;
 }
@@ -94,14 +97,14 @@ function createIncidentOrder(): array
 }
 
 test('driver can report incident on assigned order', function () {
-    ['order' => $order, 'business' => $business] = createIncidentOrder();
+    ['order' => $order, 'business' => $business, 'branch' => $branch] = createIncidentOrder();
     $admin = User::factory()->businessAdmin()->create();
     BusinessUser::query()->create([
         'business_id' => $business->id,
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
     app(AcceptBusinessOrder::class)->handle($order, $admin, 15);
 
     $driverUser = User::factory()->driver()->create();

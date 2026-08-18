@@ -42,6 +42,8 @@ test('home marks restaurants closed outside opening hours', function () {
         'slug' => 'cerrado-demo',
         'business_type' => 'Restaurante',
         'status' => BusinessStatus::Active,
+    ]);
+    BusinessBranch::factory()->for($business)->create([
         'opening_hours' => collect(BusinessHours::dayKeys())
             ->map(fn (string $day): array => [
                 'day' => $day,
@@ -51,7 +53,6 @@ test('home marks restaurants closed outside opening hours', function () {
             ])
             ->all(),
     ]);
-    BusinessBranch::factory()->for($business)->create();
 
     $this->get(route('home'))
         ->assertOk()

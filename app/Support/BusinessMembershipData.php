@@ -4,8 +4,10 @@ namespace App\Support;
 
 use App\Enums\BusinessUserRole;
 use App\Enums\BusinessUserStatus;
+use App\Enums\UserRole;
 use App\Models\Business;
 use App\Models\BusinessUser;
+use App\Models\User;
 
 final class BusinessMembershipData
 {
@@ -16,8 +18,20 @@ final class BusinessMembershipData
      *     branches: list<array{id: int, name: string, status: string, status_label: string}>
      * }
      */
-    public static function formOptions(Business $business): array
+    public static function formOptions(Business $business, ?User $scopedToUser = null): array
     {
+        $branchesQuery = $business->branches()->orderBy('name');
+
+        if ($scopedToUser !== null && ! $scopedToUser->hasRole(UserRole::SystemAdmin)) {
+            $accessibleBranchIds = app(BusinessAccess::class)->accessibleBranchIds($scopedToUser, $business);
+
+            if ($accessibleBranchIds !== []) {
+                $branchesQuery->whereIn('id', $accessibleBranchIds);
+            } else {
+                $branchesQuery->whereRaw('1 = 0');
+            }
+        }
+
         return [
             'roles' => collect(BusinessUserRole::cases())
                 ->map(fn (BusinessUserRole $role): array => [
@@ -33,8 +47,7 @@ final class BusinessMembershipData
                 ])
                 ->values()
                 ->all(),
-            'branches' => $business->branches()
-                ->orderBy('name')
+            'branches' => $branchesQuery
                 ->get(['id', 'name', 'status'])
                 ->map(fn ($branch): array => [
                     'id' => $branch->id,

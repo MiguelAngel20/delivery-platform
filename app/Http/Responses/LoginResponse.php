@@ -15,6 +15,10 @@ class LoginResponse implements LoginResponseContract
 
         $home = $user?->homeRoute() ?? route('home');
 
+        if ($user?->mustChangePassword()) {
+            $home = route('password.force.edit');
+        }
+
         if ($request->wantsJson()) {
             return new JsonResponse(['two_factor' => false, 'redirect' => $home]);
         }

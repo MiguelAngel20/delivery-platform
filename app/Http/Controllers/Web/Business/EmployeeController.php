@@ -13,6 +13,7 @@ use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\User;
 use App\Services\BusinessLimitService;
+use App\Support\BusinessAccess;
 use App\Support\BusinessMembershipData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class EmployeeController extends Controller
 {
     public function __construct(
         private readonly BusinessLimitService $limitService,
+        private readonly BusinessAccess $businessAccess,
     ) {}
 
     public function index(IndexBusinessEmployeeRequest $request): Response
@@ -31,9 +33,11 @@ class EmployeeController extends Controller
         $business = $this->currentBusiness($request);
         $filters = $request->validated();
         $limits = $this->limitService->summary($business);
+        $accessibleBranchIds = $this->businessAccess->accessibleBranchIds($request->user(), $business);
 
         $employees = BusinessUser::query()
             ->where('business_id', $business->id)
+            ->whereHas('branches', fn ($query) => $query->whereIn('business_branches.id', $accessibleBranchIds))
             ->with([
                 'user:id,first_name,last_name,name,email,phone',
                 'branches:id,name',
@@ -69,7 +73,7 @@ class EmployeeController extends Controller
                 'role' => $filters['role'] ?? '',
                 'status' => $filters['status'] ?? '',
             ],
-            'options' => BusinessMembershipData::formOptions($business),
+            'options' => BusinessMembershipData::formOptions($business, $request->user()),
             'limits' => $limits,
         ]);
     }
@@ -80,7 +84,7 @@ class EmployeeController extends Controller
         $this->authorize('create', [BusinessUser::class, $business]);
 
         return Inertia::render('business/employees/create', [
-            'options' => BusinessMembershipData::formOptions($business),
+            'options' => BusinessMembershipData::formOptions($business, $request->user()),
             'limits' => $this->limitService->summary($business),
         ]);
     }
@@ -91,11 +95,14 @@ class EmployeeController extends Controller
     ): RedirectResponse {
         $business = $this->currentBusiness($request);
 
-        $membership = $action->handle($business, $request->validated());
+        $membership = $action->handle($business, $request->validated(), $request->user());
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Empleado creado correctamente.',
+            'message' => sprintf(
+                'Empleado creado. Entra en Acceso negocio con el correo y la contraseña %s. Deberá cambiarla al iniciar sesión.',
+                config('business.users.temporary_password'),
+            ),
         ]);
 
         return to_route('business.employees.edit', $membership);
@@ -111,7 +118,7 @@ class EmployeeController extends Controller
 
         return Inertia::render('business/employees/edit', [
             'employee' => BusinessMembershipData::transform($businessUser),
-            'options' => BusinessMembershipData::formOptions($business),
+            'options' => BusinessMembershipData::formOptions($business, $request->user()),
         ]);
     }
 
@@ -123,7 +130,7 @@ class EmployeeController extends Controller
         $business = $this->currentBusiness($request);
         $this->ensureSameBusiness($business, $businessUser);
 
-        $action->handle($businessUser, $request->validated());
+        $action->handle($businessUser, $request->validated(), $request->user());
 
         Inertia::flash('toast', [
             'type' => 'success',

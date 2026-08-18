@@ -68,6 +68,20 @@ class BusinessLimitService
             ->count();
     }
 
+    public function activeBusinessAdminOnBranch(BusinessBranch $branch, ?int $exceptMembershipId = null): int
+    {
+        return BusinessUser::query()
+            ->where('business_id', $branch->business_id)
+            ->where('role', BusinessUserRole::BusinessAdmin)
+            ->where('status', BusinessUserStatus::Active)
+            ->whereHas('branches', fn ($query) => $query->where('business_branches.id', $branch->id))
+            ->when(
+                $exceptMembershipId !== null,
+                fn ($query) => $query->where('id', '!=', $exceptMembershipId),
+            )
+            ->count();
+    }
+
     public function canCreateBranch(Business $business): bool
     {
         $limits = $this->ensureLimits($business);
@@ -144,6 +158,17 @@ class BusinessLimitService
         if (! $this->canAddBusinessAdmin($business, $exceptMembershipId)) {
             throw ValidationException::withMessages([
                 'role' => 'Has alcanzado el límite de administradores permitido para esta empresa.',
+            ]);
+        }
+    }
+
+    public function assertCanAssignAdminToBranch(
+        BusinessBranch $branch,
+        ?int $exceptMembershipId = null,
+    ): void {
+        if ($this->activeBusinessAdminOnBranch($branch, $exceptMembershipId) >= 1) {
+            throw ValidationException::withMessages([
+                'branch_ids' => 'Esta sucursal ya tiene un administrador activo.',
             ]);
         }
     }

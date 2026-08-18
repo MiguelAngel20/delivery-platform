@@ -33,7 +33,7 @@ function seedCatalogBusinessAdmin(): array
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     return compact('admin', 'business', 'branch', 'otherBranch');
 }
@@ -298,7 +298,7 @@ test('business admin cannot manage platform operated catalog', function () {
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $this->actingAs($admin)
         ->post(route('business.categories.store'), [

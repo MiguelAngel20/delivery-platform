@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Web\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\Web\Auth\LoginPageController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,12 @@ Route::middleware(['auth'])->group(function () {
 
         return redirect()->to($user->homeRoute());
     })->name('dashboard');
+
+    Route::get('password/cambiar', [ForcePasswordChangeController::class, 'edit'])
+        ->name('password.force.edit');
+    Route::put('password/cambiar', [ForcePasswordChangeController::class, 'update'])
+        ->middleware('throttle:6,1')
+        ->name('password.force.update');
 });
 
 require __DIR__.'/customer.php';

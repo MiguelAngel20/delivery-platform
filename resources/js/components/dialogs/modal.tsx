@@ -8,6 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 type ModalProps = {
     open: boolean;
@@ -16,6 +17,7 @@ type ModalProps = {
     description?: string;
     children?: ReactNode;
     footer?: ReactNode;
+    className?: string;
 };
 
 export function Modal({
@@ -25,10 +27,11 @@ export function Modal({
     description,
     children,
     footer,
+    className,
 }: ModalProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className={cn(className)}>
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     {description ? (

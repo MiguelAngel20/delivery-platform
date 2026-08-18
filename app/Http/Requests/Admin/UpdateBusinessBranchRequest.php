@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\BranchStatus;
+use App\Support\BusinessHours;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,6 +14,13 @@ class UpdateBusinessBranchRequest extends FormRequest
         $branch = $this->route('branch');
 
         return $this->user()?->can('update', $branch) ?? false;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'opening_hours' => BusinessHours::prepareInput($this->input('opening_hours')),
+        ]);
     }
 
     /**
@@ -31,6 +39,15 @@ class UpdateBusinessBranchRequest extends FormRequest
             'place_id' => ['nullable', 'string', 'max:255'],
             'google_maps_url' => ['nullable', 'url', 'max:1000'],
             'status' => ['required', Rule::enum(BranchStatus::class)],
+            ...BusinessHours::validationRules(),
         ];
+    }
+
+    /**
+     * @return list<\Closure>
+     */
+    public function after(): array
+    {
+        return BusinessHours::afterValidation();
     }
 }

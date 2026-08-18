@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $email_verified_at
  * @property Carbon|null $phone_verified_at
  * @property string $password
+ * @property bool $must_change_password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -44,6 +45,7 @@ use Illuminate\Support\Carbon;
     'email',
     'phone',
     'password',
+    'must_change_password',
     'role',
     'status',
     'email_verified_at',
@@ -84,6 +86,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
             'role' => UserRole::class,
             'status' => UserStatus::class,
         ];
@@ -144,6 +147,18 @@ class User extends Authenticatable
         return $this->status->canAuthenticate();
     }
 
+    public function mustChangePassword(): bool
+    {
+        return $this->must_change_password;
+    }
+
+    public function markPasswordAsChanged(): void
+    {
+        $this->forceFill([
+            'must_change_password' => false,
+        ])->save();
+    }
+
     public function homeRoute(): string
     {
         return route($this->role->homeRouteName());
@@ -179,10 +194,6 @@ class User extends Authenticatable
 
         if ($membership === null) {
             return false;
-        }
-
-        if ($membership->role === BusinessUserRole::BusinessAdmin) {
-            return true;
         }
 
         return $membership->branches()

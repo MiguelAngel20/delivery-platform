@@ -20,7 +20,7 @@ function businessAdminContext(): array
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $business->limits()->update([
         'max_branches' => 1,
@@ -97,7 +97,8 @@ test('business admin cannot exceed employee limit', function () {
 });
 
 test('business admin cannot exceed business admin limit', function () {
-    ['admin' => $admin] = businessAdminContext();
+    ['admin' => $admin, 'business' => $business, 'branch' => $branch] = businessAdminContext();
+    $business->limits()->update(['max_business_admins' => 5]);
 
     $this->actingAs($admin)
         ->post(route('business.employees.store'), [
@@ -107,9 +108,9 @@ test('business admin cannot exceed business admin limit', function () {
             'phone' => '+50255558005',
             'role' => BusinessUserRole::BusinessAdmin->value,
             'status' => BusinessUserStatus::Active->value,
-            'branch_ids' => [],
+            'branch_ids' => [$branch->id],
         ])
-        ->assertSessionHasErrors('role');
+        ->assertSessionHasErrors('branch_ids');
 });
 
 test('employee assigned to multiple branches counts against each branch', function () {

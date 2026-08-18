@@ -8,6 +8,10 @@ return [
         'max_employees_per_branch' => 3,
     ],
 
+    'users' => [
+        'temporary_password' => env('BUSINESS_USER_TEMPORARY_PASSWORD', '12344321'),
+    ],
+
     'orders' => [
         'service_fee' => (float) env('ORDER_SERVICE_FEE', 50),
         'delivery_fee' => (float) env('ORDER_DELIVERY_FEE', 0),

@@ -216,11 +216,11 @@ test('customer cannot order unavailable product', function () {
     ))->toThrow(ValidationException::class);
 });
 
-test('customer cannot order from a closed business', function () {
+test('customer cannot order from a closed branch', function () {
     ['user' => $user, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
     ['business' => $business, 'branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
 
-    $business->update([
+    $branch->update([
         'opening_hours' => collect(BusinessHours::dayKeys())
             ->map(fn (string $day): array => [
                 'day' => $day,
@@ -235,7 +235,7 @@ test('customer cannot order from a closed business', function () {
         $customer,
         $user,
         validOrderPayload($branch, $product, $onion, $cheese, $address),
-    ))->toThrow(ValidationException::class, 'Este establecimiento está cerrado en este momento.');
+    ))->toThrow(ValidationException::class, 'Esta sucursal está cerrada en este momento.');
 });
 
 test('customer cannot use option from another product', function () {
@@ -255,6 +255,88 @@ test('customer cannot use option from another product', function () {
 
     expect(fn () => app(CreateOrder::class)->handle($customer, $user, $payload))
         ->toThrow(ValidationException::class);
+});
+
+test('customer cannot order choice group below min selection', function () {
+    ['user' => $user, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $choice = ProductOptionGroup::factory()->choice()->create([
+        'product_id' => $product->id,
+        'name' => 'Variantes',
+        'min_selection' => 2,
+        'max_selection' => 4,
+    ]);
+    $bbq = ProductOption::factory()->create([
+        'option_group_id' => $choice->id,
+        'name' => 'BBQ',
+    ]);
+
+    $payload = validOrderPayload($branch, $product, $onion, $cheese, $address);
+    $payload['items'][0]['selected_options'][] = [
+        'option_id' => $bbq->id,
+        'action' => OptionSelectionAction::Selected->value,
+    ];
+
+    expect(fn () => app(CreateOrder::class)->handle($customer, $user, $payload))
+        ->toThrow(ValidationException::class);
+});
+
+test('customer cannot order addon group above max selection', function () {
+    ['user' => $user, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $addonGroup = ProductOptionGroup::query()->where('name', 'Extras')->firstOrFail();
+    $addonGroup->update(['max_selection' => 1]);
+
+    $bacon = ProductOption::factory()->create([
+        'option_group_id' => $addonGroup->id,
+        'name' => 'Tocino',
+        'price_modifier' => 10,
+    ]);
+
+    $payload = validOrderPayload($branch, $product, $onion, $cheese, $address);
+    $payload['items'][0]['selected_options'][] = [
+        'option_id' => $bacon->id,
+        'action' => OptionSelectionAction::Added->value,
+    ];
+
+    expect(fn () => app(CreateOrder::class)->handle($customer, $user, $payload))
+        ->toThrow(ValidationException::class);
+});
+
+test('customer can order choice group within min and max selection', function () {
+    ['user' => $user, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $choice = ProductOptionGroup::factory()->choice()->create([
+        'product_id' => $product->id,
+        'name' => 'Variantes',
+        'min_selection' => 2,
+        'max_selection' => 4,
+    ]);
+    $bbq = ProductOption::factory()->create([
+        'option_group_id' => $choice->id,
+        'name' => 'BBQ',
+    ]);
+    $ranch = ProductOption::factory()->create([
+        'option_group_id' => $choice->id,
+        'name' => 'Ranch',
+    ]);
+
+    $payload = validOrderPayload($branch, $product, $onion, $cheese, $address);
+    $payload['items'][0]['selected_options'][] = [
+        'option_id' => $bbq->id,
+        'action' => OptionSelectionAction::Selected->value,
+    ];
+    $payload['items'][0]['selected_options'][] = [
+        'option_id' => $ranch->id,
+        'action' => OptionSelectionAction::Selected->value,
+    ];
+
+    $order = app(CreateOrder::class)->handle($customer, $user, $payload);
+
+    expect($order->items->first()?->options)->toHaveCount(4);
 });
 
 test('customer cannot manipulate price', function () {
@@ -300,7 +382,7 @@ test('business user sees orders from allowed branch', function () {
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     app(CreateOrder::class)->handle(
         $customer,
@@ -351,7 +433,7 @@ test('business can accept pending order requiring preparation time', function ()
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $order = app(CreateOrder::class)->handle(
         $customer,
@@ -406,7 +488,7 @@ test('two simultaneous accepts do not corrupt order', function () {
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $order = app(CreateOrder::class)->handle(
         $customer,

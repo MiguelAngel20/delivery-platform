@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Enums\BusinessUserRole;
 use App\Enums\BusinessUserStatus;
 use App\Models\Business;
 use App\Models\BusinessBranch;
@@ -36,15 +35,21 @@ final class BusinessAccess
             return new Collection;
         }
 
-        if ($membership->role === BusinessUserRole::BusinessAdmin) {
-            return $membership->business->branches()
-                ->orderBy('name')
-                ->get();
-        }
-
         return $membership->branches()
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function accessibleBranchIds(User $user, ?Business $business = null): array
+    {
+        return $this->accessibleBranches($user, $business)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
     }
 
     public function canAccessBranch(User $user, BusinessBranch $branch): bool

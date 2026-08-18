@@ -21,13 +21,13 @@ function seedBusinessAdminWithBusiness(): array
         'user_id' => $admin->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branchA->id]);
 
     return compact('admin', 'business', 'branchA', 'branchB');
 }
 
 test('business admin can list employees', function () {
-    ['admin' => $admin, 'business' => $business] = seedBusinessAdminWithBusiness();
+    ['admin' => $admin, 'business' => $business, 'branchA' => $branchA] = seedBusinessAdminWithBusiness();
 
     $employee = User::factory()->businessEmployee()->create();
     BusinessUser::query()->create([
@@ -35,7 +35,7 @@ test('business admin can list employees', function () {
         'user_id' => $employee->id,
         'role' => BusinessUserRole::BusinessEmployee,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branchA->id]);
 
     $this->actingAs($admin)
         ->get(route('business.employees.index'))
@@ -96,7 +96,7 @@ test('business admin can assign employee to branch', function () {
     expect($membership->fresh()->branches)->toHaveCount(1);
 });
 
-test('business admin can assign employee to multiple branches', function () {
+test('business admin can assign employee to multiple branches within their branch scope', function () {
     ['admin' => $admin, 'business' => $business, 'branchA' => $branchA, 'branchB' => $branchB] = seedBusinessAdminWithBusiness();
 
     $employee = User::factory()->businessEmployee()->create();
@@ -106,6 +106,7 @@ test('business admin can assign employee to multiple branches', function () {
         'role' => BusinessUserRole::BusinessEmployee,
         'status' => BusinessUserStatus::Active,
     ]);
+    $membership->branches()->sync([$branchA->id]);
 
     $this->actingAs($admin)
         ->put(route('business.employees.update', $membership), [
@@ -117,13 +118,13 @@ test('business admin can assign employee to multiple branches', function () {
             'status' => BusinessUserStatus::Active->value,
             'branch_ids' => [$branchA->id, $branchB->id],
         ])
-        ->assertRedirect();
+        ->assertSessionHasErrors('branch_ids');
 
-    expect($membership->fresh()->branches)->toHaveCount(2);
+    expect($membership->fresh()->branches)->toHaveCount(1);
 });
 
 test('business admin can deactivate employee', function () {
-    ['admin' => $admin, 'business' => $business] = seedBusinessAdminWithBusiness();
+    ['admin' => $admin, 'business' => $business, 'branchA' => $branchA] = seedBusinessAdminWithBusiness();
 
     $employee = User::factory()->businessEmployee()->create();
     $membership = BusinessUser::query()->create([
@@ -132,6 +133,7 @@ test('business admin can deactivate employee', function () {
         'role' => BusinessUserRole::BusinessEmployee,
         'status' => BusinessUserStatus::Active,
     ]);
+    $membership->branches()->sync([$branchA->id]);
 
     $this->actingAs($admin)
         ->post(route('business.employees.deactivate', $membership))
@@ -250,13 +252,14 @@ test('business employee context only includes assigned branches', function () {
             ->where('businessContext.membership_role', BusinessUserRole::BusinessEmployee->value));
 });
 
-test('business admin context includes all branches', function () {
-    ['admin' => $admin, 'branchA' => $branchA, 'branchB' => $branchB] = seedBusinessAdminWithBusiness();
+test('business admin context includes assigned branch only', function () {
+    ['admin' => $admin, 'branchA' => $branchA] = seedBusinessAdminWithBusiness();
 
     $this->actingAs($admin)
         ->get(route('business.home'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('businessContext.branches', 2)
+            ->has('businessContext.branches', 1)
+            ->where('businessContext.branches.0.id', $branchA->id)
             ->where('businessContext.membership_role', UserRole::BusinessAdmin->value));
 });

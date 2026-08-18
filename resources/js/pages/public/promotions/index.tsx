@@ -1,10 +1,14 @@
 import { Head } from '@inertiajs/react';
 import { PromotionCard } from '@/apps/storefront/components/promotion-card';
-import { mockPromotions } from '@/apps/storefront/mocks';
+import type { MockPromotion } from '@/apps/storefront/mocks';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
 
-export default function PromotionsIndex() {
+type Props = {
+    promotions?: MockPromotion[];
+};
+
+export default function PromotionsIndex({ promotions = [] }: Props) {
     return (
         <>
             <Head title="Promociones" />
@@ -17,11 +21,11 @@ export default function PromotionsIndex() {
                         Ofertas activas
                     </p>
                 </div>
-                {mockPromotions.length === 0 ? (
+                {promotions.length === 0 ? (
                     <EmptyState title="No hay promociones" />
                 ) : (
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {mockPromotions.map((promotion) => (
+                        {promotions.map((promotion) => (
                             <PromotionCard
                                 key={promotion.id}
                                 promotion={promotion}

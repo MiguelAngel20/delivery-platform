@@ -179,11 +179,18 @@
         @apply border-border;
     }
 
+    html,
     body {
-        @apply bg-background text-foreground;
+        @apply overflow-x-clip bg-background text-foreground;
     }
 
     :focus-visible {
         @apply outline-none;
     }
+}
+
+/* Google Places Autocomplete renders on document.body, outside Radix dialogs. */
+.pac-container {
+    z-index: 20000 !important;
+    pointer-events: auto !important;
 }

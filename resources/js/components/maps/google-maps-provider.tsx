@@ -37,17 +37,16 @@ export function GoogleMapsProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         let cancelled = false;
 
-        if (typeof window !== 'undefined' && window.google?.maps) {
-            setGoogleApi(window.google);
-            setReady(true);
-        }
-
         if (!apiKey) {
             setError('Maps no configurado.');
             setReady(false);
+            setGoogleApi(null);
 
             return;
         }
+
+        setReady(false);
+        setError(null);
 
         loadGoogleMaps({ apiKey })
             .then((api) => {
@@ -66,6 +65,7 @@ export function GoogleMapsProvider({ children }: { children: ReactNode }) {
 
                 setError(err.message);
                 setReady(false);
+                setGoogleApi(null);
             });
 
         return () => {

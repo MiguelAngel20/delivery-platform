@@ -76,7 +76,7 @@ export function MobilePromotionCard({
     }
 
     return (
-        <Link href={restaurants.show(promotion.restaurantSlug)} className="block">
+        <Link href={restaurants.show.url(promotion.restaurantSlug)} className="block">
             {content}
         </Link>
     );

@@ -5,9 +5,12 @@ namespace App\Actions\Businesses;
 use App\Enums\BusinessUserRole;
 use App\Enums\BusinessUserStatus;
 use App\Enums\UserRole;
+use App\Models\BusinessBranch;
 use App\Models\BusinessUser;
+use App\Models\User;
 use App\Services\BusinessLimitService;
 use App\Support\BusinessAccess;
+use App\Support\BusinessMembershipBranchRules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,7 +32,7 @@ class UpdateBusinessEmployee
      *     branch_ids?: list<int|string>
      * }  $data
      */
-    public function handle(BusinessUser $membership, array $data): BusinessUser
+    public function handle(BusinessUser $membership, array $data, ?User $actor = null): BusinessUser
     {
         $role = $data['role'] instanceof BusinessUserRole
             ? $data['role']
@@ -37,27 +40,37 @@ class UpdateBusinessEmployee
         $status = $data['status'] instanceof BusinessUserStatus
             ? $data['status']
             : BusinessUserStatus::from((string) $data['status']);
-        $branchIds = array_map('intval', $data['branch_ids'] ?? []);
+        $branchIds = BusinessMembershipBranchRules::normalizeBranchIds($data['branch_ids'] ?? []);
 
-        $ownedBranchIds = $this->businessAccess->ownedBranchIds($membership->business, $branchIds);
+        BusinessMembershipBranchRules::assertValidForRole($role, $branchIds);
 
-        if (count($ownedBranchIds) !== count(array_unique($branchIds))) {
+        $business = $membership->business;
+
+        if ($business === null) {
+            throw ValidationException::withMessages([
+                'role' => 'La membresía no pertenece a una empresa válida.',
+            ]);
+        }
+
+        if ($actor !== null) {
+            BusinessMembershipBranchRules::assertActorCanAssignBranches($actor, $business, $branchIds);
+        }
+
+        $ownedBranchIds = $this->businessAccess->ownedBranchIds($business, $branchIds);
+
+        if (count($ownedBranchIds) !== count($branchIds)) {
             throw ValidationException::withMessages([
                 'branch_ids' => 'Una o más sucursales no pertenecen a tu empresa.',
             ]);
         }
 
-        if ($role === BusinessUserRole::BusinessEmployee && $ownedBranchIds === []) {
-            throw ValidationException::withMessages([
-                'branch_ids' => 'El empleado debe tener al menos una sucursal asignada.',
-            ]);
-        }
-
-        return DB::transaction(function () use ($membership, $data, $role, $status, $ownedBranchIds): BusinessUser {
-            $business = $membership->business;
-
+        return DB::transaction(function () use ($membership, $data, $role, $status, $ownedBranchIds, $business): BusinessUser {
             if ($role === BusinessUserRole::BusinessAdmin && $status === BusinessUserStatus::Active) {
                 $this->limitService->assertCanAddBusinessAdmin($business, $membership->id);
+
+                /** @var BusinessBranch $branch */
+                $branch = $business->branches()->whereKey($ownedBranchIds[0])->lockForUpdate()->firstOrFail();
+                $this->limitService->assertCanAssignAdminToBranch($branch, $membership->id);
             }
 
             if ($role === BusinessUserRole::BusinessEmployee && $status === BusinessUserStatus::Active) {
@@ -116,11 +129,7 @@ class UpdateBusinessEmployee
                 'status' => $status,
             ]);
 
-            if ($role === BusinessUserRole::BusinessEmployee) {
-                $membership->branches()->sync($ownedBranchIds);
-            } else {
-                $membership->branches()->sync([]);
-            }
+            $membership->branches()->sync($ownedBranchIds);
 
             return $membership->fresh(['user', 'branches']);
         });

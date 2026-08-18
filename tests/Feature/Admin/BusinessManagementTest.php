@@ -31,6 +31,22 @@ test('system admin can list businesses', function () {
             ->has('businesses.data', 2));
 });
 
+test('system admin can view a business with branch hour options', function () {
+    $admin = User::factory()->systemAdmin()->create();
+    $business = Business::factory()->create();
+    BusinessBranch::factory()->for($business)->create();
+
+    $this->actingAs($admin)
+        ->get(route('admin.businesses.show', $business))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/businesses/show')
+            ->has('options.weekdays', 7)
+            ->has('options.default_opening_hours', 7)
+            ->has('business.branches', 1)
+            ->has('business.branches.0.opening_hours'));
+});
+
 test('system admin can create business', function () {
     $admin = User::factory()->systemAdmin()->create();
 
@@ -44,7 +60,6 @@ test('system admin can create business', function () {
             'phone' => '+50255551212',
             'email' => 'hola@polloguero.test',
             'status' => BusinessStatus::PendingApproval->value,
-            'opening_hours' => BusinessHours::defaults(),
             'logo' => UploadedFile::fake()->image('logo.jpg'),
             'banner' => UploadedFile::fake()->image('banner.jpg', 1200, 400),
         ]);
@@ -54,9 +69,7 @@ test('system admin can create business', function () {
     expect($business)->not->toBeNull()
         ->and($business?->slug)->toStartWith('pollo-guero')
         ->and($business?->logo_path)->not->toBeNull()
-        ->and($business?->banner_path)->not->toBeNull()
-        ->and($business?->opening_hours)->toHaveCount(7)
-        ->and(collect($business?->opening_hours)->firstWhere('day', 'monday')['is_open'] ?? false)->toBeTrue();
+        ->and($business?->banner_path)->not->toBeNull();
 
     $response->assertRedirect(route('admin.businesses.show', $business));
 });
@@ -77,34 +90,13 @@ test('system admin can update business', function () {
             'phone' => '+50255559999',
             'email' => 'nuevo@empresa.test',
             'status' => BusinessStatus::Active->value,
-            'opening_hours' => collect(BusinessHours::defaults())
-                ->map(function (array $row): array {
-                    if ($row['day'] === 'saturday') {
-                        return [
-                            'day' => 'saturday',
-                            'is_open' => true,
-                            'opens_at' => '10:00',
-                            'closes_at' => '14:00',
-                        ];
-                    }
-
-                    return $row;
-                })
-                ->all(),
         ])
         ->assertRedirect(route('admin.businesses.show', $business));
 
     $business->refresh();
 
     expect($business->name)->toBe('Empresa Actualizada')
-        ->and($business->business_type)->toBe('Cafetería')
-        ->and(collect($business->opening_hours)->firstWhere('day', 'saturday'))
-        ->toMatchArray([
-            'day' => 'saturday',
-            'is_open' => true,
-            'opens_at' => '10:00',
-            'closes_at' => '14:00',
-        ]);
+        ->and($business->business_type)->toBe('Cafetería');
 });
 
 test('system admin can update business via multipart form post spoofing put', function () {
@@ -126,13 +118,11 @@ test('system admin can update business via multipart form post spoofing put', fu
             'phone' => '+50255551111',
             'email' => 'multipart@empresa.test',
             'status' => BusinessStatus::Active->value,
-            'opening_hours' => json_encode(BusinessHours::defaults()),
         ])
         ->assertRedirect(route('admin.businesses.show', $business));
 
     expect($business->fresh()->name)->toBe('Empresa Multipart')
-        ->and($business->fresh()->email)->toBe('multipart@empresa.test')
-        ->and($business->fresh()->opening_hours)->toHaveCount(7);
+        ->and($business->fresh()->email)->toBe('multipart@empresa.test');
 });
 
 test('system admin can approve pending business', function () {
@@ -180,10 +170,15 @@ test('system admin can create branch', function () {
             'longitude' => '-90.5069000',
             'google_maps_url' => 'https://maps.google.com/?q=14.6349,-90.5069',
             'status' => BranchStatus::Active->value,
+            'opening_hours' => BusinessHours::defaults(),
         ])
         ->assertRedirect();
 
-    expect($business->branches()->where('name', 'Sucursal Centro')->exists())->toBeTrue();
+    $branch = $business->branches()->where('name', 'Sucursal Centro')->first();
+
+    expect($branch)->not->toBeNull()
+        ->and($branch?->opening_hours)->toHaveCount(7)
+        ->and(collect($branch?->opening_hours)->firstWhere('day', 'monday')['is_open'] ?? false)->toBeTrue();
 });
 
 test('system admin can update branch', function () {
@@ -203,10 +198,33 @@ test('system admin can update branch', function () {
             'longitude' => '-90.5000000',
             'google_maps_url' => null,
             'status' => BranchStatus::Active->value,
+            'opening_hours' => collect(BusinessHours::defaults())
+                ->map(function (array $row): array {
+                    if ($row['day'] === 'saturday') {
+                        return [
+                            'day' => 'saturday',
+                            'is_open' => true,
+                            'opens_at' => '10:00',
+                            'closes_at' => '14:00',
+                        ];
+                    }
+
+                    return $row;
+                })
+                ->all(),
         ])
         ->assertRedirect();
 
-    expect($branch->fresh()->name)->toBe('Sucursal Nueva');
+    $branch->refresh();
+
+    expect($branch->name)->toBe('Sucursal Nueva')
+        ->and(collect($branch->opening_hours)->firstWhere('day', 'saturday'))
+        ->toMatchArray([
+            'day' => 'saturday',
+            'is_open' => true,
+            'opens_at' => '10:00',
+            'closes_at' => '14:00',
+        ]);
 });
 
 test('driver cannot access admin businesses', function () {
@@ -284,7 +302,7 @@ test('business portal receives real business context', function () {
         'user_id' => $user->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ]);
+    ])->branches()->sync([$branch->id]);
 
     $this->actingAs($user)
         ->get(route('business.home'))
