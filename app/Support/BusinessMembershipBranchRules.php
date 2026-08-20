@@ -26,19 +26,26 @@ final class BusinessMembershipBranchRules
     {
         $normalized = self::normalizeBranchIds($branchIds);
 
-        if ($role === BusinessUserRole::BusinessAdmin) {
-            if (count($normalized) !== 1) {
-                throw ValidationException::withMessages([
-                    'branch_ids' => 'El administrador debe tener exactamente una sucursal asignada.',
-                ]);
-            }
+        if (count($normalized) !== 1) {
+            throw ValidationException::withMessages([
+                'branch_ids' => $role === BusinessUserRole::BusinessAdmin
+                    ? 'El administrador debe tener exactamente una sucursal asignada.'
+                    : 'El empleado debe tener exactamente una sucursal asignada.',
+            ]);
+        }
+    }
 
-            return;
+    public static function assertUserAvailableForMembership(User $user, ?int $exceptMembershipId = null): void
+    {
+        $query = $user->businessMemberships();
+
+        if ($exceptMembershipId !== null) {
+            $query->where('id', '!=', $exceptMembershipId);
         }
 
-        if ($normalized === []) {
+        if ($query->exists()) {
             throw ValidationException::withMessages([
-                'branch_ids' => 'El empleado debe tener al menos una sucursal asignada.',
+                'email' => 'Este usuario ya está asociado a otra empresa. Cada usuario solo puede pertenecer a una empresa y una sucursal.',
             ]);
         }
     }

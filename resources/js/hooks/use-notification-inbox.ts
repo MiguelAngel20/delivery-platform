@@ -1,6 +1,8 @@
 import { echo, echoIsConfigured } from '@laravel/echo-react';
 import { usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
+import { notify } from '@/components/feedback/toast';
+import { showBrowserNotification } from '@/lib/push/browser-notification';
 import type { InboxNotification } from '@/lib/notifications/helpers';
 
 function xsrfToken(): string {
@@ -51,8 +53,20 @@ export function useNotificationInbox() {
         const channelName = `user.${auth.user.id}.notifications`;
         const channel = echo().private(channelName);
 
-        channel.listen('.UnreadNotificationsUpdated', (payload: { unread_count: number }) => {
+        channel.listen('.UnreadNotificationsUpdated', (payload: {
+            unread_count: number;
+            title?: string | null;
+            body?: string | null;
+        }) => {
             setUnreadCount(payload.unread_count);
+
+            const title = payload.title?.trim();
+            const body = payload.body?.trim();
+
+            if (title) {
+                notify.info(body ? `${title}. ${body}` : title);
+                void showBrowserNotification(title, body);
+            }
         });
 
         return () => {

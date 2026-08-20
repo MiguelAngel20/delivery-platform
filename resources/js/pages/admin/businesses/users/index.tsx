@@ -6,6 +6,7 @@ import {
     PageContainer,
     PageHeader,
 } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import admin from '@/routes/admin';
 import { show as businessShow } from '@/routes/admin/businesses';
@@ -45,11 +46,10 @@ export default function AdminBusinessUsersIndex({ business, users }: Props) {
                     description={business.name}
                     actions={
                         <>
-                            <Button variant="outline" asChild>
-                                <Link href={businessShow.url(business.id)}>
-                                    Volver a empresa
-                                </Link>
-                            </Button>
+                            <BackButton
+                                href={businessShow.url(business.id)}
+                                label="Volver a empresa"
+                            />
                             <Button asChild>
                                 <Link href={create.url(business.id)}>
                                     + Agregar usuario

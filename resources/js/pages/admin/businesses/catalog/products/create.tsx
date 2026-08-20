@@ -20,7 +20,7 @@ export default function AdminCatalogProductsCreate({
             <Head title={`Nuevo producto · ${business.name}`} />
             <PageContainer>
                 <PageHeader title="Nuevo producto" />
-                <div className="rounded-xl border border-border bg-white p-4 md:p-6">
+                <div className="rounded-xl border border-border bg-surface p-4 md:p-6">
                     <ProductForm
                         options={options}
                         action={{ url: `${base}/products`, method: 'post' }}

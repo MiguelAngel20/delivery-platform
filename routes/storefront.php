@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Web\Public\CartController;
 use App\Http\Controllers\Web\Public\HomeController;
 use App\Http\Controllers\Web\Public\LegalPageController;
 use App\Http\Controllers\Web\Public\PromotionController;
@@ -22,6 +23,9 @@ Route::get('search', SearchController::class)->name('search');
 
 Route::get('cart', fn () => Inertia::render('public/cart/index'))
     ->name('cart');
+
+Route::get('cart/products/{product}', [CartController::class, 'product'])
+    ->name('cart.products.show');
 
 Route::prefix('legal')->name('legal.')->group(function () {
     Route::get('terminos-y-condiciones', [LegalPageController::class, 'terms'])->name('terms');

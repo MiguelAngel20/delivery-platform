@@ -16,10 +16,8 @@ trait ResolvesBusinessCatalog
         $user = $request->user();
         $membership = $user->activeBusinessMembership();
 
-        abort_unless(
-            $membership !== null && $membership->isAdmin() && $membership->business !== null,
-            403,
-        );
+        abort_unless($membership !== null && $membership->business !== null, 403);
+        abort_unless($user->managesBusiness($membership->business), 403);
 
         return $membership->business;
     }

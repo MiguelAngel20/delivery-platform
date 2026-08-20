@@ -23,6 +23,10 @@ class StoreProductCategoryRequest extends FormRequest
             return false;
         }
 
+        if ($this->input('branch_id') === null || $this->input('branch_id') === '') {
+            return true;
+        }
+
         $branchId = (int) $this->input('branch_id');
         $branch = $membership->business->branches()->whereKey($branchId)->first();
 
@@ -49,6 +53,31 @@ class StoreProductCategoryRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'branch_id.required' => 'Selecciona una sucursal.',
+            'branch_id.exists' => 'La sucursal seleccionada no es válida.',
+            'name.required' => 'El nombre de la categoría es obligatorio.',
+            'name.max' => 'El nombre no puede superar :max caracteres.',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'branch_id' => 'sucursal',
+            'name' => 'nombre',
+            'description' => 'descripción',
         ];
     }
 }

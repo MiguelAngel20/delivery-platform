@@ -2,19 +2,16 @@
 
 namespace App\Notifications\Channels;
 
+use App\Jobs\Notifications\SendPushToUserJob;
 use App\Models\User;
 use App\Notifications\Concerns\RideNotificationContract;
 use App\Services\Notifications\NotificationPreferenceService;
-use App\Services\Push\PushNotificationService;
 use App\Support\PushMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\Log;
-use Throwable;
 
 final class FcmChannel
 {
     public function __construct(
-        private readonly PushNotificationService $push,
         private readonly NotificationPreferenceService $preferences,
     ) {}
 
@@ -36,24 +33,15 @@ final class FcmChannel
             return;
         }
 
-        $message = new PushMessage(
-            title: $notification->title(),
-            body: $notification->body(),
-            data: $notification->pushData(),
-            priority: $notification->priority(),
-            ttlSeconds: $notification->ttlSeconds(),
+        SendPushToUserJob::dispatchAfterResponse(
+            $notifiable->id,
+            new PushMessage(
+                title: $notification->title(),
+                body: $notification->body(),
+                data: $notification->pushData(),
+                priority: $notification->priority(),
+                ttlSeconds: $notification->ttlSeconds(),
+            ),
         );
-
-        try {
-            $this->push->sendToUser($notifiable, $message);
-        } catch (Throwable $exception) {
-            Log::warning('Push delivery failed', [
-                'user_id' => $notifiable->id,
-                'notification' => class_basename($notification),
-                'message' => $exception->getMessage(),
-            ]);
-
-            throw $exception;
-        }
     }
 }

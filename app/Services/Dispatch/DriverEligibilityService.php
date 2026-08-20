@@ -32,7 +32,7 @@ final class DriverEligibilityService
 
     public function assertEligible(Driver $driver, Order $order): void
     {
-        $driver->loadMissing(['user', 'businesses']);
+        $driver->loadMissing(['user', 'businesses', 'branches']);
         $order->loadMissing(['branch.business']);
 
         if ($driver->approval_status !== DriverApprovalStatus::Approved) {
@@ -79,7 +79,12 @@ final class DriverEligibilityService
                 ]);
             }
 
-            if (! $this->matchesDeliveryMode($driver, $deliveryMode, $business->id)) {
+            if (! $this->matchesDeliveryMode(
+                $driver,
+                $deliveryMode,
+                $business->id,
+                $order->branch_id,
+            )) {
                 throw ValidationException::withMessages([
                     'driver' => 'El repartidor no es elegible para la modalidad de entrega de este negocio.',
                 ]);
@@ -115,20 +120,33 @@ final class DriverEligibilityService
         $this->assertCapacity($driver, $order);
     }
 
-    public function matchesDeliveryMode(Driver $driver, BusinessDeliveryMode $mode, int $businessId): bool
-    {
-        $linkedToBusiness = $driver->businesses->contains('id', $businessId)
-            || $driver->businesses()->whereKey($businessId)->exists();
+    public function matchesDeliveryMode(
+        Driver $driver,
+        BusinessDeliveryMode $mode,
+        int $businessId,
+        ?int $branchId = null,
+    ): bool {
+        $isOwnDriver = $this->isOwnDriverForBranch($driver, $businessId, $branchId);
 
         return match ($mode) {
             BusinessDeliveryMode::None => false,
-            BusinessDeliveryMode::OwnDrivers => $driver->driver_scope === DriverScope::BusinessOnly
-                && $linkedToBusiness,
+            BusinessDeliveryMode::OwnDrivers => $isOwnDriver,
             BusinessDeliveryMode::PlatformDrivers => $driver->driver_scope === DriverScope::Platform,
-            BusinessDeliveryMode::Hybrid => (
-                $driver->driver_scope === DriverScope::BusinessOnly && $linkedToBusiness
-            ) || $driver->driver_scope === DriverScope::Platform,
+            BusinessDeliveryMode::Hybrid => $isOwnDriver
+                || $driver->driver_scope === DriverScope::Platform,
         };
+    }
+
+    private function isOwnDriverForBranch(Driver $driver, int $businessId, ?int $branchId): bool
+    {
+        if ($driver->driver_scope !== DriverScope::BusinessOnly || $branchId === null) {
+            return false;
+        }
+
+        $linkedToBusiness = $driver->businesses->contains('id', $businessId)
+            || $driver->businesses()->whereKey($businessId)->exists();
+
+        return $linkedToBusiness && $driver->isAssignedToBranch($branchId);
     }
 
     /**

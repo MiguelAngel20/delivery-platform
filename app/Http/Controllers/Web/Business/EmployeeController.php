@@ -6,12 +6,12 @@ use App\Actions\Businesses\CreateBusinessEmployee;
 use App\Actions\Businesses\UpdateBusinessEmployee;
 use App\Enums\BusinessUserStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Web\Business\Concerns\ResolvesBusinessCatalog;
 use App\Http\Requests\Business\IndexBusinessEmployeeRequest;
 use App\Http\Requests\Business\StoreBusinessEmployeeRequest;
 use App\Http\Requests\Business\UpdateBusinessEmployeeRequest;
 use App\Models\Business;
 use App\Models\BusinessUser;
-use App\Models\User;
 use App\Services\BusinessLimitService;
 use App\Support\BusinessAccess;
 use App\Support\BusinessMembershipData;
@@ -23,6 +23,8 @@ use Inertia\Response;
 
 class EmployeeController extends Controller
 {
+    use ResolvesBusinessCatalog;
+
     public function __construct(
         private readonly BusinessLimitService $limitService,
         private readonly BusinessAccess $businessAccess,
@@ -180,20 +182,6 @@ class EmployeeController extends Controller
         ]);
 
         return back();
-    }
-
-    private function currentBusiness(Request $request): Business
-    {
-        /** @var User $user */
-        $user = $request->user();
-        $membership = $user->activeBusinessMembership();
-
-        abort_unless(
-            $membership !== null && $membership->isAdmin() && $membership->business !== null,
-            403,
-        );
-
-        return $membership->business;
     }
 
     private function ensureSameBusiness(Business $business, BusinessUser $businessUser): void

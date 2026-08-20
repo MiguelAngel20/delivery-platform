@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     EmployeeForm
@@ -11,6 +11,7 @@ import {
     PageContainer,
     PageHeader,
 } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import admin from '@/routes/admin';
 import {
@@ -86,11 +87,7 @@ export default function AdminBusinessUsersEdit({
                         })}
                         submitLabel="Guardar cambios"
                         cancelSlot={
-                            <Button variant="outline" asChild>
-                                <Link href={usersIndex.url(business.id)}>
-                                    Volver
-                                </Link>
-                            </Button>
+                            <BackButton href={usersIndex.url(business.id)} />
                         }
                     />
                 </ContentCard>

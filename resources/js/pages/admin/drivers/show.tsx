@@ -1,7 +1,7 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { PageContainer, PageHeader } from '@/components/layout/page';
-import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/navigation/back-button';
 import { useAdminOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import admin from '@/routes/admin';
 import { index } from '@/routes/admin/drivers';
@@ -74,11 +74,7 @@ export default function AdminDriverShow({ driver }: Props) {
                 <PageHeader
                     title={driver.name ?? 'Repartidor'}
                     description={`${driver.email ?? ''} · ${driver.phone ?? ''}`}
-                    actions={
-                        <Button variant="outline" asChild>
-                            <Link href={index.url()}>Volver</Link>
-                        </Button>
-                    }
+                    actions={<BackButton href={index.url()} />}
                 />
 
                 <div className="grid gap-4 lg:grid-cols-2">

@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Enums\BusinessUserStatus;
 use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Models\BusinessUser;
@@ -13,15 +12,13 @@ final class BusinessAccess
 {
     public function activeMembership(User $user, ?Business $business = null): ?BusinessUser
     {
-        $query = $user->businessMemberships()
-            ->where('status', BusinessUserStatus::Active)
-            ->with(['business', 'branches']);
+        $membership = $user->activeBusinessMembership($business);
 
-        if ($business !== null) {
-            $query->where('business_id', $business->id);
+        if ($membership === null) {
+            return null;
         }
 
-        return $query->first();
+        return $membership->loadMissing(['business', 'branches']);
     }
 
     /**

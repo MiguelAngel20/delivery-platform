@@ -33,7 +33,7 @@ export function NavMain({
                                 tooltip={{ children: item.title }}
                                 className="data-[active=true]:bg-primary data-[active=true]:font-medium data-[active=true]:text-white data-[active=true]:hover:bg-primary-hover data-[active=true]:hover:text-white"
                             >
-                                <Link href={item.href} prefetch>
+                                <Link href={item.href} prefetch="hover">
                                     {item.icon ? <item.icon /> : null}
                                     <span>{item.title}</span>
                                 </Link>

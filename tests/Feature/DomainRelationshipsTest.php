@@ -83,20 +83,33 @@ test('driver can belong to business', function () {
         ->and($business->fresh()->drivers)->toHaveCount(1);
 });
 
-test('same user cannot be duplicated in same business', function () {
-    $user = User::factory()->businessAdmin()->create();
+test('driver can belong to a business branch', function () {
+    $driver = Driver::factory()->approved()->create();
     $business = Business::factory()->create();
     $branch = BusinessBranch::factory()->for($business)->create();
 
+    $driver->businesses()->attach($business->id);
+    $driver->branches()->attach($branch->id);
+
+    expect($driver->fresh()->branches)->toHaveCount(1)
+        ->and($branch->fresh()->drivers)->toHaveCount(1);
+});
+
+test('same user cannot belong to two businesses', function () {
+    $user = User::factory()->businessAdmin()->create();
+    $businessA = Business::factory()->create();
+    $branchA = BusinessBranch::factory()->for($businessA)->create();
+    $businessB = Business::factory()->create();
+
     BusinessUser::query()->create([
-        'business_id' => $business->id,
+        'business_id' => $businessA->id,
         'user_id' => $user->id,
         'role' => BusinessUserRole::BusinessAdmin,
         'status' => BusinessUserStatus::Active,
-    ])->branches()->sync([$branch->id]);
+    ])->branches()->sync([$branchA->id]);
 
     expect(fn () => BusinessUser::query()->create([
-        'business_id' => $business->id,
+        'business_id' => $businessB->id,
         'user_id' => $user->id,
         'role' => BusinessUserRole::BusinessEmployee,
         'status' => BusinessUserStatus::Active,

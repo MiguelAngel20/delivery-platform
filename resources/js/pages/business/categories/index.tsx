@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import {
@@ -12,9 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import business from '@/routes/business';
 import {
-    activate,
     create,
-    deactivate,
     edit,
     index,
 } from '@/routes/business/categories';
@@ -72,25 +71,15 @@ const columns: DataTableColumn<CategoryRow>[] = [
         header: 'Acciones',
         className: 'text-right',
         cell: (row) => (
-            <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" asChild>
-                    <Link href={edit.url(row.id)}>Editar</Link>
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                        router.post(
-                            row.is_active
-                                ? deactivate.url(row.id)
-                                : activate.url(row.id),
-                        )
-                    }
+            <Button variant="ghost" size="icon" className="size-8" asChild>
+                <Link
+                    href={edit.url(row.id)}
+                    aria-label={`Editar ${row.name}`}
+                    title="Editar"
                 >
-                    {row.is_active ? 'Desactivar' : 'Activar'}
-                </Button>
-            </div>
+                    <Pencil className="size-4" />
+                </Link>
+            </Button>
         ),
     },
 ];

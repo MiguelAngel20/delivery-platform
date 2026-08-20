@@ -204,7 +204,7 @@ class BusinessLimitService
 
         $branchUsage = $business->branches()
             ->orderBy('name')
-            ->get(['id', 'name'])
+            ->get(['id', 'name', 'business_id'])
             ->map(function (BusinessBranch $branch) use ($limits): array {
                 $used = $this->activeEmployeesOnBranch($branch);
 

@@ -52,12 +52,20 @@ final class OrderRealtimePublisher
 
             $this->notifications->statusChanged($order, $previous);
 
-            if (in_array($order->order_status, [
-                OrderStatus::Preparing,
-                OrderStatus::SearchingDriver,
-                OrderStatus::ReadyForPickup,
-            ], true) && $order->assigned_driver_id === null) {
-                $this->notifyEligibleDrivers($order, $payload);
+            if ($order->assigned_driver_id !== null) {
+                return;
+            }
+
+            $status = $order->order_status;
+
+            if ($status === OrderStatus::Preparing
+                || ($status === OrderStatus::SearchingDriver && $previous !== OrderStatus::Preparing)
+            ) {
+                $this->notifyEligibleDrivers($order, $payload, 'offer');
+            }
+
+            if ($status === OrderStatus::ReadyForPickup) {
+                $this->notifyEligibleDrivers($order, $payload, 'ready');
             }
         });
     }
@@ -90,11 +98,12 @@ final class OrderRealtimePublisher
 
     /**
      * @param  array<string, mixed>  $payload
+     * @param  'offer'|'ready'  $kind
      */
-    private function notifyEligibleDrivers(Order $order, array $payload): void
+    private function notifyEligibleDrivers(Order $order, array $payload, string $kind): void
     {
         $drivers = Driver::query()
-            ->with(['user', 'businesses'])
+            ->with(['user', 'businesses', 'branches'])
             ->where('approval_status', DriverApprovalStatus::Approved)
             ->whereIn('availability_status', [
                 DriverAvailabilityStatus::Available->value,
@@ -109,6 +118,13 @@ final class OrderRealtimePublisher
             }
 
             SafeBroadcast::event(new OrderAvailableToDriver($payload, $driver->id));
+
+            if ($kind === 'ready') {
+                $this->notifications->driverReady($order, $driver);
+
+                continue;
+            }
+
             $this->notifications->driverOffer($order, $driver);
         }
     }

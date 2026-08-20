@@ -26,6 +26,16 @@ function seedBusinessAdminWithBusiness(): array
     return compact('admin', 'business', 'branchA', 'branchB');
 }
 
+test('business admin receives validation errors when creating employee without required fields', function () {
+    ['admin' => $admin] = seedBusinessAdminWithBusiness();
+
+    $this->actingAs($admin)
+        ->from(route('business.employees.create'))
+        ->post(route('business.employees.store'), [])
+        ->assertSessionHasErrors(['first_name', 'last_name', 'email', 'phone', 'role', 'status', 'branch_ids'])
+        ->assertRedirect(route('business.employees.create'));
+});
+
 test('business admin can list employees', function () {
     ['admin' => $admin, 'business' => $business, 'branchA' => $branchA] = seedBusinessAdminWithBusiness();
 
@@ -70,6 +80,34 @@ test('business admin can create employee', function () {
     $response->assertRedirect(route('business.employees.edit', $membership));
 });
 
+test('employee limit counter updates after creating an employee', function () {
+    ['admin' => $admin, 'branchA' => $branchA] = seedBusinessAdminWithBusiness();
+
+    $this->actingAs($admin)
+        ->get(route('business.employees.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('limits.branch_employee_usage.0.used', 0));
+
+    $this->actingAs($admin)
+        ->post(route('business.employees.store'), [
+            'first_name' => 'Juan',
+            'last_name' => 'Pérez',
+            'email' => 'juan.empleado@ride.test',
+            'phone' => '+50255558888',
+            'role' => BusinessUserRole::BusinessEmployee->value,
+            'status' => BusinessUserStatus::Active->value,
+            'branch_ids' => [$branchA->id],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->get(route('business.employees.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('limits.branch_employee_usage.0.used', 1)
+            ->where('limits.branch_employee_usage.0.max', 3)
+            ->where('limits.branch_employee_usage.0.remaining', 2));
+});
+
 test('business admin can assign employee to branch', function () {
     ['admin' => $admin, 'business' => $business, 'branchA' => $branchA] = seedBusinessAdminWithBusiness();
 
@@ -96,7 +134,26 @@ test('business admin can assign employee to branch', function () {
     expect($membership->fresh()->branches)->toHaveCount(1);
 });
 
-test('business admin can assign employee to multiple branches within their branch scope', function () {
+test('business admin receives validation errors when updating employee without required fields', function () {
+    ['admin' => $admin, 'business' => $business, 'branchA' => $branchA] = seedBusinessAdminWithBusiness();
+
+    $employee = User::factory()->businessEmployee()->create();
+    $membership = BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $employee->id,
+        'role' => BusinessUserRole::BusinessEmployee,
+        'status' => BusinessUserStatus::Active,
+    ]);
+    $membership->branches()->sync([$branchA->id]);
+
+    $this->actingAs($admin)
+        ->from(route('business.employees.edit', $membership))
+        ->put(route('business.employees.update', $membership), [])
+        ->assertSessionHasErrors(['first_name', 'last_name', 'email', 'phone', 'role', 'status', 'branch_ids'])
+        ->assertRedirect(route('business.employees.edit', $membership));
+});
+
+test('business admin cannot assign employee to multiple branches', function () {
     ['admin' => $admin, 'business' => $business, 'branchA' => $branchA, 'branchB' => $branchB] = seedBusinessAdminWithBusiness();
 
     $employee = User::factory()->businessEmployee()->create();
@@ -203,11 +260,10 @@ test('employee business a cannot access branch business b', function () {
         ->and($employee->canAccessBranch($branchB))->toBeFalse();
 });
 
-test('business user belongs to business and user and can belong to many branches', function () {
+test('business user belongs to one business branch only', function () {
     $user = User::factory()->businessEmployee()->create();
     $business = Business::factory()->create();
-    $branchA = BusinessBranch::factory()->for($business)->create();
-    $branchB = BusinessBranch::factory()->for($business)->create();
+    $branch = BusinessBranch::factory()->for($business)->create();
 
     $membership = BusinessUser::query()->create([
         'business_id' => $business->id,
@@ -215,12 +271,12 @@ test('business user belongs to business and user and can belong to many branches
         'role' => BusinessUserRole::BusinessEmployee,
         'status' => BusinessUserStatus::Active,
     ]);
-    $membership->branches()->sync([$branchA->id, $branchB->id]);
+    $membership->branches()->sync([$branch->id]);
 
     expect($membership->business->is($business))->toBeTrue()
         ->and($membership->user->is($user))->toBeTrue()
-        ->and($membership->branches)->toHaveCount(2)
-        ->and($branchA->businessUsers()->where('business_users.id', $membership->id)->exists())->toBeTrue();
+        ->and($membership->branches)->toHaveCount(1)
+        ->and($branch->businessUsers()->where('business_users.id', $membership->id)->exists())->toBeTrue();
 });
 
 test('business employee context only includes assigned branches', function () {

@@ -75,6 +75,27 @@ class Driver extends Model
             ->using(DriverBusiness::class);
     }
 
+    public function branches(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            BusinessBranch::class,
+            'driver_business_branches',
+            'driver_id',
+            'branch_id',
+        )->withTimestamps();
+    }
+
+    public function isAssignedToBranch(int $branchId): bool
+    {
+        if ($this->relationLoaded('branches')) {
+            return $this->branches->contains(
+                fn (BusinessBranch $branch): bool => (int) $branch->id === $branchId,
+            );
+        }
+
+        return $this->branches()->whereKey($branchId)->exists();
+    }
+
     public function assignments(): HasMany
     {
         return $this->hasMany(DriverAssignment::class);

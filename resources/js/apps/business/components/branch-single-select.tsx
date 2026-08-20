@@ -36,7 +36,7 @@ export function BranchSingleSelect({
                             <label
                                 key={branch.id}
                                 className={cn(
-                                    'flex cursor-pointer items-center gap-2 rounded-md border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-navy',
+                                    'flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground',
                                     checked && 'border-primary bg-primary/5',
                                     disabled && 'cursor-not-allowed opacity-60',
                                 )}

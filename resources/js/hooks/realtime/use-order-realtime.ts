@@ -93,21 +93,45 @@ export function useBusinessOrderEvents({
     useRealtimeSync(reload, only);
 }
 
-export function useCustomerOrderEvents(customerId?: number | null, orderId?: number | null): void {
-    const only = ['order', 'orders'];
-    const reload = usePartialReload(only);
+type CustomerOrderEventOptions = {
+    only?: string[];
+    userId?: number | null;
+};
+
+export function useCustomerOrderEvents(
+    customerId?: number | null,
+    orderId?: number | null,
+    { only, userId = null }: CustomerOrderEventOptions = {},
+): void {
+    const reloadOnly =
+        only ?? (orderId != null ? ['order'] : ['activeOrders', 'historyOrders']);
+    const reload = usePartialReload(reloadOnly);
 
     usePrivateChannelEvents({
         channels: [
             customerId ? `customer.${customerId}` : null,
             orderId ? `order.${orderId}` : null,
         ],
-        events: ['.OrderStatusChanged', '.DriverAssigned', '.IncidentCreated', '.CustomOrderQuoteCreated', '.CustomOrderConverted'],
+        events: [
+            '.OrderCreated',
+            '.OrderStatusChanged',
+            '.DriverAssigned',
+            '.IncidentCreated',
+            '.CustomOrderQuoteCreated',
+            '.CustomOrderConverted',
+        ],
         enabled: Boolean(customerId || orderId),
         onEvent: () => reload(),
     });
 
-    useRealtimeSync(reload, only);
+    usePrivateChannelEvents({
+        channels: [userId ? `user.${userId}.notifications` : null],
+        events: ['.UnreadNotificationsUpdated'],
+        enabled: Boolean(userId),
+        onEvent: () => reload(),
+    });
+
+    useRealtimeSync(reload, reloadOnly);
 }
 
 type DriverOrderEventOptions = {

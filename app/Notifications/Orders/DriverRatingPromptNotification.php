@@ -17,12 +17,12 @@ final class DriverRatingPromptNotification extends RideNotification
 
     public function title(): string
     {
-        return '¿Cómo estuvo tu repartidor?';
+        return 'Califica a tu repartidor';
     }
 
     public function body(): string
     {
-        return 'Califica tu entrega.';
+        return 'Aún puedes calificar al repartidor de tu pedido #'.$this->order->order_number.'.';
     }
 
     public function dedupeKey(): ?string

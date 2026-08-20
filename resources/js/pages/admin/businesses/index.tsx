@@ -6,7 +6,7 @@ import {
     
     
 } from '@/apps/admin/businesses/types';
-import type {BusinessFormOptions, BusinessListItem, Paginated} from '@/apps/admin/businesses/types';
+import type {BusinessFilterOptions, BusinessListItem, Paginated} from '@/apps/admin/businesses/types';
 import {
     DataTable
     
@@ -29,7 +29,7 @@ type Filters = {
 type Props = {
     businesses: Paginated<BusinessListItem>;
     filters: Filters;
-    options: BusinessFormOptions;
+    options: BusinessFilterOptions;
 };
 
 const columns: DataTableColumn<BusinessListItem>[] = [
@@ -124,7 +124,7 @@ export default function AdminBusinessesIndex({
         }, 300);
 
         return () => window.clearTimeout(timeout);
-    }, [search, filters]);
+    }, [search, filters.search, filters.status, filters.operation_mode, filters.delivery_mode]);
 
     return (
         <>

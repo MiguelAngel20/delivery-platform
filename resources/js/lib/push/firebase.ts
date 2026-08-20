@@ -6,6 +6,7 @@ import {
     onMessage,
     type Messaging,
 } from 'firebase/messaging';
+import { showBrowserNotification } from '@/lib/push/browser-notification';
 
 export type PushWebConfig = {
     apiKey: string;
@@ -109,8 +110,7 @@ export async function requestFcmToken(
 }
 
 /**
- * Foreground FCM handler. Does not show OS notifications when the tab is visible
- * (Reverb already updates the UI). Returns an unsubscribe fn.
+ * Foreground FCM handler. Returns an unsubscribe fn.
  */
 export async function listenForegroundMessages(
     config: PushWebConfig,
@@ -127,13 +127,18 @@ export async function listenForegroundMessages(
     }
 
     return onMessage(instance, (payload) => {
-        if (document.visibilityState === 'visible') {
-            return;
+        const title =
+            payload.notification?.title || payload.data?.title || undefined;
+        const body =
+            payload.notification?.body || payload.data?.body || undefined;
+
+        if (title) {
+            void showBrowserNotification(title, body);
         }
 
         onPayload({
-            title: payload.notification?.title,
-            body: payload.notification?.body,
+            title,
+            body,
             data: payload.data as Record<string, string> | undefined,
         });
     });

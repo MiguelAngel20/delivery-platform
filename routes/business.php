@@ -1,14 +1,19 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\Web\Business\BranchController;
+use App\Http\Controllers\Web\Business\BusinessProfileController;
 use App\Http\Controllers\Web\Business\CategoryController;
+use App\Http\Controllers\Web\Business\DriverController;
 use App\Http\Controllers\Web\Business\EmployeeController;
 use App\Http\Controllers\Web\Business\FinanceController;
 use App\Http\Controllers\Web\Business\HomeController;
 use App\Http\Controllers\Web\Business\OrderController;
 use App\Http\Controllers\Web\Business\ProductController;
 use App\Http\Controllers\Web\Business\PromotionController;
+use App\Http\Controllers\Web\Business\SettingsController;
 use App\Http\Controllers\Web\Business\UpgradeRequestController;
+use App\Http\Controllers\Web\Notifications\NotificationPreferencesController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware([
@@ -54,11 +59,23 @@ Route::middleware([
             Route::post('promotions/{promotion}/activate', [PromotionController::class, 'activate'])->name('promotions.activate');
             Route::post('promotions/{promotion}/archive', [PromotionController::class, 'archive'])->name('promotions.archive');
 
-            Route::inertia('settings', 'business/settings/index')->name('settings.index');
-            Route::get('settings/notifications', [\App\Http\Controllers\Web\Notifications\NotificationPreferencesController::class, 'edit'])
+            Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
+            Route::get('settings/business', [BusinessProfileController::class, 'edit'])->name('settings.business.edit');
+            Route::post('settings/business', [BusinessProfileController::class, 'update'])->name('settings.business.update');
+            Route::get('settings/branches', [BranchController::class, 'index'])->name('settings.branches.index');
+            Route::get('settings/branches/{branch}/edit', [BranchController::class, 'edit'])->name('settings.branches.edit');
+            Route::put('settings/branches/{branch}', [BranchController::class, 'update'])->name('settings.branches.update');
+            Route::get('settings/notifications', [NotificationPreferencesController::class, 'edit'])
                 ->name('settings.notifications.edit');
-            Route::put('settings/notifications', [\App\Http\Controllers\Web\Notifications\NotificationPreferencesController::class, 'update'])
+            Route::put('settings/notifications', [NotificationPreferencesController::class, 'update'])
                 ->name('settings.notifications.update');
+
+            Route::get('drivers', [DriverController::class, 'index'])->name('drivers.index');
+            Route::get('drivers/create', [DriverController::class, 'create'])->name('drivers.create');
+            Route::post('drivers', [DriverController::class, 'store'])->name('drivers.store');
+            Route::get('drivers/{driver}/edit', [DriverController::class, 'edit'])->name('drivers.edit');
+            Route::put('drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
+            Route::delete('drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
 
             Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
             Route::get('employees/create', [EmployeeController::class, 'create'])->name('employees.create');

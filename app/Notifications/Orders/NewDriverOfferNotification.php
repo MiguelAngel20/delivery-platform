@@ -18,14 +18,19 @@ final class NewDriverOfferNotification extends RideNotification
 
     public function title(): string
     {
-        return 'Nuevo pedido disponible';
+        return 'Nuevo pedido';
     }
 
     public function body(): string
     {
-        $name = $this->order->merchantDisplayName() ?: 'Establecimiento';
+        $name = $this->order->merchantDisplayName() ?: 'un restaurante';
+        $minutes = $this->order->estimated_preparation_minutes;
 
-        return $name;
+        if ($minutes !== null && $minutes > 0) {
+            return "Nuevo pedido en {$name} en {$minutes} minutos.";
+        }
+
+        return "Nuevo pedido en {$name}.";
     }
 
     public function priority(): NotificationPriority

@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Http\Controllers\Web\Admin\BusinessBranchController;
 use App\Http\Controllers\Web\Admin\BusinessController;
+use App\Http\Controllers\Web\Admin\BusinessDriverController;
 use App\Http\Controllers\Web\Admin\BusinessLimitController;
 use App\Http\Controllers\Web\Admin\BusinessUpgradeRequestController;
 use App\Http\Controllers\Web\Admin\BusinessUserController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Web\Admin\FinanceController;
 use App\Http\Controllers\Web\Admin\HomeController;
 use App\Http\Controllers\Web\Admin\IncidentController;
 use App\Http\Controllers\Web\Admin\OrderController;
+use App\Http\Controllers\Web\Notifications\NotificationPreferencesController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware([
@@ -64,6 +66,19 @@ Route::middleware([
             ->name('businesses.users.deactivate');
         Route::post('businesses/{business}/users/{businessUser}/activate', [BusinessUserController::class, 'activate'])
             ->name('businesses.users.activate');
+
+        Route::get('businesses/{business}/drivers', [BusinessDriverController::class, 'index'])
+            ->name('businesses.drivers.index');
+        Route::get('businesses/{business}/drivers/create', [BusinessDriverController::class, 'create'])
+            ->name('businesses.drivers.create');
+        Route::post('businesses/{business}/drivers', [BusinessDriverController::class, 'store'])
+            ->name('businesses.drivers.store');
+        Route::get('businesses/{business}/drivers/{driver}/edit', [BusinessDriverController::class, 'edit'])
+            ->name('businesses.drivers.edit');
+        Route::put('businesses/{business}/drivers/{driver}', [BusinessDriverController::class, 'update'])
+            ->name('businesses.drivers.update');
+        Route::delete('businesses/{business}/drivers/{driver}', [BusinessDriverController::class, 'destroy'])
+            ->name('businesses.drivers.destroy');
 
         Route::put('businesses/{business}/limits', [BusinessLimitController::class, 'update'])
             ->name('businesses.limits.update');
@@ -127,8 +142,8 @@ Route::middleware([
         Route::inertia('promotions', 'admin/promotions/index')->name('promotions.index');
         Route::inertia('reports', 'admin/reports/index')->name('reports.index');
         Route::inertia('settings', 'admin/settings/index')->name('settings.index');
-        Route::get('settings/notifications', [\App\Http\Controllers\Web\Notifications\NotificationPreferencesController::class, 'edit'])
+        Route::get('settings/notifications', [NotificationPreferencesController::class, 'edit'])
             ->name('settings.notifications.edit');
-        Route::put('settings/notifications', [\App\Http\Controllers\Web\Notifications\NotificationPreferencesController::class, 'update'])
+        Route::put('settings/notifications', [NotificationPreferencesController::class, 'update'])
             ->name('settings.notifications.update');
     });

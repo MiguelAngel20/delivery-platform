@@ -14,6 +14,7 @@ import {
     PageContainer,
     PageHeader,
 } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +35,11 @@ import {
     edit as editBusinessUser,
     index as businessUsersIndex,
 } from '@/routes/admin/businesses/users';
+import {
+    create as createBusinessDriver,
+    edit as editBusinessDriver,
+    index as businessDriversIndex,
+} from '@/routes/admin/businesses/drivers';
 
 type Props = {
     business: BusinessDetail;
@@ -104,9 +110,7 @@ export default function AdminBusinessesShow({
                     title={business.name}
                     actions={
                         <>
-                            <Button variant="outline" asChild>
-                                <Link href={index.url()}>Volver</Link>
-                            </Button>
+                            <BackButton href={index.url()} />
                             <Button asChild>
                                 <Link href={edit.url(business.id)}>Editar</Link>
                             </Button>
@@ -421,6 +425,116 @@ export default function AdminBusinessesShow({
                         </div>
                     )}
                 </ContentCard>
+
+                {business.delivery_mode === 'own_drivers' ||
+                business.delivery_mode === 'hybrid' ? (
+                    <ContentCard
+                        title="Repartidores propios"
+                        actions={
+                            <>
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link
+                                        href={businessDriversIndex.url(
+                                            business.id,
+                                        )}
+                                    >
+                                        Ver todos
+                                    </Link>
+                                </Button>
+                                <Button size="sm" asChild>
+                                    <Link
+                                        href={createBusinessDriver.url(
+                                            business.id,
+                                        )}
+                                    >
+                                        + Agregar repartidor
+                                    </Link>
+                                </Button>
+                            </>
+                        }
+                    >
+                        {(business.drivers ?? []).length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                Asigna repartidores por sucursal. Solo
+                                recibirán pedidos de las sucursales que les
+                                indiques.
+                            </p>
+                        ) : (
+                            <div className="overflow-x-auto rounded-lg border border-[#E2E8F0]">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-[#F8FAFC] text-left text-[#64748B]">
+                                        <tr>
+                                            <th className="px-4 py-3 font-medium">
+                                                Nombre
+                                            </th>
+                                            <th className="px-4 py-3 font-medium">
+                                                Correo
+                                            </th>
+                                            <th className="px-4 py-3 font-medium">
+                                                Sucursales
+                                            </th>
+                                            <th className="px-4 py-3 font-medium">
+                                                Disponibilidad
+                                            </th>
+                                            <th className="px-4 py-3 text-right font-medium">
+                                                Acciones
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {business.drivers.map((driver) => (
+                                            <tr
+                                                key={driver.id}
+                                                className="border-t border-[#E2E8F0]"
+                                            >
+                                                <td className="px-4 py-3 font-medium">
+                                                    {driver.user?.name ?? '—'}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {driver.user?.email}
+                                                </td>
+                                                <td className="px-4 py-3 text-[#475569]">
+                                                    {driver.branches.length > 0
+                                                        ? driver.branches
+                                                              .map(
+                                                                  (branch) =>
+                                                                      branch.name,
+                                                              )
+                                                              .join(', ')
+                                                        : '—'}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {
+                                                        driver.availability_status_label
+                                                    }
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        asChild
+                                                    >
+                                                        <Link
+                                                            href={editBusinessDriver.url(
+                                                                {
+                                                                    business:
+                                                                        business.id,
+                                                                    driver: driver.id,
+                                                                },
+                                                            )}
+                                                        >
+                                                            Editar
+                                                        </Link>
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </ContentCard>
+                ) : null}
 
                 <ContentCard title="Límites / Plan">
                     <div className="mb-4 grid gap-3 sm:grid-cols-3">

@@ -21,9 +21,15 @@ final class BroadcastUnreadNotificationCount
             return;
         }
 
+        $latest = $notifiable->unreadNotifications()->latest()->first();
+        $data = is_array($latest?->data) ? $latest->data : [];
+
         SafeBroadcast::event(new UnreadNotificationsUpdated(
             $notifiable->id,
             $notifiable->unreadNotifications()->count(),
+            isset($data['title']) && is_string($data['title']) ? $data['title'] : null,
+            isset($data['body']) && is_string($data['body']) ? $data['body'] : null,
+            $latest?->id,
         ));
     }
 }

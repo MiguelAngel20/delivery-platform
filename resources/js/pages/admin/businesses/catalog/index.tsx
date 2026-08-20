@@ -5,6 +5,7 @@ import {
     PageContainer,
     PageHeader,
 } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 
 type Props = {
@@ -23,11 +24,9 @@ export default function AdminCatalogIndex({ business }: Props) {
                     title={`Catálogo · ${business.name}`}
                     description="Administración PLATFORM_OPERATED"
                     actions={
-                        <Button variant="outline" asChild>
-                            <Link href={`/admin/businesses/${business.id}`}>
-                                Volver
-                            </Link>
-                        </Button>
+                        <BackButton
+                            href={`/admin/businesses/${business.id}`}
+                        />
                     }
                 />
                 <div className="grid gap-4 md:grid-cols-3">

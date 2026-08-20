@@ -70,7 +70,7 @@ export default function BusinessUpgradeRequestsIndex({
                                         onChange={(event) =>
                                             setType(event.target.value)
                                         }
-                                        className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs"
+                                        className="border-input bg-background text-foreground h-9 w-full rounded-md border px-3 text-sm shadow-xs"
                                         required
                                     >
                                         {options.types.map((option) => (
@@ -109,7 +109,7 @@ export default function BusinessUpgradeRequestsIndex({
                                             id="branch_id"
                                             name="branch_id"
                                             required
-                                            className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs"
+                                            className="border-input bg-background text-foreground h-9 w-full rounded-md border px-3 text-sm shadow-xs"
                                             defaultValue=""
                                         >
                                             <option value="" disabled>
@@ -158,9 +158,9 @@ export default function BusinessUpgradeRequestsIndex({
                             {requests.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="rounded-lg border border-[#E2E8F0] px-4 py-3"
+                                    className="rounded-lg border border-border px-4 py-3"
                                 >
-                                    <p className="font-medium text-navy">
+                                    <p className="font-medium text-foreground">
                                         {item.type_label} · +
                                         {item.requested_quantity}
                                     </p>

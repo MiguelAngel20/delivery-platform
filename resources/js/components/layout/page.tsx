@@ -40,11 +40,11 @@ export function PageHeader({
             )}
         >
             <div className="space-y-1">
-                <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] md:text-3xl">
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
                     {title}
                 </h1>
                 {description ? (
-                    <p className="max-w-2xl text-sm text-[#64748B]">
+                    <p className="max-w-2xl text-sm text-muted-foreground">
                         {description}
                     </p>
                 ) : null}
@@ -108,20 +108,20 @@ export function ContentCard({
     return (
         <div
             className={cn(
-                'rounded-xl border border-[#E2E8F0] bg-white text-[#0F172A] shadow-sm',
+                'rounded-xl border border-border bg-surface text-foreground shadow-sm',
                 className,
             )}
         >
             {(title || actions) && (
-                <div className="flex items-start justify-between gap-3 border-b border-[#E2E8F0] px-4 py-4 md:px-5">
+                <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-4 md:px-5">
                     <div className="space-y-0.5">
                         {title ? (
-                            <h2 className="text-base font-semibold text-[#0F172A]">
+                            <h2 className="text-base font-semibold text-foreground">
                                 {title}
                             </h2>
                         ) : null}
                         {description ? (
-                            <p className="text-sm text-[#64748B]">
+                            <p className="text-sm text-muted-foreground">
                                 {description}
                             </p>
                         ) : null}

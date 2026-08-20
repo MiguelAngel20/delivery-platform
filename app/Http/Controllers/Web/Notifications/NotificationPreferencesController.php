@@ -34,6 +34,7 @@ class NotificationPreferencesController extends Controller
             'editable_keys' => $preferences->editableKeysForRole($user->role),
             'role' => $user->role->value,
             'update_url' => $this->updateUrlForRole($user->role),
+            'back_href' => $this->backHrefForRole($user->role),
         ]);
     }
 
@@ -63,6 +64,15 @@ class NotificationPreferencesController extends Controller
             UserRole::Driver => route('driver.profile.notifications.update'),
             UserRole::BusinessAdmin, UserRole::BusinessEmployee => route('business.settings.notifications.update'),
             UserRole::SystemAdmin => route('admin.settings.notifications.update'),
+        };
+    }
+
+    private function backHrefForRole(UserRole $role): ?string
+    {
+        return match ($role) {
+            UserRole::BusinessAdmin => route('business.settings.index'),
+            UserRole::SystemAdmin => route('admin.settings.index'),
+            default => null,
         };
     }
 }

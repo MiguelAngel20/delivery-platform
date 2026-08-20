@@ -1,7 +1,8 @@
-import { Form, Head, Link, useForm } from '@inertiajs/react';
+import { Form, Head, useForm } from '@inertiajs/react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { FormField } from '@/components/forms/form-field';
 import { ContentCard, PageContainer, PageHeader } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { AddressPicker } from '@/components/maps/address-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,11 +82,7 @@ export default function AdminCustomOrderShow({
                 <PageHeader
                     title={`Solicitud #${request.id}`}
                     description={request.customer.name ?? 'Cliente'}
-                    actions={
-                        <Button variant="outline" asChild>
-                            <Link href={index.url()}>Volver</Link>
-                        </Button>
-                    }
+                    actions={<BackButton href={index.url()} />}
                 />
 
                 <StatusBadge tone="primary">{request.status_label}</StatusBadge>

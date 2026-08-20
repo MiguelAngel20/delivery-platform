@@ -31,16 +31,16 @@ export function AppTopbar({
     return (
         <header
             className={cn(
-                'sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-[#E2E8F0] bg-white px-4 md:px-6',
+                'sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4 text-foreground md:px-6',
                 className,
             )}
         >
             <div className="flex min-w-0 items-center gap-2">
                 {showSidebarTrigger ? (
-                    <SidebarTrigger className="-ml-1 text-navy" />
+                    <SidebarTrigger className="-ml-1 text-foreground" />
                 ) : null}
                 {pageTitle ? (
-                    <h1 className="truncate text-base font-semibold text-navy">
+                    <h1 className="truncate text-base font-semibold text-foreground">
                         {pageTitle}
                     </h1>
                 ) : null}

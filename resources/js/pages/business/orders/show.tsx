@@ -1,8 +1,9 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer, PageHeader } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { OrderActionDialog } from '@/components/orders/order-action-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -100,11 +101,7 @@ export default function BusinessOrderShow({
                 <PageHeader
                     title={`#${order.order_number}`}
                     description={`${order.customer.name ?? 'Cliente'} · ${order.restaurant.branch_name ?? ''}`}
-                    actions={
-                        <Button variant="outline" asChild>
-                            <Link href={index.url()}>Volver</Link>
-                        </Button>
-                    }
+                    actions={<BackButton href={index.url()} />}
                 />
 
                 <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -119,8 +116,8 @@ export default function BusinessOrderShow({
                 </div>
 
                 {order.cancellation ? (
-                    <section className="mb-4 rounded-xl border border-border bg-white p-4 text-sm">
-                        <h2 className="font-semibold text-navy">Cancelación</h2>
+                    <section className="mb-4 rounded-xl border border-border bg-surface p-4 text-sm">
+                        <h2 className="font-semibold text-foreground">Cancelación</h2>
                         <p className="mt-1 text-muted-foreground">
                             {order.cancellation.cancelled_by_type_label} ·{' '}
                             {order.cancellation.reason_code_label}
@@ -129,8 +126,8 @@ export default function BusinessOrderShow({
                 ) : null}
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <section className="space-y-3 rounded-xl border border-border bg-white p-4">
-                        <h2 className="font-semibold text-navy">Productos</h2>
+                    <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
+                        <h2 className="font-semibold text-foreground">Productos</h2>
                         <ul className="space-y-3 text-sm">
                             {order.items.map((item) => (
                                 <li key={item.id} className="space-y-1">
@@ -145,7 +142,7 @@ export default function BusinessOrderShow({
                                     {item.options.map((option, index) => (
                                         <p
                                             key={`${item.id}-${index}`}
-                                            className="text-xs font-medium text-orange-600"
+                                            className="text-xs font-medium text-primary"
                                         >
                                             {option.display}
                                         </p>
@@ -158,7 +155,7 @@ export default function BusinessOrderShow({
                                 </li>
                             ))}
                         </ul>
-                        <p className="border-t border-border pt-3 text-sm text-navy">
+                        <p className="border-t border-border pt-3 text-sm text-foreground">
                             <span className="flex justify-between gap-3">
                                 <span>Productos</span>
                                 <span>
@@ -205,9 +202,9 @@ export default function BusinessOrderShow({
                         </div>
                     </section>
 
-                    <section className="space-y-4 rounded-xl border border-border bg-white p-4">
+                    <section className="space-y-4 rounded-xl border border-border bg-surface p-4">
                         <div>
-                            <h2 className="font-semibold text-navy">Entrega</h2>
+                            <h2 className="font-semibold text-foreground">Entrega</h2>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {order.delivery_address?.address_text}
                             </p>
@@ -224,7 +221,7 @@ export default function BusinessOrderShow({
                                 completados
                             </p>
                             {order.driver ? (
-                                <p className="mt-2 text-sm font-medium text-navy">
+                                <p className="mt-2 text-sm font-medium text-foreground">
                                     Repartidor asignado: {order.driver.name}
                                 </p>
                             ) : (
@@ -238,7 +235,7 @@ export default function BusinessOrderShow({
                         order.actions.business_can_reject ? (
                             <>
                                 <div className="space-y-2">
-                                    <h3 className="text-sm font-medium text-navy">
+                                    <h3 className="text-sm font-medium text-foreground">
                                         Tiempo estimado (min)
                                     </h3>
                                     <div className="flex flex-wrap gap-2">

@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { EmployeeFormOptions } from '@/apps/business/components/employee-form';
 import {
@@ -108,8 +109,14 @@ const columns: DataTableColumn<EmployeeRow>[] = [
         header: 'Acciones',
         className: 'text-right',
         cell: (row) => (
-            <Button variant="ghost" size="sm" asChild>
-                <Link href={edit.url(row.id)}>Editar</Link>
+            <Button variant="ghost" size="icon" className="size-8" asChild>
+                <Link
+                    href={edit.url(row.id)}
+                    aria-label={`Editar ${row.user.name}`}
+                    title="Editar"
+                >
+                    <Pencil className="size-4" />
+                </Link>
             </Button>
         ),
     },

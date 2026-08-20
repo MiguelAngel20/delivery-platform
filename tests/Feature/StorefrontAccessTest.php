@@ -4,6 +4,8 @@ use App\Enums\BusinessStatus;
 use App\Enums\PromotionStatus;
 use App\Models\Business;
 use App\Models\BusinessBranch;
+use App\Models\Product;
+use App\Models\ProductPrice;
 use App\Models\Promotion;
 use App\Models\User;
 
@@ -118,6 +120,29 @@ test('driver cannot open customer checkout', function () {
     $this->actingAs($user)
         ->get(route('customer.checkout'))
         ->assertForbidden();
+});
+
+test('guests can fetch a storefront product for cart editing', function () {
+    $business = Business::factory()->create([
+        'status' => BusinessStatus::Active,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+    $product = Product::factory()->create([
+        'branch_id' => $branch->id,
+        'is_active' => true,
+        'is_available' => true,
+    ]);
+    ProductPrice::factory()->create([
+        'product_id' => $product->id,
+        'list_price' => 99,
+        'is_active' => true,
+    ]);
+
+    $this->getJson(route('cart.products.show', $product))
+        ->assertOk()
+        ->assertJsonPath('product.id', $product->id)
+        ->assertJsonPath('branch_id', $branch->id)
+        ->assertJsonPath('restaurant.slug', $business->slug);
 });
 
 test('guests are redirected from customer pages', function () {

@@ -76,6 +76,7 @@ function seedBusinessOnlyDriver(Business $business): array
         'availability_status' => DriverAvailabilityStatus::Available,
     ]);
     $driver->businesses()->sync([$business->id]);
+    $driver->branches()->sync($business->branches()->pluck('id')->all());
 
     return compact('user', 'driver');
 }
@@ -309,6 +310,25 @@ test('second http accept fails cleanly for taken order', function () {
         ->post(route('driver.orders.accept', $order))
         ->assertRedirect(route('driver.orders.index'))
         ->assertSessionHasErrors('order');
+});
+
+test('business only driver only sees orders from assigned branches', function () {
+    ['business' => $business, 'branch' => $branchA] = seedDispatchBusiness(BusinessDeliveryMode::OwnDrivers);
+    $branchB = BusinessBranch::factory()->for($business)->create();
+    ['driver' => $driver] = seedBusinessOnlyDriver($business);
+    $driver->branches()->sync([$branchA->id]);
+
+    $visible = seedDispatchOrder($branchA);
+    seedDispatchOrder($branchB);
+
+    $orders = app(AvailableOrdersQuery::class)->forDriver($driver->fresh(['businesses', 'branches']));
+
+    expect($orders)->toHaveCount(1)
+        ->and($orders->first()?->id)->toBe($visible->id);
+
+    $eligibility = app(DriverEligibilityService::class);
+    expect($eligibility->isDriverEligibleForOrder($driver->fresh(['user', 'businesses', 'branches']), $visible))->toBeTrue()
+        ->and($eligibility->isDriverEligibleForOrder($driver->fresh(['user', 'businesses', 'branches']), seedDispatchOrder($branchB)))->toBeFalse();
 });
 
 test('business accept then driver full happy path', function () {

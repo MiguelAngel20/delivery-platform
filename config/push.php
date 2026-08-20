@@ -30,7 +30,7 @@ return [
         'default_seconds' => (int) env('PUSH_DEFAULT_TTL', 86400),
     ],
 
-    'rating_prompt_delay_minutes' => (int) env('PUSH_RATING_PROMPT_DELAY_MINUTES', 5),
+    'rating_prompt_delay_minutes' => (int) env('PUSH_RATING_PROMPT_DELAY_MINUTES', 1440),
 
     'dedupe_ttl_seconds' => (int) env('PUSH_DEDUPE_TTL', 120),
 

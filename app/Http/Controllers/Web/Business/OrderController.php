@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Web\Business;
 use App\Actions\Orders\AcceptBusinessOrder;
 use App\Actions\Orders\MarkOrderReady;
 use App\Actions\Orders\RejectBusinessOrder;
-use App\Enums\BusinessOperationMode;
 use App\Enums\CancellationReasonCode;
 use App\Enums\IncidentType;
 use App\Enums\OrderStatus;
@@ -13,6 +12,7 @@ use App\Enums\OrderType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Business\AcceptOrderRequest;
 use App\Http\Requests\Business\CancelOrderRequest;
+use App\Http\Requests\Business\IndexBusinessOrderRequest;
 use App\Http\Requests\Business\RejectOrderRequest;
 use App\Http\Requests\Business\ReportIncidentRequest;
 use App\Models\Order;
@@ -23,6 +23,7 @@ use App\Support\BusinessAccess;
 use App\Support\OrderData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,23 +33,26 @@ class OrderController extends Controller
         private readonly BusinessAccess $businessAccess,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(IndexBusinessOrderRequest $request): Response
     {
-        $this->authorize('viewAny', Order::class);
+        $filters = $request->validated();
 
         /** @var User $user */
         $user = $request->user();
         $branchIds = $this->businessAccess->accessibleBranches($user)->pluck('id');
 
+        $from = Carbon::parse($filters['from'])->startOfDay();
+        $to = Carbon::parse($filters['to'])->endOfDay();
+
         $orders = Order::query()
             ->whereIn('branch_id', $branchIds)
             ->where('type', OrderType::Business)
-            ->where('operation_mode', BusinessOperationMode::Partner)
+            ->whereBetween('created_at', [$from, $to])
             ->with(['branch.business', 'customer.user', 'items.options'])
             ->when(
-                filled($request->string('search')->toString()),
-                function ($query) use ($request): void {
-                    $search = $request->string('search')->toString();
+                filled($filters['search'] ?? null),
+                function ($query) use ($filters): void {
+                    $search = $filters['search'];
                     $query->where(function ($inner) use ($search): void {
                         $inner->where('order_number', 'like', "%{$search}%")
                             ->orWhereHas('customer.user', fn ($userQuery) => $userQuery
@@ -57,10 +61,11 @@ class OrderController extends Controller
                 },
             )
             ->when(
-                filled($request->input('status')),
-                fn ($query) => $query->where('order_status', $request->string('status')->toString()),
+                filled($filters['status'] ?? null),
+                fn ($query) => $query->where('order_status', $filters['status']),
             )
-            ->latest()
+            ->orderByBusinessListPriority()
+            ->latest('created_at')
             ->paginate(20)
             ->withQueryString()
             ->through(fn (Order $order): array => OrderData::transform($order));
@@ -68,7 +73,6 @@ class OrderController extends Controller
         $newCount = Order::query()
             ->whereIn('branch_id', $branchIds)
             ->where('type', OrderType::Business)
-            ->where('operation_mode', BusinessOperationMode::Partner)
             ->where('order_status', OrderStatus::PendingBusiness)
             ->count();
 
@@ -76,8 +80,10 @@ class OrderController extends Controller
             'orders' => $orders,
             'newCount' => $newCount,
             'filters' => [
-                'search' => $request->string('search')->toString(),
-                'status' => $request->input('status', ''),
+                'search' => $filters['search'] ?? '',
+                'status' => $filters['status'] ?? '',
+                'from' => $from->toDateString(),
+                'to' => Carbon::parse($filters['to'])->toDateString(),
             ],
             'statusOptions' => collect(OrderStatus::cases())
                 ->filter(fn (OrderStatus $status) => in_array($status, [

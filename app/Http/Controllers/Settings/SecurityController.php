@@ -34,7 +34,7 @@ class SecurityController extends Controller
             'must_change_password' => false,
         ]);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Password updated.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Contraseña actualizada.']);
 
         return back();
     }

@@ -1,9 +1,10 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { consumePendingCartClear } from '@/apps/storefront/cart/use-storefront-cart';
 import { OrderStatusTimeline } from '@/apps/storefront/components/order-status-timeline';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { PageContainer } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { DriverRatingForm } from '@/components/orders/driver-rating-form';
 import { OrderActionDialog } from '@/components/orders/order-action-dialog';
 import { Button } from '@/components/ui/button';
@@ -67,7 +68,8 @@ type Props = {
 };
 
 export default function CustomerOrderShow({ order }: Props) {
-    const { realtime } = usePage().props as {
+    const { auth, realtime } = usePage().props as {
+        auth: Auth;
         realtime?: { customer_id?: number | null };
     };
     const [dialog, setDialog] = useState<'cancel' | 'report' | null>(null);
@@ -76,7 +78,10 @@ export default function CustomerOrderShow({ order }: Props) {
         consumePendingCartClear();
     }, []);
 
-    useCustomerOrderEvents(realtime?.customer_id, order.id);
+    useCustomerOrderEvents(realtime?.customer_id, order.id, {
+        only: ['order'],
+        userId: auth.user?.id,
+    });
 
     return (
         <>
@@ -238,9 +243,10 @@ export default function CustomerOrderShow({ order }: Props) {
                             Necesito ayuda / Reportar problema
                         </Button>
                     ) : null}
-                    <Button variant="outline" asChild>
-                        <Link href={index.url()}>Volver a mis pedidos</Link>
-                    </Button>
+                    <BackButton
+                        href={index.url()}
+                        label="Volver a mis pedidos"
+                    />
                 </div>
             </PageContainer>
 

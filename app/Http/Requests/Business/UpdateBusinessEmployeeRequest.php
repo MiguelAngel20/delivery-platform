@@ -6,11 +6,14 @@ use App\Enums\BusinessUserRole;
 use App\Enums\BusinessUserStatus;
 use App\Models\Business;
 use App\Models\BusinessUser;
+use App\Support\Businesses\EmployeeFormValidation;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateBusinessEmployeeRequest extends FormRequest
 {
+    use EmployeeFormValidation;
+
     public function authorize(): bool
     {
         /** @var BusinessUser $businessUser */
@@ -36,23 +39,13 @@ class UpdateBusinessEmployeeRequest extends FormRequest
             'phone' => ['required', 'string', 'max:30'],
             'role' => ['required', Rule::enum(BusinessUserRole::class)],
             'status' => ['required', Rule::enum(BusinessUserStatus::class)],
-            'branch_ids' => ['nullable', 'array'],
+            'branch_ids' => ['required', 'array', 'size:1'],
             'branch_ids.*' => [
                 'integer',
                 Rule::exists('business_branches', 'id')
                     ->where('business_id', $business->id)
                     ->whereNull('deleted_at'),
             ],
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return [
-            'branch_ids.*.exists' => 'Una o más sucursales no pertenecen a tu empresa.',
         ];
     }
 }

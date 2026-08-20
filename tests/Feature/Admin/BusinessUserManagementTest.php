@@ -82,33 +82,23 @@ test('system admin can create business admin', function () {
         ->and($membership?->branches->first()?->id)->toBe($branch->id);
 });
 
-test('system admin can assign employee to multiple branches', function () {
+test('system admin cannot assign employee to multiple branches', function () {
     $admin = User::factory()->systemAdmin()->create();
     $business = Business::factory()->create();
     $branchA = BusinessBranch::factory()->for($business)->create();
     $branchB = BusinessBranch::factory()->for($business)->create();
-    $employee = User::factory()->businessEmployee()->create();
-
-    $membership = BusinessUser::query()->create([
-        'business_id' => $business->id,
-        'user_id' => $employee->id,
-        'role' => BusinessUserRole::BusinessEmployee,
-        'status' => BusinessUserStatus::Active,
-    ]);
 
     $this->actingAs($admin)
-        ->put(route('admin.businesses.users.update', [$business, $membership]), [
-            'first_name' => $employee->first_name,
-            'last_name' => $employee->last_name,
-            'email' => $employee->email,
-            'phone' => $employee->phone,
+        ->post(route('admin.businesses.users.store', $business), [
+            'first_name' => 'Multi',
+            'last_name' => 'Sucursal',
+            'email' => 'multi.sucursal@ride.test',
+            'phone' => '+50255557720',
             'role' => BusinessUserRole::BusinessEmployee->value,
             'status' => BusinessUserStatus::Active->value,
             'branch_ids' => [$branchA->id, $branchB->id],
         ])
-        ->assertRedirect();
-
-    expect($membership->fresh()->branches)->toHaveCount(2);
+        ->assertSessionHasErrors('branch_ids');
 });
 
 test('system admin can change employee branches', function () {

@@ -1,7 +1,8 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head } from '@inertiajs/react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import type { StatusTone } from '@/components/data-display/status-badge';
 import { PageContainer, PageHeader } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import admin from '@/routes/admin';
 import {
@@ -67,11 +68,7 @@ export default function AdminCustomerShow({ customer }: Props) {
                 <PageHeader
                     title={customer.name ?? 'Cliente'}
                     description={`${customer.email ?? ''} · ${customer.phone ?? ''}`}
-                    actions={
-                        <Button variant="outline" asChild>
-                            <Link href={index.url()}>Volver</Link>
-                        </Button>
-                    }
+                    actions={<BackButton href={index.url()} />}
                 />
 
                 <div className="grid gap-4 lg:grid-cols-2">

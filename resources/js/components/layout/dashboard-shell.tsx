@@ -1,11 +1,9 @@
-import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppTopbar } from '@/components/navigation/app-topbar';
 import { NotificationBell } from '@/components/notifications/notification-bell';
-import { forceLightTheme } from '@/hooks/use-appearance';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
 type DashboardShellProps = {
@@ -31,8 +29,6 @@ export function DashboardShell({
     topbarActions,
     userRole,
 }: DashboardShellProps) {
-    useEffect(() => forceLightTheme(), []);
-
     return (
         <AppShell variant="sidebar">
             <AppSidebar
@@ -40,11 +36,10 @@ export function DashboardShell({
                 mainNavItems={mainNavItems}
                 footerNavItems={footerNavItems}
                 navLabel={navLabel}
-                userRole={userRole}
             />
             <AppContent
                 variant="sidebar"
-                className="min-h-svh overflow-x-hidden bg-[#F8FAFC] text-[#0F172A]"
+                className="min-h-svh overflow-x-hidden bg-background text-foreground"
             >
                 <AppTopbar
                     title={title}

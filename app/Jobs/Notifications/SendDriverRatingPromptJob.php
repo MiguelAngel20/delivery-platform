@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Notifications;
 
+use App\Models\DriverRating;
 use App\Models\Order;
 use App\Notifications\Orders\DriverRatingPromptNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,6 +27,15 @@ final class SendDriverRatingPromptJob implements ShouldQueue
         }
 
         if ($order->assigned_driver_id === null) {
+            return;
+        }
+
+        $alreadyRated = DriverRating::query()
+            ->where('order_id', $order->id)
+            ->where('driver_id', $order->assigned_driver_id)
+            ->exists();
+
+        if ($alreadyRated) {
             return;
         }
 

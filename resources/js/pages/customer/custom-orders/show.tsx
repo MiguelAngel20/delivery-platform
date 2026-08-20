@@ -2,6 +2,7 @@ import { Form, Head, Link } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { PageContainer } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import { useCustomerCustomOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
@@ -118,9 +119,7 @@ export default function CustomerCustomOrderShow({ request }: Props) {
                     </Form>
                 ) : null}
 
-                <Button variant="outline" asChild>
-                    <Link href={index.url()}>Volver</Link>
-                </Button>
+                <BackButton href={index.url()} />
             </PageContainer>
         </>
     );

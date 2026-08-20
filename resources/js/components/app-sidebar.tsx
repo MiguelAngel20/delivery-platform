@@ -3,7 +3,6 @@ import { LayoutGrid } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
 import {
     Sidebar,
     SidebarContent,
@@ -18,7 +17,7 @@ import type { NavItem } from '@/types';
 
 const defaultMainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
+        title: 'Panel',
         href: dashboard(),
         icon: LayoutGrid,
     },
@@ -29,7 +28,6 @@ type AppSidebarProps = {
     mainNavItems?: NavItem[];
     footerNavItems?: NavItem[];
     navLabel?: string;
-    userRole?: string;
 };
 
 export function AppSidebar({
@@ -37,7 +35,6 @@ export function AppSidebar({
     mainNavItems = defaultMainNavItems,
     footerNavItems = [],
     navLabel,
-    userRole,
 }: AppSidebarProps) {
     return (
         <Sidebar collapsible="icon" variant="sidebar">
@@ -57,12 +54,11 @@ export function AppSidebar({
                 <NavMain items={mainNavItems} label={navLabel} />
             </SidebarContent>
 
-            <SidebarFooter>
-                {footerNavItems.length > 0 ? (
+            {footerNavItems.length > 0 ? (
+                <SidebarFooter>
                     <NavFooter items={footerNavItems} className="mt-auto" />
-                ) : null}
-                <NavUser role={userRole} />
-            </SidebarFooter>
+                </SidebarFooter>
+            ) : null}
         </Sidebar>
     );
 }

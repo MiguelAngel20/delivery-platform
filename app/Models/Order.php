@@ -10,6 +10,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -232,5 +233,18 @@ class Order extends Model
     public function getRouteKeyName(): string
     {
         return 'order_number';
+    }
+
+    public function scopeOrderByBusinessListPriority(Builder $query): void
+    {
+        $cases = collect(OrderStatus::cases())
+            ->map(fn (OrderStatus $status): string => sprintf(
+                "when '%s' then %d",
+                $status->value,
+                $status->businessListSortPriority(),
+            ))
+            ->implode(' ');
+
+        $query->orderByRaw("case order_status {$cases} else 2 end");
     }
 }

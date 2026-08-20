@@ -21,6 +21,11 @@ export type BusinessFormOptions = {
     default_opening_hours: BusinessOpeningHour[];
 };
 
+export type BusinessFilterOptions = Pick<
+    BusinessFormOptions,
+    'statuses' | 'operation_modes' | 'delivery_modes'
+>;
+
 export type BusinessListItem = {
     id: number;
     name: string;
@@ -94,6 +99,25 @@ export type BusinessDetail = {
     approved_by: { id: number; name: string } | null;
     branches: BusinessBranchItem[];
     memberships: BusinessMembershipItem[];
+    drivers: BusinessDriverItem[];
+};
+
+export type BusinessDriverItem = {
+    id: number;
+    approval_status: string;
+    approval_status_label: string;
+    availability_status: string;
+    availability_status_label: string;
+    user: {
+        id: number;
+        name: string;
+        email: string;
+        phone?: string | null;
+        first_name?: string;
+        last_name?: string;
+    } | null;
+    branches: Array<{ id: number; name: string }>;
+    branch_ids?: number[];
 };
 
 export type Paginated<T> = {

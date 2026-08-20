@@ -25,9 +25,10 @@ final class AvailableOrdersQuery
      */
     public function forDriver(Driver $driver): Collection
     {
-        $driver->loadMissing(['user', 'businesses']);
+        $driver->loadMissing(['user', 'businesses', 'branches']);
 
         $businessIds = $driver->businesses->pluck('id');
+        $branchIds = $driver->branches->pluck('id');
 
         $orders = Order::query()
             ->with([
@@ -45,7 +46,7 @@ final class AvailableOrdersQuery
                         DriverAssignmentStatus::Expired->value,
                     ]);
             })
-            ->where(function (Builder $query) use ($driver, $businessIds): void {
+            ->where(function (Builder $query) use ($driver, $businessIds, $branchIds): void {
                 if ($driver->driver_scope === DriverScope::Platform) {
                     $query->where(function (Builder $platform): void {
                         $platform->where('type', OrderType::Custom->value)
@@ -53,7 +54,7 @@ final class AvailableOrdersQuery
                     });
                 }
 
-                $query->orWhere(function (Builder $partner) use ($driver, $businessIds): void {
+                $query->orWhere(function (Builder $partner) use ($driver, $businessIds, $branchIds): void {
                     $partner->where('type', OrderType::Business->value)
                         ->where('operation_mode', BusinessOperationMode::Partner->value)
                         ->whereHas('branch.business', function (Builder $businessQuery) use ($driver, $businessIds): void {
@@ -71,6 +72,10 @@ final class AvailableOrdersQuery
                                 ]);
                             }
                         });
+
+                    if ($driver->driver_scope === DriverScope::BusinessOnly) {
+                        $partner->whereIn('branch_id', $branchIds->all());
+                    }
                 });
             })
             ->latest('id')

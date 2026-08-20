@@ -395,7 +395,138 @@ test('business user sees orders from allowed branch', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('business/orders/index')
-            ->has('orders.data', 1));
+            ->has('orders.data', 1)
+            ->where('filters.from', now()->toDateString())
+            ->where('filters.to', now()->toDateString()));
+});
+
+test('business orders index lists pending orders before delivered orders', function () {
+    ['business' => $business, 'branch' => $branch] = seedOrderCatalog();
+
+    $admin = User::factory()->businessAdmin()->create();
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $admin->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ])->branches()->sync([$branch->id]);
+
+    $delivered = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'order_status' => OrderStatus::Delivered,
+    ]);
+    $pending = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'order_status' => OrderStatus::PendingBusiness,
+    ]);
+    $preparing = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'order_status' => OrderStatus::Preparing,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('orders.data', 3)
+            ->where('orders.data.0.order_number', $pending->order_number)
+            ->where('orders.data.1.order_number', $preparing->order_number)
+            ->where('orders.data.2.order_number', $delivered->order_number));
+});
+
+test('business orders index lists cancelled orders after delivered orders', function () {
+    ['business' => $business, 'branch' => $branch] = seedOrderCatalog();
+
+    $admin = User::factory()->businessAdmin()->create();
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $admin->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ])->branches()->sync([$branch->id]);
+
+    $cancelled = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'order_status' => OrderStatus::Cancelled,
+    ]);
+    $delivered = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'order_status' => OrderStatus::Delivered,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('orders.data.0.order_number', $delivered->order_number)
+            ->where('orders.data.1.order_number', $cancelled->order_number));
+});
+
+test('business orders index keeps pending orders first even when they are older', function () {
+    ['business' => $business, 'branch' => $branch] = seedOrderCatalog();
+
+    $admin = User::factory()->businessAdmin()->create();
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $admin->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ])->branches()->sync([$branch->id]);
+
+    $pending = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'order_status' => OrderStatus::PendingBusiness,
+    ]);
+    $delivered = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'order_status' => OrderStatus::Delivered,
+    ]);
+
+    Order::query()->whereKey($pending->id)->update(['created_at' => now()->subHour()]);
+    Order::query()->whereKey($delivered->id)->update(['created_at' => now()]);
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('orders.data.0.order_number', $pending->order_number)
+            ->where('orders.data.1.order_number', $delivered->order_number));
+});
+
+test('business orders index excludes orders outside selected date range', function () {
+    ['user' => $customerUser, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['business' => $business, 'branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $admin = User::factory()->businessAdmin()->create();
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $admin->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ])->branches()->sync([$branch->id]);
+
+    $order = app(CreateOrder::class)->handle(
+        $customer,
+        $customerUser,
+        validOrderPayload($branch, $product, $onion, $cheese, $address),
+    );
+
+    Order::query()
+        ->whereKey($order->id)
+        ->update(['created_at' => now()->subDay()]);
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('orders.data', 0));
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.index', [
+            'from' => now()->subDay()->toDateString(),
+            'to' => now()->subDay()->toDateString(),
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('orders.data', 1));
 });
 
 test('employee cannot see another branch order', function () {

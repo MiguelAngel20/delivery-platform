@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import {
@@ -51,7 +52,7 @@ const columns: DataTableColumn<ProductRow>[] = [
         header: 'Producto',
         cell: (row) => (
             <div>
-                <p className="font-medium text-navy">{row.name}</p>
+                <p className="font-medium text-foreground">{row.name}</p>
                 <p className="text-xs text-muted-foreground">
                     {row.branch_name}
                 </p>
@@ -92,8 +93,14 @@ const columns: DataTableColumn<ProductRow>[] = [
         header: 'Acciones',
         className: 'text-right',
         cell: (row) => (
-            <Button variant="ghost" size="sm" asChild>
-                <Link href={edit.url(row.id)}>Editar</Link>
+            <Button variant="ghost" size="icon" className="size-8" asChild>
+                <Link
+                    href={edit.url(row.id)}
+                    aria-label={`Editar ${row.name}`}
+                    title="Editar"
+                >
+                    <Pencil className="size-4" />
+                </Link>
             </Button>
         ),
     },

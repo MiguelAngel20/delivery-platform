@@ -17,10 +17,6 @@ final class CatalogAccess
             return true;
         }
 
-        if ($business->operation_mode === BusinessOperationMode::PlatformOperated) {
-            return false;
-        }
-
         if (! $user->hasRole(UserRole::BusinessAdmin)) {
             return false;
         }

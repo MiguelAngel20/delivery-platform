@@ -17,7 +17,9 @@ use App\Http\Requests\Admin\SuspendBusinessRequest;
 use App\Http\Requests\Admin\UpdateBusinessRequest;
 use App\Models\Business;
 use App\Services\BusinessLimitService;
+use App\Services\Notifications\RideNotificationDispatcher;
 use App\Support\BusinessBannerStorage;
+use App\Support\BusinessDriverData;
 use App\Support\BusinessHours;
 use App\Support\BusinessLogoStorage;
 use App\Support\BusinessMembershipData;
@@ -35,6 +37,7 @@ class BusinessController extends Controller
         private readonly BusinessLogoStorage $logoStorage,
         private readonly BusinessBannerStorage $bannerStorage,
         private readonly BusinessLimitService $limitService,
+        private readonly RideNotificationDispatcher $notifications,
     ) {}
 
     public function index(IndexBusinessRequest $request): Response
@@ -102,7 +105,7 @@ class BusinessController extends Controller
                 'operation_mode' => $filters['operation_mode'] ?? '',
                 'delivery_mode' => $filters['delivery_mode'] ?? '',
             ],
-            'options' => $this->formOptions(),
+            'options' => $this->filterOptions(),
         ]);
     }
 
@@ -149,6 +152,10 @@ class BusinessController extends Controller
             return $business;
         });
 
+        if ($status === BusinessStatus::PendingApproval) {
+            $this->notifications->businessPendingApproval($business);
+        }
+
         Inertia::flash('toast', [
             'type' => 'success',
             'message' => 'Empresa creada correctamente.',
@@ -165,6 +172,8 @@ class BusinessController extends Controller
             'branches' => fn ($query) => $query->orderBy('name'),
             'memberships.user:id,first_name,last_name,name,email,phone,role',
             'memberships.branches:id,name',
+            'drivers.user:id,first_name,last_name,name,email,phone',
+            'drivers.branches:id,name,business_id',
             'upgradeRequests' => fn ($query) => $query->latest()->limit(20),
             'upgradeRequests.requestedBy:id,name',
             'upgradeRequests.branch:id,name',
@@ -283,12 +292,15 @@ class BusinessController extends Controller
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{
+     *     operation_modes: list<array{value: string, label: string}>,
+     *     delivery_modes: list<array{value: string, label: string}>,
+     *     statuses: list<array{value: string, label: string}>
+     * }
      */
-    private function formOptions(): array
+    private function filterOptions(): array
     {
         return [
-            'business_types' => BusinessTypes::options(),
             'operation_modes' => collect(BusinessOperationMode::cases())
                 ->map(fn (BusinessOperationMode $mode): array => [
                     'value' => $mode->value,
@@ -310,6 +322,17 @@ class BusinessController extends Controller
                 ])
                 ->values()
                 ->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formOptions(): array
+    {
+        return [
+            ...$this->filterOptions(),
+            'business_types' => BusinessTypes::options(),
             'weekdays' => BusinessHours::dayOptions(),
             'default_opening_hours' => BusinessHours::defaults(),
         ];
@@ -362,6 +385,9 @@ class BusinessController extends Controller
                 : [],
             'memberships' => $business->relationLoaded('memberships')
                 ? $business->memberships->map(fn ($membership): array => BusinessMembershipData::transform($membership))->values()->all()
+                : [],
+            'drivers' => $business->relationLoaded('drivers')
+                ? $business->drivers->map(fn ($driver): array => BusinessDriverData::transform($driver, $business))->values()->all()
                 : [],
         ];
     }

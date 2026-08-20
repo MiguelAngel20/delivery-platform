@@ -52,9 +52,11 @@ test('critical active-order update still sends push when optional prefs off', fu
 
     $user->notify(new OrderStatusChangedNotification(
         $order,
-        OrderStatus::Cancelled,
+        OrderStatus::Delivered,
         UserRole::Customer,
     ));
+
+    $this->app->terminate();
 });
 
 test('user can update own notification preferences', function () {

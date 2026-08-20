@@ -18,4 +18,9 @@ enum BusinessDeliveryMode: string
             self::None => 'Sin reparto',
         };
     }
+
+    public function usesOwnDrivers(): bool
+    {
+        return $this === self::OwnDrivers || $this === self::Hybrid;
+    }
 }

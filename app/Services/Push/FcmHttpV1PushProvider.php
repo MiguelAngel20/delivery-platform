@@ -102,7 +102,7 @@ final class FcmHttpV1PushProvider implements PushProvider
                     'body' => $message->body,
                 ],
                 'fcm_options' => array_filter([
-                    'link' => $data['click_path'] ?? null,
+                    'link' => $this->httpsWebPushLink($data['click_path'] ?? null),
                 ]),
             ],
         ];
@@ -168,8 +168,30 @@ final class FcmHttpV1PushProvider implements PushProvider
         $haystack = strtoupper($status.' '.$message);
 
         return str_contains($haystack, 'UNREGISTERED')
-            || str_contains($haystack, 'INVALID_ARGUMENT')
             || str_contains($haystack, 'NOT_FOUND')
             || str_contains($haystack, 'REGISTRATION-TOKEN-NOT-REGISTERED');
+    }
+
+    private function httpsWebPushLink(?string $clickPath): ?string
+    {
+        if (! is_string($clickPath) || $clickPath === '') {
+            return null;
+        }
+
+        if (str_starts_with($clickPath, 'https://')) {
+            return $clickPath;
+        }
+
+        if (! str_starts_with($clickPath, '/') || str_starts_with($clickPath, '//')) {
+            return null;
+        }
+
+        $appUrl = rtrim((string) config('app.url'), '/');
+
+        if (! str_starts_with($appUrl, 'https://')) {
+            return null;
+        }
+
+        return $appUrl.$clickPath;
     }
 }

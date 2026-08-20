@@ -1,6 +1,6 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { PageContainer, PageHeader } from '@/components/layout/page';
-import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/navigation/back-button';
 import { formatMoney } from '@/lib/money';
 import admin from '@/routes/admin';
 import { index as financeIndex } from '@/routes/admin/finance';
@@ -42,11 +42,7 @@ export default function AdminFinanceShow({ order, financial }: Props) {
                 <PageHeader
                     title={`Order #${order.order_number}`}
                     description={`${order.restaurant.name ?? 'Negocio'} · ${order.driver?.name ?? 'Sin repartidor'}`}
-                    actions={
-                        <Button variant="outline" asChild>
-                            <Link href={financeIndex.url()}>Volver</Link>
-                        </Button>
-                    }
+                    actions={<BackButton href={financeIndex.url()} />}
                 />
 
                 {financial === null ? (

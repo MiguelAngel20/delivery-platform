@@ -1,7 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { enablePushForCurrentUser } from '@/lib/push/devices';
+import { enablePushForCurrentUser, syncGrantedPushSubscription } from '@/lib/push/devices';
 import { pushSupported, type PushWebConfig } from '@/lib/push/firebase';
 import type { Auth } from '@/types';
 
@@ -70,6 +70,15 @@ export function PushPermissionPrompt({
             }
 
             if (!(await pushSupported())) {
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                await syncGrantedPushSubscription({
+                    web: push.web,
+                    vapidKey: push.vapid_key,
+                });
+
                 return;
             }
 

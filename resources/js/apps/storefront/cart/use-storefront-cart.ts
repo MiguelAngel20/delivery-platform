@@ -321,6 +321,57 @@ export function useStorefrontCart() {
         });
     }, []);
 
+    const replaceLine = useCallback((oldKey: string, input: AddToCartInput) => {
+        const current = readCart();
+        const filtered = current.lines.filter((line) => line.key !== oldKey);
+        const key = lineKey(
+            String(input.product.id),
+            input.extras,
+            input.note,
+            input.removedIngredients,
+            input.selectedOptions,
+        );
+
+        const existingIndex = filtered.findIndex((line) => line.key === key);
+
+        if (existingIndex !== -1) {
+            writeCart({
+                ...current,
+                lines: filtered.map((line, index) =>
+                    index === existingIndex
+                        ? {
+                              ...line,
+                              quantity: line.quantity + input.quantity,
+                          }
+                        : line,
+                ),
+            });
+
+            return;
+        }
+
+        writeCart({
+            ...current,
+            lines: [
+                ...filtered,
+                {
+                    key,
+                    productId: String(input.product.id),
+                    branchId: input.product.branchId,
+                    restaurantSlug: input.product.restaurantSlug,
+                    restaurantName: input.product.restaurantName,
+                    name: input.product.name,
+                    unitPrice: input.product.price,
+                    quantity: input.quantity,
+                    extras: input.extras,
+                    note: input.note,
+                    removedIngredients: input.removedIngredients,
+                    selectedOptions: input.selectedOptions,
+                },
+            ],
+        });
+    }, []);
+
     return {
         cart,
         itemCount,
@@ -330,6 +381,7 @@ export function useStorefrontCart() {
         total,
         addItem,
         replaceWithItem,
+        replaceLine,
         updateQuantity,
         clear,
     } as const;

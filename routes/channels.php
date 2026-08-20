@@ -68,9 +68,10 @@ Broadcast::channel('branch.{branchId}.offers', function (User $user, int $branch
 
     return app(DriverEligibilityService::class)
         ->matchesDeliveryMode(
-            $user->driver->loadMissing('businesses'),
+            $user->driver->loadMissing(['businesses', 'branches']),
             $branch->business->delivery_mode,
             $branch->business_id,
+            $branch->id,
         );
 });
 

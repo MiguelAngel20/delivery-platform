@@ -1,11 +1,15 @@
 import { Form } from '@inertiajs/react';
-import { useState  } from 'react';
-import type {ReactNode} from 'react';
-import { BranchMultiSelect } from '@/apps/business/components/branch-multi-select';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { BranchSingleSelect } from '@/apps/business/components/branch-single-select';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    resolveFieldError,
+    validateEmployeeForm,
+    type EmployeeFormClientErrors,
+} from '@/lib/business/validate-employee-form';
 
 export type EmployeeFormOptions = {
     roles: Array<{ value: string; label: string }>;
@@ -47,106 +51,169 @@ export function EmployeeForm({
     submitLabel,
     cancelSlot,
 }: EmployeeFormProps) {
-    const [role, setRole] = useState(
-        employee?.role ?? 'business_employee',
+    const [role, setRole] = useState(employee?.role ?? 'business_employee');
+    const [branchId, setBranchId] = useState<number | null>(
+        employee?.branch_ids[0] ??
+            (options.branches.length === 1 ? options.branches[0].id : null),
     );
-    const [branchIds, setBranchIds] = useState<number[]>(
-        employee?.branch_ids ?? [],
+    const [clientErrors, setClientErrors] = useState<EmployeeFormClientErrors>(
+        {},
     );
-    const [adminBranchId, setAdminBranchId] = useState<number | null>(
-        employee?.role === 'business_admin'
-            ? (employee.branch_ids[0] ?? null)
-            : null,
+    const formRef = useRef<{ getData: () => Record<string, unknown> } | null>(
+        null,
     );
 
     const isAdmin = role === 'business_admin';
-    const requiresBranches = !isAdmin;
+
+    useEffect(() => {
+        setClientErrors({});
+    }, [employee?.id]);
+
+    function clearFieldError(key: string) {
+        setClientErrors((current) => {
+            const next = { ...current };
+            delete next[key];
+
+            return next;
+        });
+    }
+
+    function validateBeforeSubmit(): boolean {
+        const data = formRef.current?.getData() ?? {};
+        const validationErrors = validateEmployeeForm({
+            firstName: String(data.first_name ?? ''),
+            lastName: String(data.last_name ?? ''),
+            email: String(data.email ?? ''),
+            phone: String(data.phone ?? ''),
+            role: String(data.role ?? role),
+            status: String(data.status ?? ''),
+            branchId,
+        });
+
+        if (Object.keys(validationErrors).length > 0) {
+            setClientErrors(validationErrors);
+
+            return false;
+        }
+
+        setClientErrors({});
+
+        return true;
+    }
 
     return (
-        <Form action={action.url} method={action.method} className="space-y-6">
+        <Form
+            ref={formRef}
+            action={action.url}
+            method={action.method}
+            className="space-y-6"
+            noValidate
+            onBefore={() => validateBeforeSubmit()}
+        >
             {({ processing, errors }) => (
                 <>
+                    {Object.keys(clientErrors).length > 0 ? (
+                        <div
+                            role="alert"
+                            className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                        >
+                            Revisa los campos marcados antes de continuar.
+                        </div>
+                    ) : null}
+
                     <div className="grid gap-4 md:grid-cols-2">
                         <FormField
                             label="Nombre"
                             htmlFor="first_name"
                             required
-                            error={errors.first_name}
+                            error={resolveFieldError(
+                                'first_name',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <Input
                                 id="first_name"
                                 name="first_name"
-                                required
+                                maxLength={100}
                                 defaultValue={employee?.first_name ?? ''}
+                                onChange={() => clearFieldError('first_name')}
                             />
                         </FormField>
                         <FormField
                             label="Apellidos"
                             htmlFor="last_name"
                             required
-                            error={errors.last_name}
+                            error={resolveFieldError(
+                                'last_name',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <Input
                                 id="last_name"
                                 name="last_name"
-                                required
+                                maxLength={100}
                                 defaultValue={employee?.last_name ?? ''}
+                                onChange={() => clearFieldError('last_name')}
                             />
                         </FormField>
                         <FormField
                             label="Correo"
                             htmlFor="email"
                             required
-                            error={errors.email}
+                            error={resolveFieldError(
+                                'email',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <Input
                                 id="email"
                                 name="email"
                                 type="email"
-                                required
+                                maxLength={255}
                                 defaultValue={employee?.email ?? ''}
+                                onChange={() => clearFieldError('email')}
                             />
                         </FormField>
                         <FormField
                             label="Teléfono"
                             htmlFor="phone"
                             required
-                            error={errors.phone}
+                            error={resolveFieldError(
+                                'phone',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <Input
                                 id="phone"
                                 name="phone"
-                                required
+                                maxLength={30}
                                 defaultValue={employee?.phone ?? ''}
+                                onChange={() => clearFieldError('phone')}
                             />
                         </FormField>
                         <FormField
                             label="Rol"
                             htmlFor="role"
                             required
-                            error={errors.role}
+                            error={resolveFieldError(
+                                'role',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <select
                                 id="role"
                                 name="role"
-                                required
                                 value={role}
                                 onChange={(event) => {
-                                    const nextRole = event.target.value;
-                                    setRole(nextRole);
-
-                                    if (nextRole === 'business_admin') {
-                                        setBranchIds([]);
-                                        setAdminBranchId(
-                                            options.branches.length === 1
-                                                ? options.branches[0].id
-                                                : null,
-                                        );
-                                    } else {
-                                        setAdminBranchId(null);
-                                    }
+                                    setRole(event.target.value);
+                                    clearFieldError('role');
                                 }}
-                                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
                                 {options.roles.map((option) => (
                                     <option
@@ -162,14 +229,18 @@ export function EmployeeForm({
                             label="Estado"
                             htmlFor="status"
                             required
-                            error={errors.status}
+                            error={resolveFieldError(
+                                'status',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <select
                                 id="status"
                                 name="status"
-                                required
                                 defaultValue={employee?.status ?? 'active'}
-                                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                onChange={() => clearFieldError('status')}
+                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
                                 {options.statuses.map((option) => (
                                     <option
@@ -182,30 +253,29 @@ export function EmployeeForm({
                             </select>
                         </FormField>
                         <FormField
-                            label={isAdmin ? 'Sucursal asignada' : 'Sucursales asignadas'}
+                            label="Sucursal asignada"
                             htmlFor="branch_ids"
                             required
-                            error={errors.branch_ids}
+                            error={resolveFieldError(
+                                'branch_ids',
+                                clientErrors,
+                                errors,
+                            )}
                             hint={
                                 isAdmin
                                     ? 'Cada administrador pertenece a una sola sucursal.'
-                                    : 'Selecciona al menos una sucursal.'
+                                    : 'Cada empleado pertenece a una sola sucursal.'
                             }
                             className="md:col-span-2"
                         >
-                            {isAdmin ? (
-                                <BranchSingleSelect
-                                    options={options.branches}
-                                    value={adminBranchId}
-                                    onChange={setAdminBranchId}
-                                />
-                            ) : (
-                                <BranchMultiSelect
-                                    options={options.branches}
-                                    value={branchIds}
-                                    onChange={setBranchIds}
-                                />
-                            )}
+                            <BranchSingleSelect
+                                options={options.branches}
+                                value={branchId}
+                                onChange={(value) => {
+                                    setBranchId(value);
+                                    clearFieldError('branch_ids');
+                                }}
+                            />
                         </FormField>
                     </div>
 

@@ -1,11 +1,11 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import { CategoryForm } from '@/components/catalog/category-form';
 import { DataTable } from '@/components/data-display/data-table';
 import type { DataTableColumn } from '@/components/data-display/data-table';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { PageContainer, PageHeader } from '@/components/layout/page';
-import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/navigation/back-button';
 
 type CategoryRow = {
     id: number;
@@ -47,11 +47,7 @@ export default function AdminCatalogCategoriesIndex({
             <PageContainer>
                 <PageHeader
                     title="Categorías"
-                    actions={
-                        <Button variant="outline" asChild>
-                            <Link href={base}>Volver</Link>
-                        </Button>
-                    }
+                    actions={<BackButton href={base} />}
                 />
                 <div className="mb-6 rounded-xl border border-border bg-white p-4">
                     <CategoryForm

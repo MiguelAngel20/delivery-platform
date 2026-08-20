@@ -1,10 +1,12 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
+import { useCustomerOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
 import { show } from '@/routes/customer/orders';
+import type { Auth } from '@/types';
 
 type OrderRow = {
     order_number: string;
@@ -64,6 +66,16 @@ export default function CustomerOrdersIndex({
     activeOrders,
     historyOrders,
 }: Props) {
+    const { auth, realtime } = usePage().props as {
+        auth: Auth;
+        realtime?: { customer_id?: number | null };
+    };
+
+    useCustomerOrderEvents(realtime?.customer_id, null, {
+        only: ['activeOrders', 'historyOrders'],
+        userId: auth.user?.id,
+    });
+
     return (
         <>
             <Head title="Mis pedidos" />

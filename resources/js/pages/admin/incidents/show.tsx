@@ -1,8 +1,9 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import type { StatusTone } from '@/components/data-display/status-badge';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer, PageHeader } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAdminOrderEvents } from '@/hooks/realtime/use-order-realtime';
@@ -127,11 +128,7 @@ export default function AdminIncidentShow({
                 <PageHeader
                     title={`Incidencia #${incident.id}`}
                     description={incident.type_label}
-                    actions={
-                        <Button variant="outline" asChild>
-                            <Link href={incidentsIndex.url()}>Volver</Link>
-                        </Button>
-                    }
+                    actions={<BackButton href={incidentsIndex.url()} />}
                 />
 
                 <div className="mb-4 flex flex-wrap gap-2">

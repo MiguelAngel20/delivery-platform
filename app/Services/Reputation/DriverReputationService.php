@@ -14,12 +14,17 @@ use App\Models\DriverRating;
 use App\Models\Incident;
 use App\Models\Order;
 use App\Models\OrderCancellation;
+use App\Services\Notifications\RideNotificationDispatcher;
 use App\Support\SafeBroadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class DriverReputationService
 {
+    public function __construct(
+        private readonly RideNotificationDispatcher $notifications,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -100,6 +105,7 @@ final class DriverReputationService
             $rating->fresh(['driver.user', 'order']),
             $metrics->average_rating,
         );
+        $this->notifications->driverRated($rating);
 
         return $rating;
     }

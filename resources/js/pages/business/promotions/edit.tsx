@@ -22,7 +22,7 @@ export default function BusinessPromotionsEdit({ promotion, options }: Props) {
             <Head title={`Editar ${promotion.name}`} />
             <PageContainer>
                 <PageHeader title={promotion.name} />
-                <div className="rounded-xl border border-border bg-white p-4 md:p-6">
+                <div className="rounded-xl border border-border bg-surface p-4 md:p-6">
                     <PromotionForm
                         options={options}
                         promotion={{

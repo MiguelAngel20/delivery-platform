@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import {
@@ -13,11 +14,9 @@ import { Input } from '@/components/ui/input';
 import { formatMoney } from '@/lib/money';
 import business from '@/routes/business';
 import {
-    activate,
     create,
     edit,
     index,
-    pause,
 } from '@/routes/business/promotions';
 
 type PromotionRow = {
@@ -62,7 +61,7 @@ const columns: DataTableColumn<PromotionRow>[] = [
         header: 'Promoción',
         cell: (row) => (
             <div>
-                <p className="font-medium text-navy">{row.name}</p>
+                <p className="font-medium text-foreground">{row.name}</p>
                 <p className="text-xs text-muted-foreground">
                     {row.items.map((item) => item.name).join(' + ')}
                 </p>
@@ -93,30 +92,15 @@ const columns: DataTableColumn<PromotionRow>[] = [
         header: 'Acciones',
         className: 'text-right',
         cell: (row) => (
-            <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" asChild>
-                    <Link href={edit.url(row.id)}>Editar</Link>
-                </Button>
-                {row.status === 'active' ? (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.post(pause.url(row.id))}
-                    >
-                        Pausar
-                    </Button>
-                ) : (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.post(activate.url(row.id))}
-                    >
-                        Activar
-                    </Button>
-                )}
-            </div>
+            <Button variant="ghost" size="icon" className="size-8" asChild>
+                <Link
+                    href={edit.url(row.id)}
+                    aria-label={`Editar ${row.name}`}
+                    title="Editar"
+                >
+                    <Pencil className="size-4" />
+                </Link>
+            </Button>
         ),
     },
 ];

@@ -84,9 +84,11 @@ export async function enablePushForCurrentUser(options: {
             device_type: 'web',
             browser: navigator.userAgent.includes('Firefox')
                 ? 'Firefox'
-                : navigator.userAgent.includes('Safari')
-                  ? 'Safari'
-                  : 'Chrome',
+                : navigator.userAgent.includes('Edg')
+                  ? 'Edge'
+                  : navigator.userAgent.includes('Chrome')
+                    ? 'Chrome'
+                    : 'Web',
             platform: navigator.platform || undefined,
             device_name: 'Web',
         });
@@ -94,6 +96,43 @@ export async function enablePushForCurrentUser(options: {
         return ok ? 'granted' : 'error';
     } catch {
         return 'error';
+    }
+}
+
+export async function syncGrantedPushSubscription(options: {
+    web: PushWebConfig;
+    vapidKey: string;
+}): Promise<void> {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+        return;
+    }
+
+    if (Notification.permission !== 'granted') {
+        return;
+    }
+
+    try {
+        const token = await requestFcmToken(options.web, options.vapidKey);
+
+        if (!token) {
+            return;
+        }
+
+        await registerPushDevice({
+            token,
+            device_type: 'web',
+            browser: navigator.userAgent.includes('Firefox')
+                ? 'Firefox'
+                : navigator.userAgent.includes('Edg')
+                  ? 'Edge'
+                  : navigator.userAgent.includes('Chrome')
+                    ? 'Chrome'
+                    : 'Web',
+            platform: navigator.platform || undefined,
+            device_name: 'Web',
+        });
+    } catch {
+        // Token refresh is best-effort; in-app notifications still work.
     }
 }
 

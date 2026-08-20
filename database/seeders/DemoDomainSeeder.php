@@ -202,6 +202,7 @@ class DemoDomainSeeder extends Seeder
 
         $driver->businesses()->syncWithoutDetaching([$business->id]);
         $miguel->businesses()->syncWithoutDetaching([$business->id]);
+        $miguel->branches()->syncWithoutDetaching([$branch->id]);
 
         $this->call(CatalogDemoSeeder::class);
         $this->call(ReputationDemoSeeder::class);

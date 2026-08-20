@@ -92,4 +92,27 @@ enum OrderStatus: string
             self::PendingCustomerConfirmation,
         ], true);
     }
+
+    /**
+     * Lower values appear first in the business portal order list.
+     */
+    public function businessListSortPriority(): int
+    {
+        return match ($this) {
+            self::PendingBusiness => 0,
+            self::Preparing,
+            self::ReadyForPickup,
+            self::Accepted,
+            self::SearchingDriver,
+            self::DriverAssigned,
+            self::DriverAtBusiness,
+            self::PickedUp,
+            self::OnTheWay => 1,
+            self::PendingPlatform,
+            self::PendingCustomerConfirmation => 2,
+            self::Rejected => 3,
+            self::Delivered => 4,
+            self::Cancelled => 5,
+        };
+    }
 }

@@ -1,8 +1,9 @@
-import { Form, Head, Link, useForm } from '@inertiajs/react';
+import { Form, Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { FormField } from '@/components/forms/form-field';
 import { ContentCard, PageContainer, PageHeader } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -84,11 +85,7 @@ export default function AdminOrderShow({ order, preparationOptions }: Props) {
                 <PageHeader
                     title={`#${order.order_number}`}
                     description={`${order.customer.name ?? 'Cliente'} · ${order.restaurant.name ?? ''}`}
-                    actions={
-                        <Button variant="outline" asChild>
-                            <Link href={index.url()}>Volver</Link>
-                        </Button>
-                    }
+                    actions={<BackButton href={index.url()} />}
                 />
 
                 <div className="mb-4 flex flex-wrap gap-2">

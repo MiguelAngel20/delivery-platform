@@ -21,7 +21,7 @@ export default function BusinessCategoriesCreate({ options }: Props) {
                     title="Nueva categoría"
                     description="La categoría pertenece a una sucursal."
                 />
-                <div className="rounded-xl border border-border bg-white p-4 md:p-6">
+                <div className="rounded-xl border border-border bg-surface p-4 md:p-6">
                     <CategoryForm
                         options={options}
                         action={store()}

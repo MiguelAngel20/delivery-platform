@@ -73,6 +73,8 @@ class CreateBusinessEmployee
 
             $user = $this->resolveUser($data, $role);
 
+            BusinessMembershipBranchRules::assertUserAvailableForMembership($user);
+
             $alreadyMember = BusinessUser::query()
                 ->where('business_id', $business->id)
                 ->where('user_id', $user->id)

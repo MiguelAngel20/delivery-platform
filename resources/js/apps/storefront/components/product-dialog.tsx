@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { buildInitialSelectionFromCartLine } from '@/apps/storefront/cart/cart-line-to-selection';
+import type { CartLine } from '@/apps/storefront/cart/use-storefront-cart';
 import { formatMoney } from '@/apps/storefront/mocks';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -54,6 +56,8 @@ type ProductDialogProps = {
     product: StorefrontProduct | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    editLine?: CartLine | null;
+    confirmLabel?: string;
     onConfirm: (payload: {
         quantity: number;
         note?: string;
@@ -110,6 +114,8 @@ export function ProductDialog({
     product,
     open,
     onOpenChange,
+    editLine = null,
+    confirmLabel,
     onConfirm,
 }: ProductDialogProps) {
     const [quantity, setQuantity] = useState(1);
@@ -122,6 +128,16 @@ export function ProductDialog({
 
     useEffect(() => {
         if (!product || !open) {
+            return;
+        }
+
+        if (editLine) {
+            setSelectedByGroup(
+                buildInitialSelectionFromCartLine(product, editLine),
+            );
+            setQuantity(editLine.quantity);
+            setNote(editLine.note ?? '');
+
             return;
         }
 
@@ -156,7 +172,7 @@ export function ProductDialog({
         setSelectedByGroup(initial);
         setQuantity(1);
         setNote('');
-    }, [product, open]);
+    }, [product, open, editLine]);
 
     const unitTotal = useMemo(() => {
         if (!product) {
@@ -265,7 +281,9 @@ export function ProductDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>{product.name}</DialogTitle>
+                    <DialogTitle>
+                        {editLine ? 'Editar' : ''} {product.name}
+                    </DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-5">
@@ -459,7 +477,8 @@ export function ProductDialog({
                             onOpenChange(false);
                         }}
                     >
-                        Agregar al carrito · {formatMoney(unitTotal * quantity)}
+                        {confirmLabel ?? 'Agregar al carrito'} ·{' '}
+                        {formatMoney(unitTotal * quantity)}
                     </Button>
                 </DialogFooter>
             </DialogContent>

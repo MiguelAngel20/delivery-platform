@@ -76,6 +76,16 @@ class BusinessBranch extends Model
         )->withTimestamps();
     }
 
+    public function drivers(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Driver::class,
+            'driver_business_branches',
+            'branch_id',
+            'driver_id',
+        )->withTimestamps();
+    }
+
     public function productCategories(): HasMany
     {
         return $this->hasMany(ProductCategory::class, 'branch_id');

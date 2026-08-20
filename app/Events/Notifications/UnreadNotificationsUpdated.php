@@ -15,6 +15,9 @@ final class UnreadNotificationsUpdated implements ShouldBroadcastNow
     public function __construct(
         public int $userId,
         public int $unreadCount,
+        public ?string $title = null,
+        public ?string $body = null,
+        public ?string $notificationId = null,
     ) {}
 
     /**
@@ -33,12 +36,15 @@ final class UnreadNotificationsUpdated implements ShouldBroadcastNow
     }
 
     /**
-     * @return array{unread_count: int}
+     * @return array{unread_count: int, title: ?string, body: ?string, notification_id: ?string}
      */
     public function broadcastWith(): array
     {
         return [
             'unread_count' => $this->unreadCount,
+            'title' => $this->title,
+            'body' => $this->body,
+            'notification_id' => $this->notificationId,
         ];
     }
 }

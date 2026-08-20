@@ -24,16 +24,19 @@ final class OrderStatusChangedNotification extends RideNotification
 
     public function title(): string
     {
+        if ($this->audience === UserRole::Customer) {
+            return match ($this->status) {
+                OrderStatus::Accepted, OrderStatus::Preparing => 'Tu pedido fue aceptado',
+                OrderStatus::PickedUp, OrderStatus::OnTheWay => 'Tu pedido va en camino',
+                OrderStatus::Delivered => 'Pedido entregado',
+                default => 'Actualización de pedido',
+            };
+        }
+
         return match ($this->status) {
-            OrderStatus::Accepted, OrderStatus::Preparing => 'Tu pedido fue aceptado',
-            OrderStatus::DriverAssigned => 'Repartidor asignado',
-            OrderStatus::PickedUp => 'Pedido recogido',
-            OrderStatus::OnTheWay => 'Tu pedido va en camino',
-            OrderStatus::Delivered => 'Pedido entregado',
+            OrderStatus::ReadyForPickup => 'Pedido listo para recoger',
             OrderStatus::Cancelled => 'Pedido cancelado',
             OrderStatus::Rejected => 'Pedido rechazado',
-            OrderStatus::ReadyForPickup => 'Pedido listo',
-            OrderStatus::PendingCustomerConfirmation => 'Confirma el nuevo total',
             default => 'Actualización de pedido',
         };
     }
@@ -41,18 +44,24 @@ final class OrderStatusChangedNotification extends RideNotification
     public function body(): string
     {
         $number = $this->order->order_number;
+        $minutes = $this->order->estimated_preparation_minutes;
+
+        if ($this->audience === UserRole::Customer) {
+            return match ($this->status) {
+                OrderStatus::Accepted, OrderStatus::Preparing => $minutes !== null && $minutes > 0
+                    ? "Tiempo estimado: {$minutes} minutos."
+                    : 'El establecimiento ya está preparando tu pedido.',
+                OrderStatus::PickedUp, OrderStatus::OnTheWay => 'Tu pedido fue recolectado y ya va en camino.',
+                OrderStatus::Delivered => 'Tu pedido fue entregado.',
+                default => "Tu pedido #{$number} cambió de estado.",
+            };
+        }
 
         return match ($this->status) {
-            OrderStatus::Accepted, OrderStatus::Preparing => 'El establecimiento ya está preparando tu pedido.',
-            OrderStatus::DriverAssigned => 'Tu pedido ya tiene repartidor.',
-            OrderStatus::PickedUp => "El pedido #{$number} fue recogido.",
-            OrderStatus::OnTheWay => 'El repartidor ya salió hacia tu ubicación.',
-            OrderStatus::Delivered => 'Esperamos que todo haya llegado bien.',
+            OrderStatus::ReadyForPickup => "El pedido #{$number} está listo para recoger.",
             OrderStatus::Cancelled => "El pedido #{$number} fue cancelado.",
             OrderStatus::Rejected => "El pedido #{$number} fue rechazado.",
-            OrderStatus::ReadyForPickup => "El pedido #{$number} está listo para recoger.",
-            OrderStatus::PendingCustomerConfirmation => 'Revisa y confirma el total actualizado.',
-            default => "Tu pedido #{$number} cambió de estado.",
+            default => "El pedido #{$number} cambió de estado.",
         };
     }
 
@@ -62,6 +71,7 @@ final class OrderStatusChangedNotification extends RideNotification
             OrderStatus::Cancelled,
             OrderStatus::Rejected,
             OrderStatus::OnTheWay,
+            OrderStatus::PickedUp,
             OrderStatus::Delivered,
         ], true);
     }
@@ -75,6 +85,15 @@ final class OrderStatusChangedNotification extends RideNotification
 
     public function dedupeKey(): ?string
     {
+        if ($this->audience === UserRole::Customer) {
+            return match ($this->status) {
+                OrderStatus::Accepted, OrderStatus::Preparing => 'order:'.$this->order->id.':accepted',
+                OrderStatus::PickedUp, OrderStatus::OnTheWay => 'order:'.$this->order->id.':en-camino',
+                OrderStatus::Delivered => 'order:'.$this->order->id.':delivered',
+                default => sprintf('order:%d:status:%s:customer', $this->order->id, $this->status->value),
+            };
+        }
+
         return sprintf('order:%d:status:%s:%s', $this->order->id, $this->status->value, $this->audience->value);
     }
 

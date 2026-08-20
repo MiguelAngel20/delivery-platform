@@ -9,6 +9,7 @@ use App\Http\Requests\Business\StoreUpgradeRequest;
 use App\Models\Business;
 use App\Models\BusinessUpgradeRequest;
 use App\Models\User;
+use App\Services\Notifications\RideNotificationDispatcher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,6 +17,10 @@ use Inertia\Response;
 
 class UpgradeRequestController extends Controller
 {
+    public function __construct(
+        private readonly RideNotificationDispatcher $notifications,
+    ) {}
+
     public function index(Request $request): Response
     {
         $business = $this->currentBusiness($request);
@@ -71,7 +76,7 @@ class UpgradeRequestController extends Controller
         $data = $request->validated();
         $type = UpgradeRequestType::from((string) $data['type']);
 
-        BusinessUpgradeRequest::query()->create([
+        $upgradeRequest = BusinessUpgradeRequest::query()->create([
             'business_id' => $business->id,
             'requested_by_user_id' => $request->user()?->id,
             'type' => $type,
@@ -82,6 +87,8 @@ class UpgradeRequestController extends Controller
             'status' => UpgradeRequestStatus::Pending,
             'notes' => $data['notes'] ?? null,
         ]);
+
+        $this->notifications->upgradeRequested($upgradeRequest);
 
         Inertia::flash('toast', [
             'type' => 'success',

@@ -28,7 +28,7 @@ final class RejectDeliveryOffer
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $driver->loadMissing('businesses');
+            $driver->loadMissing(['businesses', 'branches']);
 
             if ($locked->assigned_driver_id !== null) {
                 throw ValidationException::withMessages([
@@ -60,6 +60,7 @@ final class RejectDeliveryOffer
                 $driver,
                 $business->delivery_mode,
                 $business->id,
+                $locked->branch_id,
             )) {
                 throw ValidationException::withMessages([
                     'order' => 'No puedes rechazar un pedido no elegible.',

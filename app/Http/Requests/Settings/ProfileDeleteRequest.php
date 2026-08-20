@@ -21,4 +21,15 @@ class ProfileDeleteRequest extends FormRequest
             'password' => $this->currentPasswordRules(),
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'password.required' => 'La contraseña es obligatoria.',
+            'password.current_password' => 'La contraseña no es correcta.',
+        ];
+    }
 }

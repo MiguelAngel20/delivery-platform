@@ -9,6 +9,7 @@ import { StorefrontBottomNav } from '@/apps/storefront/components/storefront-bot
 import { StorefrontFooter } from '@/apps/storefront/components/storefront-footer';
 import { StorefrontHeader } from '@/apps/storefront/components/storefront-header';
 import { PushPermissionPrompt } from '@/components/notifications/push-permission-prompt';
+import { useCustomerForegroundPush } from '@/hooks/use-customer-foreground-push';
 import { forceLightTheme } from '@/hooks/use-appearance';
 import type { Auth } from '@/types';
 
@@ -18,6 +19,8 @@ export default function StorefrontLayout({
     children: ReactNode;
 }) {
     const { auth } = usePage().props as { auth: Auth };
+
+    useCustomerForegroundPush();
 
     useEffect(() => forceLightTheme(), []);
 

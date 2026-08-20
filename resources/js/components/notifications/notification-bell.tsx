@@ -74,7 +74,7 @@ export function NotificationBell({
                     type="button"
                     variant="ghost"
                     label="Notificaciones"
-                    className={cn('text-navy', compact && 'size-9')}
+                    className={cn('text-foreground', compact && 'size-9')}
                     onClick={() => void openPanel()}
                 >
                     <Bell className={compact ? 'size-4' : undefined} />

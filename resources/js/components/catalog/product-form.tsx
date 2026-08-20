@@ -1,6 +1,6 @@
 import { Form } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import { FormField } from '@/components/forms/form-field';
@@ -8,6 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    resolveFieldError,
+    sanitizeProductOptionGroups,
+    validateProductForm,
+    type ProductFormClientErrors,
+} from '@/lib/catalog/validate-product-form';
 
 export type ProductOptionDraft = {
     name: string;
@@ -192,6 +198,44 @@ export function ProductForm({
     const [groups, setGroups] = useState<ProductOptionGroupDraft[]>(
         product?.option_groups?.length ? product.option_groups : [],
     );
+    const [clientErrors, setClientErrors] = useState<ProductFormClientErrors>(
+        {},
+    );
+    const optionGroupsInputRef = useRef<HTMLInputElement>(null);
+    const formRef = useRef<{ getData: () => Record<string, unknown> } | null>(
+        null,
+    );
+
+    useEffect(() => {
+        setClientErrors({});
+    }, [product?.id]);
+
+    function validateBeforeSubmit(): boolean {
+        const data = formRef.current?.getData() ?? {};
+        const validationErrors = validateProductForm({
+            branchId,
+            name: String(data.name ?? ''),
+            listPrice: String(data.list_price ?? ''),
+            isEditing: Boolean(product?.id),
+            groups,
+        });
+
+        if (Object.keys(validationErrors).length > 0) {
+            setClientErrors(validationErrors);
+
+            return false;
+        }
+
+        setClientErrors({});
+
+        if (optionGroupsInputRef.current) {
+            optionGroupsInputRef.current.value = JSON.stringify(
+                sanitizeProductOptionGroups(groups),
+            );
+        }
+
+        return true;
+    }
 
     const categories = useMemo(
         () =>
@@ -291,14 +335,27 @@ export function ProductForm({
 
     return (
         <Form
+            ref={formRef}
             action={action.url}
             method={action.method}
             encType="multipart/form-data"
             className="space-y-6"
+            noValidate
+            onBefore={() => validateBeforeSubmit()}
         >
             {({ processing, errors }) => (
                 <>
+                    {Object.keys(clientErrors).length > 0 ? (
+                        <div
+                            role="alert"
+                            className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                        >
+                            Revisa los campos marcados antes de continuar.
+                        </div>
+                    ) : null}
+
                     <input
+                        ref={optionGroupsInputRef}
                         type="hidden"
                         name="option_groups"
                         value={JSON.stringify(groups)}
@@ -309,17 +366,26 @@ export function ProductForm({
                             label="Sucursal"
                             htmlFor="branch_id"
                             required
-                            error={errors.branch_id}
+                            error={resolveFieldError(
+                                'branch_id',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <select
                                 id="branch_id"
                                 name="branch_id"
-                                required
                                 disabled={Boolean(product?.id)}
                                 value={branchId}
-                                onChange={(event) =>
-                                    setBranchId(event.target.value)
-                                }
+                                onChange={(event) => {
+                                    setBranchId(event.target.value);
+                                    setClientErrors((current) => {
+                                        const next = { ...current };
+                                        delete next.branch_id;
+
+                                        return next;
+                                    });
+                                }}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                             >
                                 <option value="">Selecciona sucursal</option>
@@ -344,7 +410,11 @@ export function ProductForm({
                         <FormField
                             label="Categoría"
                             htmlFor="product_category_id"
-                            error={errors.product_category_id}
+                            error={resolveFieldError(
+                                'product_category_id',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <select
                                 id="product_category_id"
@@ -370,23 +440,34 @@ export function ProductForm({
                             label="Nombre"
                             htmlFor="name"
                             required
-                            error={errors.name}
+                            error={resolveFieldError('name', clientErrors, errors)}
                             className="md:col-span-2"
                         >
                             <Input
                                 id="name"
                                 name="name"
-                                required
                                 maxLength={150}
                                 placeholder="Ej. Alitas BBQ, Pizza grande 8 rebanadas"
                                 defaultValue={product?.name ?? ''}
+                                onChange={() =>
+                                    setClientErrors((current) => {
+                                        const next = { ...current };
+                                        delete next.name;
+
+                                        return next;
+                                    })
+                                }
                             />
                         </FormField>
 
                         <FormField
                             label="Descripción"
                             htmlFor="description"
-                            error={errors.description}
+                            error={resolveFieldError(
+                                'description',
+                                clientErrors,
+                                errors,
+                            )}
                             className="md:col-span-2"
                         >
                             <Textarea
@@ -402,7 +483,11 @@ export function ProductForm({
                             label="Precio de lista (MXN)"
                             htmlFor="list_price"
                             required
-                            error={errors.list_price}
+                            error={resolveFieldError(
+                                'list_price',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <Input
                                 id="list_price"
@@ -410,9 +495,16 @@ export function ProductForm({
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                required
                                 placeholder="0.00"
                                 defaultValue={product?.list_price ?? ''}
+                                onChange={() =>
+                                    setClientErrors((current) => {
+                                        const next = { ...current };
+                                        delete next.list_price;
+
+                                        return next;
+                                    })
+                                }
                             />
                         </FormField>
 
@@ -420,7 +512,11 @@ export function ProductForm({
                             <FormField
                                 label="Costo de adquisición (MXN)"
                                 htmlFor="acquisition_cost"
-                                error={errors.acquisition_cost}
+                                error={resolveFieldError(
+                                    'acquisition_cost',
+                                    clientErrors,
+                                    errors,
+                                )}
                                 hint="Lo que cobra el establecimiento. El cliente ve el precio de lista."
                             >
                                 <Input
@@ -440,7 +536,7 @@ export function ProductForm({
                         <FormField
                             label="Imagen"
                             htmlFor="image"
-                            error={errors.image}
+                            error={resolveFieldError('image', clientErrors, errors)}
                             hint={
                                 product?.image_url
                                     ? 'Sube una nueva imagen para reemplazar la actual.'
@@ -455,7 +551,7 @@ export function ProductForm({
                             />
                         </FormField>
 
-                        <label className="flex items-center gap-2 text-sm">
+                        <label className="flex items-center gap-2 text-sm text-foreground">
                             <input
                                 type="hidden"
                                 name="is_available"
@@ -469,7 +565,7 @@ export function ProductForm({
                             />
                             Disponible
                         </label>
-                        <label className="flex items-center gap-2 text-sm">
+                        <label className="flex items-center gap-2 text-sm text-foreground">
                             <input
                                 type="hidden"
                                 name="is_active"
@@ -483,7 +579,7 @@ export function ProductForm({
                             />
                             Activo en catálogo
                         </label>
-                        <label className="flex items-center gap-2 text-sm md:col-span-2">
+                        <label className="flex items-center gap-2 text-sm text-foreground md:col-span-2">
                             <input
                                 type="hidden"
                                 name="allow_special_instructions"
@@ -501,9 +597,9 @@ export function ProductForm({
                         </label>
                     </div>
 
-                    <section className="space-y-4 rounded-xl border border-border bg-white p-4">
+                    <section className="space-y-4 rounded-xl border border-border bg-surface p-4">
                         <div>
-                            <h2 className="text-base font-semibold text-navy">
+                            <h2 className="text-base font-semibold text-foreground">
                                 Personalización
                             </h2>
                             <p className="text-sm text-muted-foreground">
@@ -515,9 +611,11 @@ export function ProductForm({
 
                         {SECTION_ORDER.map((type) => {
                             const config = SECTION_CONFIG[type];
-                            const group = groups.find(
-                                (g) => g.type === type,
-                            );
+                            const groupIndex = findGroupIndex(groups, type);
+                            const group =
+                                groupIndex === -1
+                                    ? undefined
+                                    : groups[groupIndex];
                             const isEnabled = group !== undefined;
 
                             return (
@@ -525,7 +623,7 @@ export function ProductForm({
                                     key={type}
                                     className="rounded-lg border border-border"
                                 >
-                                    <label className="flex cursor-pointer items-start gap-3 p-4">
+                                    <label className="flex cursor-pointer items-start gap-3 p-4 text-foreground">
                                         <Checkbox
                                             checked={isEnabled}
                                             onCheckedChange={(checked) =>
@@ -537,7 +635,7 @@ export function ProductForm({
                                             className="mt-0.5"
                                         />
                                         <div>
-                                            <span className="text-sm font-medium text-navy">
+                                            <span className="text-sm font-medium text-foreground">
                                                 {config.label}
                                             </span>
                                             <p className="text-sm text-muted-foreground">
@@ -574,6 +672,15 @@ export function ProductForm({
                                                     <FormField
                                                         label="Máximo que puede elegir"
                                                         htmlFor={`${type}-max`}
+                                                        error={
+                                                            groupIndex === -1
+                                                                ? undefined
+                                                                : resolveFieldError(
+                                                                      `option_groups.${groupIndex}.max_selection`,
+                                                                      clientErrors,
+                                                                      errors,
+                                                                  )
+                                                        }
                                                     >
                                                         <NumericLimitInput
                                                             id={`${type}-max`}
@@ -596,58 +703,124 @@ export function ProductForm({
                                             ) : null}
 
                                             <div className="space-y-2">
-                                                <p className="text-sm font-medium text-navy">
+                                                <p className="text-sm font-medium text-foreground">
                                                     Opciones
                                                 </p>
+                                                {groupIndex !== -1
+                                                    ? resolveFieldError(
+                                                          `option_groups.${groupIndex}.options`,
+                                                          clientErrors,
+                                                          errors,
+                                                      ) ? (
+                                                        <p className="text-sm text-destructive">
+                                                            {resolveFieldError(
+                                                                `option_groups.${groupIndex}.options`,
+                                                                clientErrors,
+                                                                errors,
+                                                            )}
+                                                        </p>
+                                                    ) : null
+                                                    : null}
                                                 {group.options.map(
                                                     (option, optionIndex) => (
                                                         <div
                                                             key={optionIndex}
-                                                            className={`grid items-center gap-2 ${config.showPrice ? 'grid-cols-[1fr_100px_auto]' : 'grid-cols-[1fr_auto]'}`}
+                                                            className={`grid items-start gap-2 ${config.showPrice ? 'grid-cols-[1fr_100px_auto]' : 'grid-cols-[1fr_auto]'}`}
                                                         >
-                                                            <Input
-                                                                value={
-                                                                    option.name
-                                                                }
-                                                                placeholder={
-                                                                    config.optionPlaceholder
-                                                                }
-                                                                onChange={(e) =>
-                                                                    updateOption(
-                                                                        type,
-                                                                        optionIndex,
-                                                                        {
-                                                                            name: e
-                                                                                .target
-                                                                                .value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                            />
-                                                            {config.showPrice ? (
+                                                            <FormField
+                                                                error={resolveFieldError(
+                                                                    `option_groups.${groupIndex}.options.${optionIndex}.name`,
+                                                                    clientErrors,
+                                                                    errors,
+                                                                )}
+                                                            >
                                                                 <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    min="0"
                                                                     value={
-                                                                        option.price_modifier
+                                                                        option.name
                                                                     }
-                                                                    placeholder="+ $0.00"
+                                                                    placeholder={
+                                                                        config.optionPlaceholder
+                                                                    }
                                                                     onChange={(
                                                                         e,
-                                                                    ) =>
+                                                                    ) => {
                                                                         updateOption(
                                                                             type,
                                                                             optionIndex,
                                                                             {
-                                                                                price_modifier:
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
+                                                                                name: e
+                                                                                    .target
+                                                                                    .value,
                                                                             },
-                                                                        )
-                                                                    }
+                                                                        );
+                                                                        setClientErrors(
+                                                                            (
+                                                                                current,
+                                                                            ) => {
+                                                                                const next =
+                                                                                    {
+                                                                                        ...current,
+                                                                                    };
+                                                                                delete next[
+                                                                                    `option_groups.${groupIndex}.options`
+                                                                                ];
+                                                                                delete next[
+                                                                                    `option_groups.${groupIndex}.options.${optionIndex}.name`
+                                                                                ];
+
+                                                                                return next;
+                                                                            },
+                                                                        );
+                                                                    }}
                                                                 />
+                                                            </FormField>
+                                                            {config.showPrice ? (
+                                                                <FormField
+                                                                    error={resolveFieldError(
+                                                                        `option_groups.${groupIndex}.options.${optionIndex}.price_modifier`,
+                                                                        clientErrors,
+                                                                        errors,
+                                                                    )}
+                                                                >
+                                                                    <Input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min="0"
+                                                                        value={
+                                                                            option.price_modifier
+                                                                        }
+                                                                        placeholder="+ $0.00"
+                                                                        onChange={(
+                                                                            e,
+                                                                        ) => {
+                                                                            updateOption(
+                                                                                type,
+                                                                                optionIndex,
+                                                                                {
+                                                                                    price_modifier:
+                                                                                        e
+                                                                                            .target
+                                                                                            .value,
+                                                                                },
+                                                                            );
+                                                                            setClientErrors(
+                                                                                (
+                                                                                    current,
+                                                                                ) => {
+                                                                                    const next =
+                                                                                        {
+                                                                                            ...current,
+                                                                                        };
+                                                                                    delete next[
+                                                                                        `option_groups.${groupIndex}.options.${optionIndex}.price_modifier`
+                                                                                    ];
+
+                                                                                    return next;
+                                                                                },
+                                                                            );
+                                                                        }}
+                                                                    />
+                                                                </FormField>
                                                             ) : null}
                                                             <Button
                                                                 type="button"
@@ -682,9 +855,17 @@ export function ProductForm({
                                 </div>
                             );
                         })}
-                        {errors.option_groups ? (
+                        {resolveFieldError(
+                            'option_groups',
+                            clientErrors,
+                            errors,
+                        ) ? (
                             <p className="text-sm text-destructive">
-                                {errors.option_groups}
+                                {resolveFieldError(
+                                    'option_groups',
+                                    clientErrors,
+                                    errors,
+                                )}
                             </p>
                         ) : null}
                     </section>

@@ -4,12 +4,15 @@ namespace App\Http\Requests\Business\Catalog;
 
 use App\Enums\PromotionStatus;
 use App\Models\Promotion;
+use App\Support\Catalog\PromotionFormValidation;
 use App\Support\CatalogAccess;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StorePromotionRequest extends FormRequest
 {
+    use PromotionFormValidation;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -22,6 +25,10 @@ class StorePromotionRequest extends FormRequest
 
         if ($membership?->business === null) {
             return false;
+        }
+
+        if ($this->input('branch_id') === null || $this->input('branch_id') === '') {
+            return true;
         }
 
         $branchId = (int) $this->input('branch_id');
@@ -75,33 +82,13 @@ class StorePromotionRequest extends FormRequest
             ],
             'items.*.name' => ['nullable', 'string', 'max:150'],
             'items.*.description' => ['nullable', 'string'],
-            'items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.original_price' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
     public function withValidator($validator): void
     {
-        $validator->after(function ($validator): void {
-            foreach ($this->input('items', []) as $index => $item) {
-                $isExternal = (bool) ($item['is_external_item'] ?? false);
-
-                if ($isExternal) {
-                    if (blank($item['name'] ?? null)) {
-                        $validator->errors()->add("items.{$index}.name", 'El ítem externo requiere nombre.');
-                    }
-
-                    if (! blank($item['product_id'] ?? null)) {
-                        $validator->errors()->add("items.{$index}.product_id", 'Un ítem externo no debe tener product_id.');
-                    }
-
-                    continue;
-                }
-
-                if (blank($item['product_id'] ?? null)) {
-                    $validator->errors()->add("items.{$index}.product_id", 'Debes seleccionar un producto del menú.');
-                }
-            }
-        });
+        $this->appendPromotionItemRules($validator);
     }
 }

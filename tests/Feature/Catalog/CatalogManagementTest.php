@@ -38,6 +38,36 @@ function seedCatalogBusinessAdmin(): array
     return compact('admin', 'business', 'branch', 'otherBranch');
 }
 
+test('business admin receives validation errors when creating product without required fields', function () {
+    ['admin' => $admin] = seedCatalogBusinessAdmin();
+
+    $this->actingAs($admin)
+        ->from(route('business.products.create'))
+        ->post(route('business.products.store'), [])
+        ->assertSessionHasErrors(['branch_id', 'name', 'list_price'])
+        ->assertRedirect(route('business.products.create'));
+});
+
+test('business admin receives validation errors when creating category without required fields', function () {
+    ['admin' => $admin] = seedCatalogBusinessAdmin();
+
+    $this->actingAs($admin)
+        ->from(route('business.categories.create'))
+        ->post(route('business.categories.store'), [])
+        ->assertSessionHasErrors(['branch_id', 'name'])
+        ->assertRedirect(route('business.categories.create'));
+});
+
+test('business admin receives validation errors when creating promotion without required fields', function () {
+    ['admin' => $admin] = seedCatalogBusinessAdmin();
+
+    $this->actingAs($admin)
+        ->from(route('business.promotions.create'))
+        ->post(route('business.promotions.store'), [])
+        ->assertSessionHasErrors(['branch_id', 'name', 'promotion_price', 'status', 'items'])
+        ->assertRedirect(route('business.promotions.create'));
+});
+
 test('business admin can create category', function () {
     ['admin' => $admin, 'branch' => $branch] = seedCatalogBusinessAdmin();
 
@@ -286,7 +316,7 @@ test('system admin can manage platform operated catalog', function () {
     expect(ProductCategory::query()->where('name', 'Admin categoría')->exists())->toBeTrue();
 });
 
-test('business admin cannot manage platform operated catalog', function () {
+test('business admin can manage platform operated catalog', function () {
     $admin = User::factory()->businessAdmin()->create();
     $business = Business::factory()->create([
         'operation_mode' => BusinessOperationMode::PlatformOperated,
@@ -303,7 +333,9 @@ test('business admin cannot manage platform operated catalog', function () {
     $this->actingAs($admin)
         ->post(route('business.categories.store'), [
             'branch_id' => $branch->id,
-            'name' => 'No permitido',
+            'name' => 'Categoría afiliación',
         ])
-        ->assertForbidden();
+        ->assertRedirect();
+
+    expect(ProductCategory::query()->where('name', 'Categoría afiliación')->exists())->toBeTrue();
 });

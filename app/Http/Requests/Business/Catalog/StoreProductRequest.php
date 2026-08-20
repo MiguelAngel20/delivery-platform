@@ -4,12 +4,15 @@ namespace App\Http\Requests\Business\Catalog;
 
 use App\Enums\ProductOptionGroupType;
 use App\Models\Product;
+use App\Support\Catalog\ProductFormValidation;
 use App\Support\CatalogAccess;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreProductRequest extends FormRequest
 {
+    use ProductFormValidation;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -22,6 +25,10 @@ class StoreProductRequest extends FormRequest
 
         if ($membership?->business === null) {
             return false;
+        }
+
+        if ($this->input('branch_id') === null || $this->input('branch_id') === '') {
+            return true;
         }
 
         $branchId = (int) $this->input('branch_id');
@@ -47,6 +54,8 @@ class StoreProductRequest extends FormRequest
                 ]);
             }
         }
+
+        $this->sanitizeProductOptionGroups();
     }
 
     /**
@@ -87,7 +96,7 @@ class StoreProductRequest extends FormRequest
             'option_groups.*.max_selection' => ['required_with:option_groups', 'integer', 'gte:option_groups.*.min_selection'],
             'option_groups.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'option_groups.*.is_active' => ['sometimes', 'boolean'],
-            'option_groups.*.options' => ['nullable', 'array'],
+            'option_groups.*.options' => ['required', 'array', 'min:1'],
             'option_groups.*.options.*.name' => ['required', 'string', 'max:100'],
             'option_groups.*.options.*.description' => ['nullable', 'string'],
             'option_groups.*.options.*.price_modifier' => ['nullable', 'numeric'],

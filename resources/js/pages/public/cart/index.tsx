@@ -1,10 +1,18 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { ShoppingBag, Store } from 'lucide-react';
+import { useState } from 'react';
 import {
     setCheckoutIntent,
     useStorefrontCart,
 } from '@/apps/storefront/cart/use-storefront-cart';
+import type { CartLine } from '@/apps/storefront/cart/use-storefront-cart';
+import { CartLineCard } from '@/apps/storefront/components/cart-line-card';
+import { CheckoutFooter } from '@/apps/storefront/components/checkout-footer';
+import { CheckoutStepper } from '@/apps/storefront/components/checkout-stepper';
+import type { StorefrontProduct } from '@/apps/storefront/components/product-dialog';
+import { ProductDialog } from '@/apps/storefront/components/product-dialog';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
-import { formatMoney } from '@/apps/storefront/mocks';
+import { notify } from '@/components/feedback/toast';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
@@ -13,49 +21,93 @@ import customer from '@/routes/customer';
 import restaurants from '@/routes/restaurants';
 import type { Auth } from '@/types';
 
+type CartProductResponse = {
+    product: StorefrontProduct;
+    branch_id: number;
+    restaurant: {
+        name: string;
+        slug: string;
+        mode: string;
+    };
+};
+
 export default function CartIndex() {
     const { auth } = usePage().props as { auth: Auth };
-    const { cart, subtotal, service, discount, total, updateQuantity, clear } =
-        useStorefrontCart();
+    const {
+        cart,
+        subtotal,
+        service,
+        discount,
+        total,
+        updateQuantity,
+        replaceLine,
+        clear,
+    } = useStorefrontCart();
     const isCustomer = auth.user?.role === 'customer';
+    const checkoutHref = isCustomer ? customer.checkout() : login();
 
-    const continueCheckout = () => {
+    const [editingLine, setEditingLine] = useState<CartLine | null>(null);
+    const [editProduct, setEditProduct] = useState<StorefrontProduct | null>(
+        null,
+    );
+    const [editContext, setEditContext] = useState<CartProductResponse | null>(
+        null,
+    );
+    const [editLoadingKey, setEditLoadingKey] = useState<string | null>(null);
+
+    const handleContinue = () => {
         if (!isCustomer) {
             setCheckoutIntent(customer.checkout.url());
         }
+
+        router.visit(checkoutHref);
+    };
+
+    const openEdit = async (line: CartLine) => {
+        setEditLoadingKey(line.key);
+
+        try {
+            const response = await fetch(`/cart/products/${line.productId}`, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Product unavailable');
+            }
+
+            const data = (await response.json()) as CartProductResponse;
+
+            setEditingLine(line);
+            setEditProduct(data.product);
+            setEditContext(data);
+        } catch {
+            notify.error(
+                'No se pudo cargar el producto. Intenta de nuevo o vuelve al menú.',
+            );
+        } finally {
+            setEditLoadingKey(null);
+        }
+    };
+
+    const closeEdit = () => {
+        setEditingLine(null);
+        setEditProduct(null);
+        setEditContext(null);
     };
 
     return (
         <>
             <Head title="Carrito" />
-            <PageContainer className="gap-4 px-4 py-4 md:px-6">
-                <div className="flex items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold text-navy">
-                            Carrito
-                        </h1>
-                        {cart.restaurantName ? (
-                            <p className="text-sm text-muted-foreground">
-                                {cart.restaurantName}
-                            </p>
-                        ) : null}
-                    </div>
-                    {cart.lines.length > 0 ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={clear}
-                        >
-                            Vaciar
-                        </Button>
-                    ) : null}
-                </div>
+            <PageContainer className="gap-5 px-4 py-4 pb-28 md:px-6 md:pb-32">
+                <CheckoutStepper currentStep={1} />
 
                 {cart.lines.length === 0 ? (
                     <EmptyState
                         title="Carrito vacío"
-                        description="Agrega productos desde un restaurante"
+                        description="Agrega productos desde un restaurante para comenzar tu pedido."
                         action={
                             <Button asChild>
                                 <Link href={restaurants.index()}>
@@ -66,81 +118,47 @@ export default function CartIndex() {
                     />
                 ) : (
                     <>
-                        <ul className="space-y-3">
-                            {cart.lines.map((line) => {
-                                const extrasTotal = line.extras.reduce(
-                                    (sum, extra) => sum + extra.price,
-                                    0,
-                                );
-                                const lineTotal =
-                                    (line.unitPrice + extrasTotal) *
-                                    line.quantity;
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <ShoppingBag className="size-5 text-primary" />
+                                    <h1 className="text-2xl font-semibold text-navy">
+                                        Tu pedido
+                                    </h1>
+                                </div>
+                                {cart.restaurantName ? (
+                                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                        <Store className="size-3.5" />
+                                        {cart.restaurantName}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-muted-foreground"
+                                onClick={clear}
+                            >
+                                Vaciar
+                            </Button>
+                        </div>
 
-                                return (
-                                    <li
-                                        key={line.key}
-                                        className="rounded-xl border border-border bg-surface p-4"
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                                <p className="font-semibold text-navy">
-                                                    {line.name}
-                                                </p>
-                                                {line.extras.length > 0 ? (
-                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                        Extras:{' '}
-                                                        {line.extras
-                                                            .map(
-                                                                (extra) =>
-                                                                    extra.name,
-                                                            )
-                                                            .join(', ')}
-                                                    </p>
-                                                ) : null}
-                                                {line.note ? (
-                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                        Nota: {line.note}
-                                                    </p>
-                                                ) : null}
-                                            </div>
-                                            <p className="font-semibold text-navy">
-                                                {formatMoney(lineTotal)}
-                                            </p>
-                                        </div>
-                                        <div className="mt-3 flex items-center gap-2">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="min-h-11 min-w-11"
-                                                onClick={() =>
-                                                    updateQuantity(
-                                                        line.key,
-                                                        line.quantity - 1,
-                                                    )
-                                                }
-                                            >
-                                                -
-                                            </Button>
-                                            <span className="w-8 text-center font-medium">
-                                                {line.quantity}
-                                            </span>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="min-h-11 min-w-11"
-                                                onClick={() =>
-                                                    updateQuantity(
-                                                        line.key,
-                                                        line.quantity + 1,
-                                                    )
-                                                }
-                                            >
-                                                +
-                                            </Button>
-                                        </div>
-                                    </li>
-                                );
-                            })}
+                        <ul className="space-y-3">
+                            {cart.lines.map((line) => (
+                                <li key={line.key}>
+                                    <CartLineCard
+                                        line={line}
+                                        onUpdateQuantity={(quantity) =>
+                                            updateQuantity(line.key, quantity)
+                                        }
+                                        onEdit={() => openEdit(line)}
+                                        editLoading={
+                                            editLoadingKey === line.key
+                                        }
+                                    />
+                                </li>
+                            ))}
                         </ul>
 
                         <OrderSummary
@@ -150,24 +168,51 @@ export default function CartIndex() {
                             total={total}
                         />
 
-                        <Button
-                            asChild
-                            className="min-h-12 w-full"
-                            onClick={continueCheckout}
-                        >
-                            <Link
-                                href={
-                                    isCustomer
-                                        ? customer.checkout()
-                                        : login()
-                                }
-                            >
-                                Continuar pedido
-                            </Link>
-                        </Button>
+                        <CheckoutFooter
+                            total={total}
+                            primaryLabel="Confirmar pedido"
+                            onPrimary={handleContinue}
+                        />
                     </>
                 )}
             </PageContainer>
+
+            <ProductDialog
+                product={editProduct}
+                open={editProduct !== null && editingLine !== null}
+                editLine={editingLine}
+                confirmLabel="Guardar cambios"
+                onOpenChange={(open) => {
+                    if (!open) {
+                        closeEdit();
+                    }
+                }}
+                onConfirm={(payload) => {
+                    if (!editingLine || !editProduct || !editContext) {
+                        return;
+                    }
+
+                    replaceLine(editingLine.key, {
+                        product: {
+                            id: editProduct.id,
+                            branchId: editContext.branch_id,
+                            restaurantSlug: editProduct.restaurantSlug ?? '',
+                            restaurantName: editContext.restaurant.name,
+                            restaurantMode: editContext.restaurant.mode,
+                            name: editProduct.name,
+                            price: editProduct.price,
+                        },
+                        quantity: payload.quantity,
+                        extras: payload.extras,
+                        note: payload.note,
+                        removedIngredients: payload.removedIngredients,
+                        selectedOptions: payload.selectedOptions,
+                    });
+
+                    notify.success('Producto actualizado.');
+                    closeEdit();
+                }}
+            />
         </>
     );
 }

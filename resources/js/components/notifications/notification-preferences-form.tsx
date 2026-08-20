@@ -1,6 +1,7 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { ContentCard, PageContainer, PageHeader } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import { preferenceLabel } from '@/lib/notifications/helpers';
 import { enablePushForCurrentUser } from '@/lib/push/devices';
@@ -13,6 +14,7 @@ type Props = {
     editable_keys: string[];
     role: string;
     update_url: string;
+    back_href?: string;
 };
 
 type PageProps = {
@@ -27,6 +29,7 @@ export function NotificationPreferencesForm({
     preferences,
     editable_keys,
     update_url,
+    back_href,
 }: Props) {
     const { push } = usePage().props as PageProps;
     const [supported, setSupported] = useState(true);
@@ -77,6 +80,11 @@ export function NotificationPreferencesForm({
                 <PageHeader
                     title="Notificaciones"
                     description="Preferencias transaccionales de RIDE"
+                    actions={
+                        back_href ? (
+                            <BackButton href={back_href} />
+                        ) : undefined
+                    }
                 />
 
                 <ContentCard title="Este dispositivo">

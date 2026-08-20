@@ -16,7 +16,7 @@ export default function BusinessPromotionsCreate({ options }: Props) {
             <Head title="Nueva promoción" />
             <PageContainer>
                 <PageHeader title="Nueva promoción" />
-                <div className="rounded-xl border border-border bg-white p-4 md:p-6">
+                <div className="rounded-xl border border-border bg-surface p-4 md:p-6">
                     <PromotionForm
                         options={options}
                         action={store()}

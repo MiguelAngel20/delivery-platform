@@ -28,7 +28,12 @@ test('system admin can list businesses', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('admin/businesses/index')
-            ->has('businesses.data', 2));
+            ->has('businesses.data', 2)
+            ->has('options.statuses')
+            ->has('options.operation_modes')
+            ->has('options.delivery_modes')
+            ->missing('options.weekdays')
+            ->missing('options.default_opening_hours'));
 });
 
 test('system admin can view a business with branch hour options', function () {
@@ -44,7 +49,8 @@ test('system admin can view a business with branch hour options', function () {
             ->has('options.weekdays', 7)
             ->has('options.default_opening_hours', 7)
             ->has('business.branches', 1)
-            ->has('business.branches.0.opening_hours'));
+            ->has('business.branches.0.opening_hours')
+            ->has('business.drivers'));
 });
 
 test('system admin can create business', function () {

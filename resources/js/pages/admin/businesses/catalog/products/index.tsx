@@ -3,6 +3,7 @@ import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import { DataTable } from '@/components/data-display/data-table';
 import type { DataTableColumn } from '@/components/data-display/data-table';
 import { PageContainer, PageHeader } from '@/components/layout/page';
+import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/money';
 
@@ -58,9 +59,7 @@ export default function AdminCatalogProductsIndex({
                     title="Productos"
                     actions={
                         <>
-                            <Button variant="outline" asChild>
-                                <Link href={base}>Volver</Link>
-                            </Button>
+                            <BackButton href={base} />
                             <Button asChild>
                                 <Link href={`${base}/products/create`}>
                                     Nuevo

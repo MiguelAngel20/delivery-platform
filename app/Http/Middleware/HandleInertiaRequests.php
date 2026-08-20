@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use App\Enums\BranchStatus;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
-use App\Enums\BusinessUserStatus;
 use App\Enums\UserRole;
 use App\Models\Business;
 use App\Models\BusinessUser;
@@ -143,10 +142,7 @@ class HandleInertiaRequests extends Middleware
         }
 
         /** @var BusinessUser|null $membership */
-        $membership = $user->businessMemberships()
-            ->where('status', BusinessUserStatus::Active)
-            ->with(['business'])
-            ->first();
+        $membership = $user->activeBusinessMembership()?->loadMissing('business');
 
         $business = $membership?->business;
 

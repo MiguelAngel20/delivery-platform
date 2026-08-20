@@ -7,25 +7,17 @@ use App\Enums\NotificationPriority;
 use App\Models\User;
 use App\Notifications\Channels\FcmChannel;
 use App\Notifications\Concerns\RideNotificationContract;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
 
-abstract class RideNotification extends Notification implements RideNotificationContract, ShouldQueue
+abstract class RideNotification extends Notification implements RideNotificationContract
 {
-    use Queueable;
-
-    public int $tries = 3;
-
     abstract public function title(): string;
 
     abstract public function body(): string;
 
     public function via(object $notifiable): array
     {
-        $this->afterCommit();
-
         if (! $notifiable instanceof User) {
             return [];
         }

@@ -22,7 +22,7 @@ export default function BusinessCategoriesEdit({ category, options }: Props) {
                     title={category.name}
                     description="Actualiza nombre, orden o estado."
                 />
-                <div className="rounded-xl border border-border bg-white p-4 md:p-6">
+                <div className="rounded-xl border border-border bg-surface p-4 md:p-6">
                     <CategoryForm
                         options={options}
                         category={{

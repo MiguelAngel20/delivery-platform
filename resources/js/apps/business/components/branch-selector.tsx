@@ -34,7 +34,7 @@ export function BranchSelector({ className }: BranchSelectorProps) {
         <div className={cn('relative', className)}>
             <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md border border-[#E2E8F0] bg-white px-3 py-1.5 text-sm font-medium text-navy"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground"
                 onClick={() => setOpen((value) => !value)}
                 aria-expanded={open}
             >
@@ -44,15 +44,15 @@ export function BranchSelector({ className }: BranchSelectorProps) {
                 <ChevronDown className="size-4 opacity-70" />
             </button>
             {open ? (
-                <div className="absolute right-0 z-30 mt-2 min-w-48 rounded-md border border-[#E2E8F0] bg-white py-1 shadow-md">
+                <div className="absolute right-0 z-30 mt-2 min-w-48 rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-md">
                     {businessContext.branches.map((branch) => (
                         <button
                             key={branch.id}
                             type="button"
                             className={cn(
-                                'block w-full px-3 py-2 text-left text-sm text-navy hover:bg-[#F8FAFC]',
+                                'block w-full px-3 py-2 text-left text-sm text-popover-foreground hover:bg-accent',
                                 branch.id === currentBranch?.id &&
-                                    'bg-[#F8FAFC] font-medium',
+                                    'bg-accent font-medium',
                             )}
                             onClick={() => setOpen(false)}
                         >
