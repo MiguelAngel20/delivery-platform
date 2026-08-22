@@ -35,24 +35,57 @@ test('notification belongs to correct user and can be marked read', function () 
     expect($notification->fresh()->read_at)->not->toBeNull();
 });
 
-test('user can mark all notifications as read', function () {
+test('inbox only returns notifications from today', function () {
+    $user = User::factory()->customer()->create();
+
+    $today = $user->notifications()->create([
+        'id' => (string) Str::uuid(),
+        'type' => 'TestNotification',
+        'data' => ['title' => 'Hoy', 'body' => 'A'],
+    ]);
+
+    $yesterday = $user->notifications()->create([
+        'id' => (string) Str::uuid(),
+        'type' => 'TestNotification',
+        'data' => ['title' => 'Ayer', 'body' => 'B'],
+    ]);
+    $yesterday->forceFill([
+        'created_at' => now()->subDay(),
+        'updated_at' => now()->subDay(),
+    ])->save();
+
+    $this->actingAs($user)
+        ->getJson('/notifications/inbox')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 1)
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $today->id);
+});
+
+test('mark all as read only clears todays unread notifications', function () {
     $user = User::factory()->customer()->create();
 
     $user->notifications()->create([
         'id' => (string) Str::uuid(),
         'type' => 'TestNotification',
-        'data' => ['title' => 'Uno', 'body' => 'A'],
+        'data' => ['title' => 'Hoy', 'body' => 'A'],
     ]);
-    $user->notifications()->create([
+
+    $yesterday = $user->notifications()->create([
         'id' => (string) Str::uuid(),
         'type' => 'TestNotification',
-        'data' => ['title' => 'Dos', 'body' => 'B'],
+        'data' => ['title' => 'Ayer', 'body' => 'B'],
     ]);
+    $yesterday->forceFill([
+        'created_at' => now()->subDay(),
+        'updated_at' => now()->subDay(),
+    ])->save();
 
     $this->actingAs($user)
         ->postJson('/notifications/read-all')
         ->assertOk()
         ->assertJsonPath('unread_count', 0);
 
-    expect($user->unreadNotifications()->count())->toBe(0);
+    expect($user->todaysUnreadNotificationCount())->toBe(0)
+        ->and($yesterday->fresh()->read_at)->toBeNull();
 });

@@ -41,7 +41,7 @@ export function DeliveryLocationCue({ className }: DeliveryLocationCueProps) {
                 type="button"
                 onClick={() => setOpen(true)}
                 className={cn(
-                    'flex min-w-0 flex-1 items-center gap-1 rounded-md py-0.5 text-left transition-colors hover:bg-primary/5 md:max-w-72 md:flex-none',
+                    'flex min-w-0 items-center gap-1 rounded-md py-0.5 text-left transition-colors hover:bg-primary/5',
                     className,
                 )}
                 aria-label={

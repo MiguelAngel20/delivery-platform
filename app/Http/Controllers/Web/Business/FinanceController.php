@@ -31,8 +31,8 @@ class FinanceController extends Controller
 
         $branchIds = $this->businessAccess->accessibleBranches($user)->pluck('id');
 
-        $from = $request->date('from') ?? Carbon::today()->startOfMonth();
-        $to = $request->date('to') ?? Carbon::today()->endOfDay();
+        $from = $request->date('from') ?? Carbon::today();
+        $to = $request->date('to') ?? Carbon::today();
 
         $base = Order::query()
             ->whereIn('orders.branch_id', $branchIds)

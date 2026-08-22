@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductPrice;
 use App\Models\Promotion;
 use App\Models\User;
+use App\Support\BusinessHours;
 
 test('guests can browse the public storefront', function (string $routeName) {
     $this->get(route($routeName))->assertOk();
@@ -54,6 +55,39 @@ test('guests can open a restaurant menu', function () {
         ->assertInertia(fn ($page) => $page
             ->component('public/restaurants/show')
             ->where('restaurant.slug', 'pollo-guero'));
+});
+
+test('restaurant page includes location contact and schedule details', function () {
+    $business = Business::factory()->create([
+        'slug' => 'cafe-plaza',
+        'status' => BusinessStatus::Active,
+        'phone' => '+50211112222',
+        'description' => 'Café de especialidad',
+    ]);
+    BusinessBranch::factory()->for($business)->create([
+        'phone' => '+50233334444',
+        'address_text' => '4a Avenida 1-20, Zona 1',
+        'latitude' => '16.2514000',
+        'longitude' => '-92.1342000',
+        'opening_hours' => BusinessHours::defaults(),
+    ]);
+
+    $this->get(route('restaurants.show', ['slug' => 'cafe-plaza']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('public/restaurants/show')
+            ->where('restaurant.slug', 'cafe-plaza')
+            ->where('restaurant.phone', '+50233334444')
+            ->where('restaurant.address', '4a Avenida 1-20, Zona 1')
+            ->where('restaurant.description', 'Café de especialidad')
+            ->has('restaurant.google_maps_url')
+            ->has('restaurant.latitude')
+            ->has('restaurant.longitude')
+            ->has('restaurant.opening_hours', 7)
+            ->where('restaurant.schedule_summary.0.days_label', 'Lunes a Viernes')
+            ->where('restaurant.schedule_summary.0.hours_label', '09:00 – 21:00')
+            ->where('restaurant.schedule_summary.1.days_label', 'Sábado a Domingo')
+            ->where('restaurant.working_days', ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']));
 });
 
 test('promotions index lists real promotions and links to an existing business', function () {

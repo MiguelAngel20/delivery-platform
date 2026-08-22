@@ -89,6 +89,7 @@ export async function loadGoogleMaps({
         await Promise.all([
             window.google!.maps.importLibrary('maps'),
             window.google!.maps.importLibrary('places'),
+            window.google!.maps.importLibrary('marker'),
         ]);
 
         return window.google!;

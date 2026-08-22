@@ -315,7 +315,19 @@ test('business admin can view own financial summary', function () {
         ->assertSuccessful()
         ->assertInertia(fn ($page) => $page
             ->component('business/finance/index')
-            ->where('summary.completed_orders', 1));
+            ->where('summary.completed_orders', 1)
+            ->where('filters.from', now()->toDateString())
+            ->where('filters.to', now()->toDateString()));
+
+    $this->actingAs($admin)
+        ->get(route('business.finance.index', [
+            'from' => now()->subDays(3)->toDateString(),
+            'to' => now()->subDays(2)->toDateString(),
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page
+            ->where('summary.completed_orders', 0)
+            ->where('orders.data', []));
 });
 
 test('business employee cannot access finance', function () {

@@ -60,8 +60,9 @@ export function CheckoutFooter({
                     )}
                     onClick={onPrimary}
                     disabled={primaryDisabled || primaryLoading}
+                    loading={primaryLoading}
                 >
-                    {primaryLoading ? 'Procesando…' : primaryLabel}
+                    {primaryLoading ? 'Procesando pedido…' : primaryLabel}
                 </Button>
             </div>
         </div>

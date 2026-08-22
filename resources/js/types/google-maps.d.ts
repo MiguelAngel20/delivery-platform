@@ -34,6 +34,32 @@ declare namespace google.maps {
         Place: typeof places.Place;
     }
 
+    namespace marker {
+        class AdvancedMarkerElement {
+            constructor(opts?: AdvancedMarkerElementOptions);
+            map: Map | null;
+            position: LatLng | LatLngLiteral | null;
+            title: string;
+            gmpDraggable: boolean;
+            addListener(
+                eventName: string,
+                handler: (...args: any[]) => void,
+            ): MapsEventListener;
+        }
+
+        interface AdvancedMarkerElementOptions {
+            map?: Map | null;
+            position?: LatLng | LatLngLiteral | null;
+            title?: string;
+            gmpDraggable?: boolean;
+            content?: Node | null;
+        }
+    }
+
+    interface MarkerLibrary {
+        AdvancedMarkerElement: typeof marker.AdvancedMarkerElement;
+    }
+
     namespace places {
         class Place {
             id?: string;
@@ -84,10 +110,13 @@ declare namespace google.maps {
     interface MapOptions {
         center?: LatLng | LatLngLiteral;
         zoom?: number;
+        mapId?: string;
         mapTypeControl?: boolean;
         streetViewControl?: boolean;
         fullscreenControl?: boolean;
         zoomControl?: boolean;
+        gestureHandling?: 'cooperative' | 'greedy' | 'none' | 'auto';
+        clickableIcons?: boolean;
     }
 
     interface MarkerOptions {
@@ -133,7 +162,7 @@ declare namespace google.maps {
 
     const importLibrary: (
         library: 'places' | 'maps' | 'marker',
-    ) => Promise<PlacesLibrary | unknown>;
+    ) => Promise<PlacesLibrary | MarkerLibrary | unknown>;
 }
 
 declare const google: {

@@ -26,7 +26,7 @@ final class BroadcastUnreadNotificationCount
 
         SafeBroadcast::event(new UnreadNotificationsUpdated(
             $notifiable->id,
-            $notifiable->unreadNotifications()->count(),
+            $notifiable->todaysUnreadNotificationCount(),
             isset($data['title']) && is_string($data['title']) ? $data['title'] : null,
             isset($data['body']) && is_string($data['body']) ? $data['body'] : null,
             $latest?->id,

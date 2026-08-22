@@ -72,7 +72,7 @@ class HandleInertiaRequests extends Middleware
                 'searchSuggestions' => $this->searchSuggestions($request),
             ],
             'notifications' => [
-                'unread_count' => $user?->unreadNotifications()->count() ?? 0,
+                'unread_count' => $user?->todaysUnreadNotificationCount() ?? 0,
             ],
             'push' => [
                 'enabled' => (bool) config('push.enabled', false),

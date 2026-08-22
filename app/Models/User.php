@@ -117,6 +117,13 @@ class User extends Authenticatable
         return $this->hasOne(NotificationPreference::class);
     }
 
+    public function todaysUnreadNotificationCount(): int
+    {
+        return (int) $this->unreadNotifications()
+            ->whereDate('created_at', today())
+            ->count();
+    }
+
     public function hasRole(UserRole ...$roles): bool
     {
         return in_array($this->role, $roles, true);

@@ -54,10 +54,12 @@ final class ReputationPresenter
         $metrics = self::customerMetrics($customer);
 
         return [
-            'id' => $customer->id,
             'name' => $customer->user?->name,
             'phone' => $customer->user?->phone,
+            'reputation_label' => $customer->trust_level->label(),
+            'reputation_tone' => $customer->trust_level->tone(),
             'completed_orders' => $metrics?->completed_orders ?? 0,
+            'is_frequent' => $customer->trust_level->isFrequent(),
         ];
     }
 

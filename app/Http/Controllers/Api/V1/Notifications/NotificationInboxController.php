@@ -16,11 +16,12 @@ class NotificationInboxController extends Controller
         $user = $request->user();
 
         $notifications = $user->notifications()
+            ->whereDate('created_at', today())
             ->latest()
             ->paginate(20);
 
         return response()->json([
-            'unread_count' => $user->unreadNotifications()->count(),
+            'unread_count' => $user->todaysUnreadNotificationCount(),
             'data' => $notifications->getCollection()->map(fn (DatabaseNotification $notification): array => [
                 'id' => $notification->id,
                 'title' => (string) data_get($notification->data, 'title', 'Notificación'),
@@ -51,7 +52,7 @@ class NotificationInboxController extends Controller
 
         $item->markAsRead();
 
-        $unread = $request->user()->unreadNotifications()->count();
+        $unread = $request->user()->todaysUnreadNotificationCount();
         SafeBroadcast::event(new UnreadNotificationsUpdated($request->user()->id, $unread));
 
         return response()->json([
@@ -62,7 +63,11 @@ class NotificationInboxController extends Controller
 
     public function markAllAsRead(Request $request): JsonResponse
     {
-        $request->user()->unreadNotifications->markAsRead();
+        $request->user()
+            ->unreadNotifications()
+            ->whereDate('created_at', today())
+            ->get()
+            ->markAsRead();
 
         SafeBroadcast::event(new UnreadNotificationsUpdated($request->user()->id, 0));
 

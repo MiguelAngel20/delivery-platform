@@ -1,6 +1,8 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { StatusBadge } from '@/components/data-display/status-badge';
+import type { StatusTone } from '@/components/data-display/status-badge';
+import { ProcessingOverlay } from '@/components/feedback/processing-overlay';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { BackButton } from '@/components/navigation/back-button';
@@ -34,11 +36,17 @@ type OrderDetail = {
     customer: {
         name?: string | null;
         phone?: string | null;
+        reputation_label?: string | null;
+        reputation_tone?: StatusTone;
         completed_orders?: number;
+        is_frequent?: boolean;
     };
-    driver?: { id: number; name: string } | null;
+    driver?: { name?: string | null; phone?: string | null } | null;
     restaurant: { branch_name?: string | null };
-    delivery_address?: { address_text: string; reference?: string | null } | null;
+    delivery_address?: {
+        address_text: string;
+        reference?: string | null;
+    } | null;
     items: Array<{
         id: number;
         product_name: string;
@@ -73,6 +81,11 @@ type Props = {
     preparationOptions: number[];
 };
 
+type BusyState = {
+    title: string;
+    description: string;
+} | null;
+
 export default function BusinessOrderShow({
     order,
     preparationOptions,
@@ -85,7 +98,9 @@ export default function BusinessOrderShow({
     };
     const [minutes, setMinutes] = useState(20);
     const [dialog, setDialog] = useState<'cancel' | 'report' | null>(null);
+    const [busy, setBusy] = useState<BusyState>(null);
     const rejectForm = useForm({ reason: '' });
+    const isBusy = busy !== null || rejectForm.processing;
 
     useBusinessOrderEvents({
         businessId: realtime?.business_id,
@@ -93,6 +108,22 @@ export default function BusinessOrderShow({
         only: ['order'],
         playSoundOnCreate: false,
     });
+
+    const runOrderAction = (
+        title: string,
+        description: string,
+        url: string,
+        data: Record<string, unknown> = {},
+    ) => {
+        if (isBusy) {
+            return;
+        }
+
+        router.post(url, data, {
+            onStart: () => setBusy({ title, description }),
+            onFinish: () => setBusy(null),
+        });
+    };
 
     return (
         <>
@@ -117,7 +148,9 @@ export default function BusinessOrderShow({
 
                 {order.cancellation ? (
                     <section className="mb-4 rounded-xl border border-border bg-surface p-4 text-sm">
-                        <h2 className="font-semibold text-foreground">Cancelación</h2>
+                        <h2 className="font-semibold text-foreground">
+                            Cancelación
+                        </h2>
                         <p className="mt-1 text-muted-foreground">
                             {order.cancellation.cancelled_by_type_label} ·{' '}
                             {order.cancellation.reason_code_label}
@@ -127,7 +160,9 @@ export default function BusinessOrderShow({
 
                 <div className="grid gap-4 lg:grid-cols-2">
                     <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
-                        <h2 className="font-semibold text-foreground">Productos</h2>
+                        <h2 className="font-semibold text-foreground">
+                            Productos
+                        </h2>
                         <ul className="space-y-3 text-sm">
                             {order.items.map((item) => (
                                 <li key={item.id} className="space-y-1">
@@ -203,27 +238,64 @@ export default function BusinessOrderShow({
                     </section>
 
                     <section className="space-y-4 rounded-xl border border-border bg-surface p-4">
+                        <div className="space-y-3">
+                            <h2 className="font-semibold text-foreground">
+                                Cliente
+                            </h2>
+                            <div className="space-y-1 text-sm">
+                                <p className="font-medium text-foreground">
+                                    {order.customer.name ?? 'Cliente'}
+                                </p>
+                                <p className="text-muted-foreground">
+                                    Tel: {order.customer.phone ?? '—'}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-2 pt-1">
+                                    <StatusBadge
+                                        tone={
+                                            order.customer.reputation_tone ??
+                                            'neutral'
+                                        }
+                                    >
+                                        {order.customer.reputation_label ??
+                                            'Sin reputación'}
+                                    </StatusBadge>
+                                    {order.customer.is_frequent ? (
+                                        <StatusBadge tone="primary">
+                                            Cliente frecuente
+                                        </StatusBadge>
+                                    ) : null}
+                                    <span className="text-xs text-muted-foreground">
+                                        {order.customer.completed_orders ?? 0}{' '}
+                                        pedidos completados
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
                         <div>
-                            <h2 className="font-semibold text-foreground">Entrega</h2>
+                            <h2 className="font-semibold text-foreground">
+                                Dirección de entrega
+                            </h2>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                {order.delivery_address?.address_text}
+                                {order.delivery_address?.address_text ?? '—'}
                             </p>
                             {order.delivery_address?.reference ? (
                                 <p className="text-sm text-muted-foreground">
                                     Ref: {order.delivery_address.reference}
                                 </p>
                             ) : null}
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                Tel: {order.customer.phone ?? '—'}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                                {order.customer.completed_orders ?? 0} pedidos
-                                completados
-                            </p>
                             {order.driver ? (
-                                <p className="mt-2 text-sm font-medium text-foreground">
-                                    Repartidor asignado: {order.driver.name}
-                                </p>
+                                <div className="mt-3 space-y-1 rounded-lg border border-border bg-background/60 p-3 text-sm">
+                                    <p className="font-semibold text-foreground">
+                                        Repartidor asignado
+                                    </p>
+                                    <p className="text-foreground">
+                                        {order.driver.name ?? 'Repartidor'}
+                                    </p>
+                                    <p className="text-muted-foreground">
+                                        Tel: {order.driver.phone ?? '—'}
+                                    </p>
+                                </div>
                             ) : (
                                 <p className="mt-2 text-sm text-muted-foreground">
                                     Sin repartidor asignado
@@ -249,7 +321,10 @@ export default function BusinessOrderShow({
                                                         ? 'default'
                                                         : 'outline'
                                                 }
-                                                onClick={() => setMinutes(option)}
+                                                disabled={isBusy}
+                                                onClick={() =>
+                                                    setMinutes(option)
+                                                }
                                             >
                                                 {option}
                                             </Button>
@@ -260,17 +335,31 @@ export default function BusinessOrderShow({
                                         min={1}
                                         max={180}
                                         value={minutes}
+                                        disabled={isBusy}
                                         onChange={(event) =>
-                                            setMinutes(Number(event.target.value))
+                                            setMinutes(
+                                                Number(event.target.value),
+                                            )
                                         }
                                     />
                                     <Button
                                         type="button"
                                         className="w-full"
+                                        disabled={isBusy}
+                                        loading={
+                                            busy?.title ===
+                                            'Aceptando pedido…'
+                                        }
                                         onClick={() =>
-                                            router.post(accept.url(order.order_number), {
-                                                estimated_preparation_minutes: minutes,
-                                            })
+                                            runOrderAction(
+                                                'Aceptando pedido…',
+                                                'Estamos registrando la aceptación. No cierres esta ventana.',
+                                                accept.url(order.order_number),
+                                                {
+                                                    estimated_preparation_minutes:
+                                                        minutes,
+                                                },
+                                            )
                                         }
                                     >
                                         Aceptar pedido
@@ -278,9 +367,13 @@ export default function BusinessOrderShow({
                                 </div>
 
                                 <div className="space-y-2 border-t border-border pt-4">
-                                    <FormField label="Motivo de rechazo" required>
+                                    <FormField
+                                        label="Motivo de rechazo"
+                                        required
+                                    >
                                         <Textarea
                                             value={rejectForm.data.reason}
+                                            disabled={isBusy}
                                             onChange={(event) =>
                                                 rejectForm.setData(
                                                     'reason',
@@ -294,10 +387,21 @@ export default function BusinessOrderShow({
                                         type="button"
                                         variant="outline"
                                         className="w-full"
-                                        disabled={rejectForm.processing}
+                                        disabled={isBusy}
+                                        loading={rejectForm.processing}
                                         onClick={() =>
                                             rejectForm.post(
                                                 reject.url(order.order_number),
+                                                {
+                                                    onStart: () =>
+                                                        setBusy({
+                                                            title: 'Rechazando pedido…',
+                                                            description:
+                                                                'Estamos registrando el rechazo. No cierres esta ventana.',
+                                                        }),
+                                                    onFinish: () =>
+                                                        setBusy(null),
+                                                },
                                             )
                                         }
                                     >
@@ -307,14 +411,25 @@ export default function BusinessOrderShow({
                             </>
                         ) : null}
 
-                        {['preparing', 'driver_assigned', 'driver_at_business'].includes(
-                            order.order_status,
-                        ) ? (
+                        {[
+                            'preparing',
+                            'driver_assigned',
+                            'driver_at_business',
+                        ].includes(order.order_status) ? (
                             <Button
                                 type="button"
                                 className="w-full"
+                                disabled={isBusy}
+                                loading={
+                                    busy?.title ===
+                                    'Marcando pedido como listo…'
+                                }
                                 onClick={() =>
-                                    router.post(ready.url(order.order_number))
+                                    runOrderAction(
+                                        'Marcando pedido como listo…',
+                                        'Avisando que el pedido está listo para recoger.',
+                                        ready.url(order.order_number),
+                                    )
                                 }
                             >
                                 Marcar listo para recoger
@@ -326,6 +441,7 @@ export default function BusinessOrderShow({
                                 type="button"
                                 variant="outline"
                                 className="w-full"
+                                disabled={isBusy}
                                 onClick={() => setDialog('cancel')}
                             >
                                 Cancelar pedido
@@ -340,6 +456,7 @@ export default function BusinessOrderShow({
                                 type="button"
                                 variant="outline"
                                 className="w-full"
+                                disabled={isBusy}
                                 onClick={() => setDialog('report')}
                             >
                                 Reportar problema
@@ -362,6 +479,8 @@ export default function BusinessOrderShow({
                 notesName="reason"
                 notesRequired={false}
                 submitLabel="Confirmar cancelación"
+                processingTitle="Cancelando pedido…"
+                processingDescription="Estamos cancelando el pedido. No cierres esta ventana."
             />
             <OrderActionDialog
                 open={dialog === 'report'}
@@ -375,6 +494,14 @@ export default function BusinessOrderShow({
                 notesLabel="Descripción"
                 notesName="description"
                 submitLabel="Enviar reporte"
+                processingTitle="Enviando reporte…"
+                processingDescription="Estamos registrando el problema. No cierres esta ventana."
+            />
+
+            <ProcessingOverlay
+                open={busy !== null}
+                title={busy?.title}
+                description={busy?.description}
             />
         </>
     );

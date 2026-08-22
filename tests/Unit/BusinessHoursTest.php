@@ -35,3 +35,24 @@ test('null opening hours are treated as closed', function () {
         ->and(BusinessHours::isOpenNow([]))->toBeFalse()
         ->and(BusinessHours::todayLabel(null))->toBe('Horario no configurado');
 });
+
+test('business hours summarizes consecutive days with the same window', function () {
+    $summary = BusinessHours::summarize(BusinessHours::defaults());
+
+    expect($summary)->toHaveCount(2)
+        ->and($summary[0]['days_label'])->toBe('Lunes a Viernes')
+        ->and($summary[0]['is_open'])->toBeTrue()
+        ->and($summary[0]['hours_label'])->toBe('09:00 – 21:00')
+        ->and($summary[1]['days_label'])->toBe('Sábado a Domingo')
+        ->and($summary[1]['is_open'])->toBeFalse()
+        ->and($summary[1]['hours_label'])->toBe('Cerrado')
+        ->and(BusinessHours::workingDayLabels(BusinessHours::defaults()))->toBe([
+            'Lunes',
+            'Martes',
+            'Miércoles',
+            'Jueves',
+            'Viernes',
+        ])
+        ->and(BusinessHours::summarize(null))->toBe([])
+        ->and(BusinessHours::workingDayLabels(null))->toBe([]);
+});

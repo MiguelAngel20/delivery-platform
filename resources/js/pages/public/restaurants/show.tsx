@@ -1,4 +1,5 @@
-import { Head, router } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
+import { Percent, UtensilsCrossed } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { AddToCartInput } from '@/apps/storefront/cart/use-storefront-cart';
 import { useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
@@ -6,31 +7,19 @@ import { ProductCard } from '@/apps/storefront/components/product-card';
 import type { StorefrontProduct } from '@/apps/storefront/components/product-dialog';
 import { ProductDialog } from '@/apps/storefront/components/product-dialog';
 import { PromotionCard } from '@/apps/storefront/components/promotion-card';
+import {
+    RestaurantProfile,
+    type RestaurantProfileData,
+} from '@/apps/storefront/components/restaurant-profile';
 import { SwitchRestaurantDialog } from '@/apps/storefront/components/switch-restaurant-dialog';
-import { StatusBadge } from '@/components/data-display/status-badge';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
-
-type Restaurant = {
-    id: number;
-    slug: string;
-    name: string;
-    category: string;
-    eta: string;
-    open: boolean;
-    mode: string;
-    branchName: string;
-    schedule: string;
-    canOrder: boolean;
-    modeLabel: string;
-    description?: string | null;
-    branches: Array<{ id: number; name: string }>;
-};
 
 type Product = StorefrontProduct & {
     restaurantSlug: string;
     category: string;
     is_available?: boolean;
+    image_url?: string | null;
 };
 
 type Promotion = {
@@ -39,10 +28,11 @@ type Promotion = {
     description: string | null;
     price: number;
     composition: string;
+    image_url?: string | null;
 };
 
 type Props = {
-    restaurant: Restaurant;
+    restaurant: RestaurantProfileData;
     branch_id: number;
     categories: Array<{ id: number; name: string; description?: string | null }>;
     products: Product[];
@@ -79,64 +69,27 @@ export default function RestaurantShow({
     return (
         <>
             <Head title={restaurant.name} />
-            <PageContainer className="gap-5 px-4 py-4 md:px-6">
-                <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
-                    <div className="flex h-32 items-end bg-secondary px-4 py-4">
-                        <h1 className="text-2xl font-semibold text-navy">
-                            {restaurant.name}
-                        </h1>
-                    </div>
-                    <div className="space-y-2 p-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <StatusBadge
-                                tone={restaurant.open ? 'success' : 'neutral'}
-                            >
-                                {restaurant.open ? 'Abierto' : 'Cerrado'}
-                            </StatusBadge>
-                            <span className="text-sm text-muted-foreground">
-                                {restaurant.category}
-                            </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                            {restaurant.branchName} · {restaurant.schedule}
-                        </p>
-                        <p className="text-sm font-medium text-navy">
-                            {restaurant.eta} · {restaurant.modeLabel}
-                        </p>
-                        {!restaurant.open ? (
-                            <p className="rounded-md border border-border bg-secondary px-3 py-2 text-sm text-navy">
-                                Este negocio está cerrado ahora. Puedes ver el
-                                menú, pero no agregar productos al carrito hasta
-                                que abra.
-                            </p>
-                        ) : null}
-                        {restaurant.branches.length > 1 ? (
-                            <select
-                                className="mt-2 flex h-10 w-full max-w-sm rounded-md border border-input bg-background px-3 text-sm"
-                                value={branch_id}
-                                onChange={(event) =>
-                                    router.get(
-                                        `/restaurants/${restaurant.slug}`,
-                                        { branch: event.target.value },
-                                        { preserveState: true },
-                                    )
-                                }
-                            >
-                                {restaurant.branches.map((branch) => (
-                                    <option key={branch.id} value={branch.id}>
-                                        {branch.name}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : null}
-                    </div>
-                </section>
+            <PageContainer className="gap-6 px-4 py-4 md:px-6">
+                <RestaurantProfile
+                    restaurant={restaurant}
+                    branchId={branch_id}
+                />
 
                 {promotions.length > 0 ? (
                     <section className="space-y-3">
-                        <h2 className="text-lg font-semibold text-navy">
-                            Promociones
-                        </h2>
+                        <div className="flex items-center gap-2">
+                            <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Percent className="size-4" />
+                            </span>
+                            <div>
+                                <h2 className="text-lg font-semibold text-navy">
+                                    Promociones
+                                </h2>
+                                <p className="text-xs text-muted-foreground">
+                                    Ofertas activas de este negocio
+                                </p>
+                            </div>
+                        </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                             {promotions.map((promotion) => (
                                 <PromotionCard
@@ -144,9 +97,11 @@ export default function RestaurantShow({
                                     promotion={{
                                         id: String(promotion.id),
                                         name: promotion.name,
-                                        description: promotion.description ?? '',
+                                        description:
+                                            promotion.description ?? '',
                                         price: promotion.price,
                                         composition: promotion.composition,
+                                        image_url: promotion.image_url,
                                     }}
                                 />
                             ))}
@@ -155,7 +110,19 @@ export default function RestaurantShow({
                 ) : null}
 
                 <section className="space-y-5">
-                    <h2 className="text-lg font-semibold text-navy">Menú</h2>
+                    <div className="flex items-center gap-2">
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-navy">
+                            <UtensilsCrossed className="size-4" />
+                        </span>
+                        <div>
+                            <h2 className="text-lg font-semibold text-navy">
+                                Menú
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                Elige tus platillos favoritos
+                            </p>
+                        </div>
+                    </div>
                     {Object.keys(grouped).length === 0 ? (
                         <EmptyState title="No hay productos" />
                     ) : (
@@ -170,14 +137,11 @@ export default function RestaurantShow({
                                             key={product.id}
                                             product={{
                                                 id: String(product.id),
-                                                restaurantSlug:
-                                                    product.restaurantSlug,
-                                                category: product.category,
                                                 name: product.name,
-                                                description: product.description,
+                                                description:
+                                                    product.description,
                                                 price: product.price,
-                                                ingredients: [],
-                                                extras: [],
+                                                image_url: product.image_url,
                                             }}
                                             canOrder={
                                                 restaurant.canOrder &&

@@ -16,7 +16,7 @@ import { notify } from '@/components/feedback/toast';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
-import { login } from '@/routes';
+import { create as register } from '@/actions/App/Http/Controllers/Web/Auth/CustomerRegisterController';
 import customer from '@/routes/customer';
 import restaurants from '@/routes/restaurants';
 import type { Auth } from '@/types';
@@ -44,7 +44,7 @@ export default function CartIndex() {
         clear,
     } = useStorefrontCart();
     const isCustomer = auth.user?.role === 'customer';
-    const checkoutHref = isCustomer ? customer.checkout() : login();
+    const checkoutHref = isCustomer ? customer.checkout() : register();
 
     const [editingLine, setEditingLine] = useState<CartLine | null>(null);
     const [editProduct, setEditProduct] = useState<StorefrontProduct | null>(

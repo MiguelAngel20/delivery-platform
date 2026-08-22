@@ -127,7 +127,7 @@ export function NotificationBell({
                                 )}
                             >
                                 <div className="flex items-start justify-between gap-2">
-                                    <p className="text-sm font-semibold text-navy">
+                                    <p className="text-sm font-semibold text-foreground">
                                         {item.title}
                                     </p>
                                     {!item.read_at ? (

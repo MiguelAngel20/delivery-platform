@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { Sparkles } from 'lucide-react';
 import type { MockPromotion } from '@/apps/storefront/mocks';
 import { formatMoney } from '@/apps/storefront/mocks';
 import { cn } from '@/lib/utils';
@@ -18,8 +19,8 @@ export function PromotionCard({
     const content = (
         <article
             className={cn(
-                'overflow-hidden rounded-xl border border-border bg-surface shadow-sm',
-                square ? 'relative aspect-square' : 'p-4',
+                'overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:border-primary/40 hover:shadow-md',
+                square ? 'relative aspect-square' : '',
                 className,
             )}
         >
@@ -32,11 +33,19 @@ export function PromotionCard({
                                 alt={promotion.name}
                                 className="size-full object-cover"
                             />
-                        ) : null}
+                        ) : (
+                            <div className="flex size-full items-center justify-center bg-gradient-to-br from-primary/20 to-navy/10 text-3xl font-semibold text-navy">
+                                {promotion.name.slice(0, 1)}
+                            </div>
+                        )}
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-navy/80 via-navy/20 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/25 to-transparent" />
+                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
+                        <Sparkles className="size-3" />
+                        Promo
+                    </span>
                     {promotion.is_affiliated ? (
-                        <span className="absolute top-2 left-2 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                        <span className="absolute top-2 right-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-navy">
                             Afiliada
                         </span>
                     ) : null}
@@ -56,20 +65,44 @@ export function PromotionCard({
                 </>
             ) : (
                 <>
-                    <p className="text-xs font-medium uppercase tracking-wide text-primary">
-                        Promoción
-                    </p>
-                    <h3 className="mt-1 font-semibold text-navy">
-                        {promotion.name}
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {promotion.composition}
-                    </p>
-                    <p className="mt-3 text-base font-semibold text-navy">
-                        {promotion.price > 0
-                            ? formatMoney(promotion.price)
-                            : 'Ver detalle'}
-                    </p>
+                    <div className="relative h-36 overflow-hidden bg-secondary">
+                        {promotion.image_url ? (
+                            <img
+                                src={promotion.image_url}
+                                alt={promotion.name}
+                                className="size-full object-cover"
+                            />
+                        ) : (
+                            <div className="flex size-full items-center justify-center bg-gradient-to-br from-primary/25 via-accent to-secondary text-4xl font-semibold text-navy">
+                                {promotion.name.slice(0, 1)}
+                            </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-navy/50 to-transparent" />
+                        <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-sm">
+                            <Sparkles className="size-3" />
+                            Promoción
+                        </span>
+                        {promotion.is_affiliated ? (
+                            <span className="absolute top-2 right-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-navy">
+                                Afiliada
+                            </span>
+                        ) : null}
+                    </div>
+                    <div className="space-y-1.5 p-4">
+                        <h3 className="font-semibold text-navy">
+                            {promotion.name}
+                        </h3>
+                        {promotion.composition ? (
+                            <p className="line-clamp-2 text-sm text-muted-foreground">
+                                {promotion.composition}
+                            </p>
+                        ) : null}
+                        <p className="pt-1 text-lg font-semibold text-primary">
+                            {promotion.price > 0
+                                ? formatMoney(promotion.price)
+                                : 'Ver detalle'}
+                        </p>
+                    </div>
                 </>
             )}
         </article>

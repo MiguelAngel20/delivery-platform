@@ -68,7 +68,7 @@ class OrderController extends Controller
             ->latest('created_at')
             ->paginate(20)
             ->withQueryString()
-            ->through(fn (Order $order): array => OrderData::transform($order));
+            ->through(fn (Order $order): array => OrderData::forBusiness($order));
 
         $newCount = Order::query()
             ->whereIn('branch_id', $branchIds)
@@ -113,7 +113,7 @@ class OrderController extends Controller
         $this->authorize('view', $order);
 
         return Inertia::render('business/orders/show', [
-            'order' => OrderData::transform($order),
+            'order' => OrderData::forBusiness($order),
             'preparationOptions' => [10, 15, 20, 30, 45],
         ]);
     }

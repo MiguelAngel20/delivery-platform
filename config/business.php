@@ -25,6 +25,12 @@ return [
     */
     'hours_timezone' => env('BUSINESS_HOURS_TIMEZONE', 'America/Mexico_City'),
 
+    'customers' => [
+        'email_verification_ttl_minutes' => (int) env('CUSTOMER_EMAIL_VERIFICATION_TTL', 15),
+        // SMS verification needs a provider (Twilio, etc.). Keep email-only until configured.
+        'phone_verification_enabled' => (bool) env('CUSTOMER_PHONE_VERIFICATION_ENABLED', false),
+    ],
+
     'custom_orders' => [
         'max_active_requests' => (int) env('MAX_ACTIVE_CUSTOM_REQUESTS', 2),
     ],

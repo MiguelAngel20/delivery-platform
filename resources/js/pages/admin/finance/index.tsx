@@ -65,11 +65,22 @@ const columns: DataTableColumn<FinanceOrder>[] = [
         cell: (row) => (
             <Link
                 href={financeShow.url(row.order_number)}
-                className="font-medium text-navy hover:underline"
+                className="font-medium text-primary hover:underline"
             >
                 #{row.order_number}
             </Link>
         ),
+    },
+    {
+        key: 'delivered_at',
+        header: 'Fecha',
+        cell: (row) =>
+            row.delivered_at
+                ? new Date(row.delivered_at).toLocaleString('es-MX', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                  })
+                : '—',
     },
     {
         key: 'business_name',
@@ -160,7 +171,7 @@ export default function AdminFinanceIndex({
                     />
                 </div>
 
-                <div className="mb-4 grid gap-3 rounded-xl border border-border bg-white p-4 md:grid-cols-3 lg:grid-cols-7">
+                <div className="mb-4 grid gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground md:grid-cols-3 lg:grid-cols-7">
                     <FormField label="Desde">
                         <Input
                             type="date"

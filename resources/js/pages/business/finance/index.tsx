@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatCard } from '@/components/data-display/stat-card';
 import { FormField } from '@/components/forms/form-field';
 import { ContentCard, PageContainer, PageHeader } from '@/components/layout/page';
@@ -38,9 +38,45 @@ type Props = {
     };
 };
 
-export default function BusinessFinanceIndex({ summary, orders, filters }: Props) {
+function formatDeliveredAt(value: string | null): string {
+    if (!value) {
+        return '—';
+    }
+
+    return new Date(value).toLocaleString('es-MX', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+    });
+}
+
+export default function BusinessFinanceIndex({
+    summary,
+    orders,
+    filters,
+}: Props) {
     const [from, setFrom] = useState(filters.from);
     const [to, setTo] = useState(filters.to);
+    const [filtering, setFiltering] = useState(false);
+
+    useEffect(() => {
+        setFrom(filters.from);
+        setTo(filters.to);
+    }, [filters.from, filters.to]);
+
+    const applyFilters = () => {
+        setFiltering(true);
+        router.get(
+            financeIndex.url({
+                query: { from, to },
+            }),
+            {},
+            {
+                preserveState: true,
+                replace: true,
+                onFinish: () => setFiltering(false),
+            },
+        );
+    };
 
     return (
         <>
@@ -50,6 +86,36 @@ export default function BusinessFinanceIndex({ summary, orders, filters }: Props
                     title="Finanzas"
                     description="Resumen operativo de pedidos entregados"
                 />
+
+                <ContentCard title="Filtros" className="mb-4">
+                    <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <FormField label="Desde">
+                            <Input
+                                type="date"
+                                value={from}
+                                onChange={(event) =>
+                                    setFrom(event.target.value)
+                                }
+                            />
+                        </FormField>
+                        <FormField label="Hasta">
+                            <Input
+                                type="date"
+                                value={to}
+                                onChange={(event) => setTo(event.target.value)}
+                            />
+                        </FormField>
+                        <div className="flex items-end">
+                            <Button
+                                type="button"
+                                loading={filtering}
+                                onClick={applyFilters}
+                            >
+                                Filtrar
+                            </Button>
+                        </div>
+                    </div>
+                </ContentCard>
 
                 <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <StatCard
@@ -70,80 +136,68 @@ export default function BusinessFinanceIndex({ summary, orders, filters }: Props
                     />
                 </div>
 
-                <ContentCard title="Filtros" className="mb-4">
-                    <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                        <FormField label="Desde">
-                            <Input
-                                type="date"
-                                value={from}
-                                onChange={(event) => setFrom(event.target.value)}
-                            />
-                        </FormField>
-                        <FormField label="Hasta">
-                            <Input
-                                type="date"
-                                value={to}
-                                onChange={(event) => setTo(event.target.value)}
-                            />
-                        </FormField>
-                        <div className="flex items-end">
-                            <Button
-                                type="button"
-                                onClick={() =>
-                                    router.get(
-                                        financeIndex.url({
-                                            query: { from, to },
-                                        }),
-                                        {},
-                                        { preserveState: true },
-                                    )
-                                }
-                            >
-                                Filtrar
-                            </Button>
-                        </div>
-                    </div>
-                </ContentCard>
-
                 <ContentCard title="Pedidos entregados" bodyClassName="p-0">
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
                             <thead className="border-b border-border bg-muted/40 text-left text-muted-foreground">
                                 <tr>
-                                    <th className="px-4 py-3 font-medium">Pedido</th>
-                                    <th className="px-4 py-3 font-medium">Sucursal</th>
-                                    <th className="px-4 py-3 font-medium">Productos</th>
-                                    <th className="px-4 py-3 font-medium">Servicio</th>
-                                    <th className="px-4 py-3 font-medium">Total cliente</th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Pedido
+                                    </th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Fecha
+                                    </th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Sucursal
+                                    </th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Productos
+                                    </th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Servicio
+                                    </th>
+                                    <th className="px-4 py-3 font-medium">
+                                        Total cliente
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
                                 {orders.data.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={6}
                                             className="px-4 py-6 text-muted-foreground"
                                         >
-                                            No hay pedidos en el rango seleccionado.
+                                            No hay pedidos en el rango
+                                            seleccionado.
                                         </td>
                                     </tr>
                                 ) : (
                                     orders.data.map((order) => (
                                         <tr key={order.id}>
-                                            <td className="px-4 py-3 font-medium text-navy">
+                                            <td className="px-4 py-3 font-medium text-foreground">
                                                 #{order.order_number}
+                                            </td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {formatDeliveredAt(
+                                                    order.delivered_at,
+                                                )}
                                             </td>
                                             <td className="px-4 py-3">
                                                 {order.branch_name ?? '—'}
                                             </td>
                                             <td className="px-4 py-3">
-                                                {formatMoney(order.products_amount)}
+                                                {formatMoney(
+                                                    order.products_amount,
+                                                )}
                                             </td>
                                             <td className="px-4 py-3">
                                                 {formatMoney(order.service_fee)}
                                             </td>
                                             <td className="px-4 py-3">
-                                                {formatMoney(order.customer_total)}
+                                                {formatMoney(
+                                                    order.customer_total,
+                                                )}
                                             </td>
                                         </tr>
                                     ))

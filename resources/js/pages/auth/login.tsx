@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { create as register } from '@/actions/App/Http/Controllers/Web/Auth/CustomerRegisterController';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
 
@@ -25,6 +26,7 @@ export default function Login({
     title = 'Iniciar sesión',
     description = 'Accede a tu cuenta',
     submitLabel = 'Entrar',
+    portal,
 }: Props) {
     setLayoutProps({
         title,
@@ -111,6 +113,15 @@ export default function Login({
                     {status}
                 </div>
             )}
+
+            {portal === 'customer' ? (
+                <p className="text-center text-sm text-muted-foreground">
+                    ¿No tienes cuenta?{' '}
+                    <TextLink href={register()} tabIndex={6}>
+                        Regístrate
+                    </TextLink>
+                </p>
+            ) : null}
         </>
     );
 }

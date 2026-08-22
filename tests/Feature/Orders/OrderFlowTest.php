@@ -15,6 +15,7 @@ use App\Models\BusinessBranch;
 use App\Models\BusinessUser;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
+use App\Models\Driver;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductOption;
@@ -552,6 +553,82 @@ test('employee cannot see another branch order', function () {
     $this->actingAs($employee)
         ->get(route('business.orders.show', $order))
         ->assertNotFound();
+});
+
+test('business order detail only exposes customer name phone address and reputation', function () {
+    ['user' => $customerUser, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['business' => $business, 'branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $admin = User::factory()->businessAdmin()->create();
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $admin->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ])->branches()->sync([$branch->id]);
+
+    $order = app(CreateOrder::class)->handle(
+        $customer,
+        $customerUser,
+        validOrderPayload($branch, $product, $onion, $cheese, $address),
+    );
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.show', $order))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('business/orders/show')
+            ->where('order.customer.name', $customerUser->name)
+            ->where('order.customer.phone', $customerUser->phone)
+            ->where('order.customer.reputation_label', $customer->trust_level->label())
+            ->has('order.customer.reputation_tone')
+            ->has('order.delivery_address.address_text')
+            ->where('order.driver', null)
+            ->missing('order.customer.email')
+            ->missing('order.customer.id')
+            ->missing('order.delivery_address.latitude')
+            ->missing('order.delivery_address.longitude'));
+});
+
+test('business order detail shows assigned driver name and phone only', function () {
+    ['user' => $customerUser, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['business' => $business, 'branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $admin = User::factory()->businessAdmin()->create();
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $admin->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ])->branches()->sync([$branch->id]);
+
+    $driverUser = User::factory()->driver()->create([
+        'first_name' => 'Pedro',
+        'last_name' => 'Repartidor',
+        'phone' => '+529611112233',
+    ]);
+    $driver = Driver::factory()->approved()->forUser($driverUser)->create();
+
+    $order = app(CreateOrder::class)->handle(
+        $customer,
+        $customerUser,
+        validOrderPayload($branch, $product, $onion, $cheese, $address),
+    );
+
+    $order->forceFill([
+        'assigned_driver_id' => $driver->id,
+        'order_status' => OrderStatus::DriverAssigned,
+    ])->save();
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.show', $order))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('business/orders/show')
+            ->where('order.driver.name', $driverUser->name)
+            ->where('order.driver.phone', $driverUser->phone)
+            ->missing('order.driver.id')
+            ->missing('order.driver.email'));
 });
 
 test('business can accept pending order requiring preparation time', function () {

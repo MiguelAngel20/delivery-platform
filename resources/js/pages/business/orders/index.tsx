@@ -17,7 +17,11 @@ type OrderRow = {
     business_status_label: string;
     total: string;
     created_at: string | null;
-    customer: { name?: string | null };
+    customer: {
+        name?: string | null;
+        phone?: string | null;
+        reputation_label?: string | null;
+    };
     restaurant: { branch_name?: string | null };
     items: Array<{
         product_name: string;
@@ -231,8 +235,13 @@ export default function BusinessOrdersIndex({
                                         </StatusBadge>
                                     </div>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        {order.customer.name} ·{' '}
-                                        {order.restaurant.branch_name}
+                                        {order.customer.name}
+                                        {order.customer.reputation_label
+                                            ? ` · ${order.customer.reputation_label}`
+                                            : ''}
+                                        {order.restaurant.branch_name
+                                            ? ` · ${order.restaurant.branch_name}`
+                                            : ''}
                                     </p>
                                 </div>
                                 <div className="text-right">

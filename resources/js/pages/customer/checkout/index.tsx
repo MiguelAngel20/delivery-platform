@@ -11,6 +11,7 @@ import { CheckoutFooter } from '@/apps/storefront/components/checkout-footer';
 import { CheckoutStepper } from '@/apps/storefront/components/checkout-stepper';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
 import { notify } from '@/components/feedback/toast';
+import { ProcessingOverlay } from '@/components/feedback/processing-overlay';
 import { EmptyState } from '@/components/feedback/empty-state';
 import InputError from '@/components/input-error';
 import { PageContainer } from '@/components/layout/page';
@@ -431,6 +432,12 @@ export default function CustomerCheckout({ addresses }: Props) {
                     backLabel={step === 2 ? 'Editar pedido' : 'Atrás'}
                 />
             </PageContainer>
+
+            <ProcessingOverlay
+                open={processing}
+                title="Procesando tu pedido…"
+                description="Estamos registrando tu orden. No cierres esta ventana."
+            />
         </>
     );
 }

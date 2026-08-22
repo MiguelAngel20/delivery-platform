@@ -215,6 +215,44 @@ final class OrderData
     }
 
     /**
+     * Business portal payload: limited customer and driver contact details.
+     *
+     * @return array<string, mixed>
+     */
+    public static function forBusiness(Order $order): array
+    {
+        $data = self::transform($order);
+        $order->loadMissing(['customer.user', 'customer.metrics', 'assignedDriver.user']);
+
+        $data['customer'] = $order->customer !== null
+            ? ReputationPresenter::customerForBusiness($order->customer)
+            : [
+                'name' => null,
+                'phone' => null,
+                'reputation_label' => null,
+                'reputation_tone' => 'neutral',
+                'completed_orders' => 0,
+                'is_frequent' => false,
+            ];
+
+        $data['driver'] = $order->assignedDriver?->user !== null
+            ? [
+                'name' => $order->assignedDriver->user->name,
+                'phone' => $order->assignedDriver->user->phone,
+            ]
+            : null;
+
+        if (is_array($data['delivery_address'] ?? null)) {
+            $data['delivery_address'] = [
+                'address_text' => $data['delivery_address']['address_text'],
+                'reference' => $data['delivery_address']['reference'] ?? null,
+            ];
+        }
+
+        return $data;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public static function customerSummary(Order $order): array

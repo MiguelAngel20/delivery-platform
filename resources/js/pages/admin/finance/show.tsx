@@ -51,8 +51,10 @@ export default function AdminFinanceShow({ order, financial }: Props) {
                     </p>
                 ) : (
                     <div className="grid gap-4 lg:grid-cols-2">
-                        <section className="space-y-3 rounded-xl border border-border bg-white p-4">
-                            <h2 className="font-semibold text-navy">Snapshot</h2>
+                        <section className="space-y-3 rounded-xl border border-border bg-card p-4 text-card-foreground">
+                            <h2 className="font-semibold text-foreground">
+                                Snapshot
+                            </h2>
                             <dl className="space-y-2 text-sm">
                                 <div className="flex justify-between gap-3">
                                     <dt>Products</dt>
@@ -98,8 +100,10 @@ export default function AdminFinanceShow({ order, financial }: Props) {
                             </dl>
                         </section>
 
-                        <section className="space-y-3 rounded-xl border border-border bg-white p-4">
-                            <h2 className="font-semibold text-navy">Movimientos</h2>
+                        <section className="space-y-3 rounded-xl border border-border bg-card p-4 text-card-foreground">
+                            <h2 className="font-semibold text-foreground">
+                                Movimientos
+                            </h2>
                             {financial.transactions.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
                                     Sin movimientos registrados.
@@ -112,7 +116,7 @@ export default function AdminFinanceShow({ order, financial }: Props) {
                                             className="flex items-start justify-between gap-3 py-3 text-sm"
                                         >
                                             <div>
-                                                <p className="font-medium text-navy">
+                                                <p className="font-medium text-foreground">
                                                     {tx.transaction_type_label}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">

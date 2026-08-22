@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Web\Auth\CustomerEmailVerificationController;
+use App\Http\Controllers\Web\Auth\CustomerRegisterController;
 use App\Http\Controllers\Web\Public\CartController;
 use App\Http\Controllers\Web\Public\HomeController;
 use App\Http\Controllers\Web\Public\LegalPageController;
@@ -26,6 +28,22 @@ Route::get('cart', fn () => Inertia::render('public/cart/index'))
 
 Route::get('cart/products/{product}', [CartController::class, 'product'])
     ->name('cart.products.show');
+
+Route::middleware('guest')->group(function () {
+    Route::get('registro', [CustomerRegisterController::class, 'create'])
+        ->name('register');
+    Route::post('registro', [CustomerRegisterController::class, 'store'])
+        ->middleware('throttle:customer-register')
+        ->name('register.store');
+    Route::get('registro/verificar-correo', [CustomerEmailVerificationController::class, 'show'])
+        ->name('register.verify-email');
+    Route::post('registro/verificar-correo', [CustomerEmailVerificationController::class, 'store'])
+        ->middleware('throttle:customer-verify-email')
+        ->name('register.verify-email.store');
+    Route::post('registro/verificar-correo/reenviar', [CustomerEmailVerificationController::class, 'resend'])
+        ->middleware('throttle:customer-verify-email')
+        ->name('register.verify-email.resend');
+});
 
 Route::prefix('legal')->name('legal.')->group(function () {
     Route::get('terminos-y-condiciones', [LegalPageController::class, 'terms'])->name('terms');

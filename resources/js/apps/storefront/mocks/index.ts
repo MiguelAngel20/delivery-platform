@@ -42,6 +42,7 @@ export type MockProduct = {
     price: number;
     ingredients: string[];
     extras: MockProductOption[];
+    image_url?: string | null;
 };
 
 export type MockPromotion = {

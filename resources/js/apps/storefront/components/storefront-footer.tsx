@@ -37,10 +37,7 @@ export function StorefrontFooter({ className }: StorefrontFooterProps) {
             <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 md:grid-cols-3 md:px-6 md:py-12">
                 <div className="space-y-3">
                     <Link href={home()} className="inline-flex">
-                        <BrandLogo
-                            variant="horizontal"
-                            className="h-8 brightness-0 invert"
-                        />
+                        <BrandLogo variant="onDark" />
                     </Link>
                     <p className="max-w-xs text-sm text-navy-foreground/80">
                         Pedidos y entregas en{' '}

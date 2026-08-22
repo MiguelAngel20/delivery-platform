@@ -90,7 +90,7 @@ test('users can logout', function () {
     $this->actingAs($user)
         ->from(route('admin.home'))
         ->post(route('logout'))
-        ->assertRedirect(route('admin.login'));
+        ->assertRedirect(route('home'));
 
     $this->assertGuest();
 });

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useBrowserGeolocation } from '@/hooks/use-browser-geolocation';
+import { GOOGLE_MAPS_MAP_ID, createAdvancedMarker, readAdvancedMarkerPosition } from '@/lib/maps/advanced-marker';
 import { googleMapsSearchUrl } from '@/lib/maps/google-maps-url';
 import {
     createAutocompleteSessionToken,
@@ -70,10 +71,14 @@ export function AddressPicker({
     const mapNodeRef = useRef<HTMLDivElement | null>(null);
     const searchBoxRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<google.maps.Map | null>(null);
-    const markerRef = useRef<google.maps.Marker | null>(null);
+    const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
     const geocoderRef = useRef<google.maps.Geocoder | null>(null);
     const sessionTokenRef =
         useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+    const onChangeRef = useRef(onChange);
+    const valueRef = useRef(value);
+    const searchRef = useRef(value?.address_text ?? '');
+    const referenceRef = useRef(value?.reference ?? '');
 
     const [search, setSearch] = useState(value?.address_text ?? '');
     const [reference, setReference] = useState(value?.reference ?? '');
@@ -82,18 +87,25 @@ export function AddressPicker({
     const [highlightIndex, setHighlightIndex] = useState(0);
     const skipPredictionsRef = useRef(false);
 
+    onChangeRef.current = onChange;
+    valueRef.current = value;
+    searchRef.current = search;
+    referenceRef.current = reference;
+
     const emit = (partial: Partial<AddressValue> & { latitude: number; longitude: number }) => {
+        const currentValue = valueRef.current;
         const next: AddressValue = {
-            address_text: partial.address_text ?? search ?? '',
-            formatted_address: partial.formatted_address ?? value?.formatted_address ?? null,
-            reference: partial.reference ?? reference ?? null,
+            address_text: partial.address_text ?? searchRef.current ?? '',
+            formatted_address:
+                partial.formatted_address ?? currentValue?.formatted_address ?? null,
+            reference: partial.reference ?? referenceRef.current ?? null,
             latitude: partial.latitude,
             longitude: partial.longitude,
-            place_id: partial.place_id ?? value?.place_id ?? null,
+            place_id: partial.place_id ?? currentValue?.place_id ?? null,
             google_maps_url: googleMapsSearchUrl(partial.latitude, partial.longitude),
         };
 
-        onChange(next);
+        onChangeRef.current(next);
     };
 
     const applyResolvedPlace = (
@@ -117,7 +129,7 @@ export function AddressPicker({
         skipPredictionsRef.current = true;
         setLocalError(null);
         mapRef.current.setCenter({ lat, lng });
-        markerRef.current.setPosition({ lat, lng });
+        markerRef.current.position = { lat, lng };
         emit({
             latitude: lat,
             longitude: lng,
@@ -182,26 +194,27 @@ export function AddressPicker({
         const map = new googleApi.maps.Map(mapNodeRef.current, {
             center,
             zoom: defaultCenter.zoom ?? 14,
+            mapId: GOOGLE_MAPS_MAP_ID,
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: false,
             zoomControl: true,
         });
 
-        const marker = new googleApi.maps.Marker({
+        const marker = createAdvancedMarker(googleApi, {
             map,
             position: center,
             draggable: !disabled,
         });
 
         marker.addListener('dragend', () => {
-            const position = marker.getPosition();
+            const position = readAdvancedMarkerPosition(marker);
 
             if (!position) {
                 return;
             }
 
-            reverseGeocode(position.lat(), position.lng());
+            reverseGeocode(position.lat, position.lng);
         });
 
         mapRef.current = map;
@@ -233,7 +246,7 @@ export function AddressPicker({
 
             if (markerRef.current) {
                 googleApi.maps.event.clearInstanceListeners(markerRef.current);
-                markerRef.current.setMap(null);
+                markerRef.current.map = null;
             }
 
             mapRef.current = null;
@@ -306,7 +319,7 @@ export function AddressPicker({
         }
 
         const next = { lat: Number(value.latitude), lng: Number(value.longitude) };
-        markerRef.current.setPosition(next);
+        markerRef.current.position = next;
         mapRef.current.panTo(next);
     }, [value?.latitude, value?.longitude]);
 
@@ -418,7 +431,7 @@ export function AddressPicker({
                         }
 
                         mapRef.current.setCenter(point);
-                        markerRef.current.setPosition(point);
+                        markerRef.current.position = point;
                         reverseGeocode(point.lat, point.lng);
                     }}
                 >

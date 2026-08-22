@@ -318,6 +318,72 @@ final class BusinessHours
             ->all();
     }
 
+    /**
+     * Groups consecutive days that share the same opening window.
+     *
+     * @param  list<array{day: string, is_open: bool, opens_at: string|null, closes_at: string|null}>|null  $hours
+     * @return list<array{days_label: string, is_open: bool, opens_at: string|null, closes_at: string|null, hours_label: string}>
+     */
+    public static function summarize(?array $hours): array
+    {
+        if ($hours === null || $hours === []) {
+            return [];
+        }
+
+        $groups = [];
+
+        foreach (self::present($hours) as $row) {
+            $signature = ($row['is_open'] ? '1' : '0').'|'.($row['opens_at'] ?? '').'|'.($row['closes_at'] ?? '');
+            $lastIndex = array_key_last($groups);
+
+            if ($lastIndex !== null && $groups[$lastIndex]['signature'] === $signature) {
+                $groups[$lastIndex]['end_label'] = $row['day_label'];
+
+                continue;
+            }
+
+            $groups[] = [
+                'signature' => $signature,
+                'start_label' => $row['day_label'],
+                'end_label' => $row['day_label'],
+                'is_open' => (bool) $row['is_open'],
+                'opens_at' => $row['opens_at'],
+                'closes_at' => $row['closes_at'],
+                'hours_label' => $row['label'],
+            ];
+        }
+
+        return collect($groups)
+            ->map(fn (array $group): array => [
+                'days_label' => $group['start_label'] === $group['end_label']
+                    ? $group['start_label']
+                    : sprintf('%s a %s', $group['start_label'], $group['end_label']),
+                'is_open' => $group['is_open'],
+                'opens_at' => $group['opens_at'],
+                'closes_at' => $group['closes_at'],
+                'hours_label' => $group['hours_label'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<array{day: string, is_open: bool, opens_at: string|null, closes_at: string|null}>|null  $hours
+     * @return list<string>
+     */
+    public static function workingDayLabels(?array $hours): array
+    {
+        if ($hours === null || $hours === []) {
+            return [];
+        }
+
+        return collect(self::present($hours))
+            ->filter(fn (array $row): bool => $row['is_open'] === true)
+            ->pluck('day_label')
+            ->values()
+            ->all();
+    }
+
     private static function normalizeTime(mixed $value): ?string
     {
         if (! is_string($value) || $value === '') {

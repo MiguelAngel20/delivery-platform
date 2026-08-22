@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 
 type StatCardProps = {
     title: string;
-    value: string;
+    value: string | number;
     description?: string;
     icon?: ReactNode;
     trend?: {
@@ -37,18 +37,23 @@ export function StatCard({
               : 'text-muted-foreground';
 
     return (
-        <Card className={cn('gap-4 border-[#E2E8F0] bg-white py-5 text-[#0F172A] shadow-sm', className)}>
+        <Card
+            className={cn(
+                'gap-4 border-border bg-card py-5 text-card-foreground shadow-sm',
+                className,
+            )}
+        >
             <CardHeader className="flex flex-row items-start justify-between gap-4 px-5">
                 <div className="space-y-2">
-                    <CardDescription className="text-sm font-medium text-[#64748B]">
+                    <CardDescription className="text-sm font-medium text-muted-foreground">
                         {title}
                     </CardDescription>
-                    <CardTitle className="text-3xl font-semibold tracking-tight text-[#0F172A]">
+                    <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">
                         {value}
                     </CardTitle>
                 </div>
                 {icon ? (
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#FFF4E8] text-[#FF7A00] [&_svg]:size-5">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [&_svg]:size-5">
                         {icon}
                     </div>
                 ) : null}
@@ -66,7 +71,7 @@ export function StatCard({
                         </p>
                     ) : null}
                     {trend?.label || description ? (
-                        <p className="text-xs text-[#64748B]">
+                        <p className="text-xs text-muted-foreground">
                             {trend?.label ?? description}
                         </p>
                     ) : null}

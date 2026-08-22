@@ -162,7 +162,7 @@ export function PushPermissionPrompt({
         <div className="border-b border-border bg-primary/5 px-4 py-3">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p className="text-sm font-semibold text-navy">
+                    <p className="text-sm font-semibold text-foreground">
                         {content.title}
                     </p>
                     <p className="text-sm text-muted-foreground">{content.body}</p>

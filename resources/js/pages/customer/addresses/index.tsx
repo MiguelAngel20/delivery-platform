@@ -39,16 +39,16 @@ export default function CustomerAddressesIndex({
     });
 
     const onAddressChange = (value: AddressValue) => {
-        form.setData({
-            ...form.data,
+        form.setData((data) => ({
+            ...data,
             address_text: value.address_text,
             formatted_address: value.formatted_address ?? '',
-            reference: value.reference ?? '',
+            reference: value.reference ?? data.reference,
             latitude: String(value.latitude),
             longitude: String(value.longitude),
             place_id: value.place_id ?? '',
             google_maps_url: value.google_maps_url ?? '',
-        });
+        }));
     };
 
     return (

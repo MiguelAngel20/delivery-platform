@@ -129,7 +129,7 @@ export function NotificationPreferencesForm({
                                 key={key}
                                 className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
                             >
-                                <span className="text-sm text-navy">
+                                <span className="text-sm text-foreground">
                                     {preferenceLabel(key)}
                                 </span>
                                 <input

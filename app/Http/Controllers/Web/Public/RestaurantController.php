@@ -19,6 +19,7 @@ use App\Services\Geo\DistanceService;
 use App\Support\BusinessHours;
 use App\Support\BusinessLogoStorage;
 use App\Support\GeoPoint;
+use App\Support\GoogleMapsUrl;
 use App\Support\StorefrontProductData;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -160,7 +161,7 @@ class RestaurantController extends Controller
         return Inertia::render('public/restaurants/show', [
             'restaurant' => [
                 ...$this->restaurantCard($business, $branch, $eta, $inCoverage),
-                'description' => $business->description,
+                ...$this->restaurantProfile($business, $branch),
                 'branches' => $business->branches()
                     ->where('status', BranchStatus::Active)
                     ->orderBy('name')
@@ -250,6 +251,34 @@ class RestaurantController extends Controller
                         : 'Solo información')),
             'logo_url' => $this->logoStorage->url($business->logo_path),
             'is_affiliated' => $business->operation_mode === BusinessOperationMode::Partner,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function restaurantProfile(Business $business, BusinessBranch $branch): array
+    {
+        $hours = $branch->opening_hours;
+        $address = filled($branch->formatted_address)
+            ? $branch->formatted_address
+            : $branch->address_text;
+
+        return [
+            'description' => $business->description,
+            'phone' => $branch->phone ?: $business->phone,
+            'address' => $address,
+            'reference' => $branch->reference,
+            'latitude' => (float) $branch->latitude,
+            'longitude' => (float) $branch->longitude,
+            'google_maps_url' => GoogleMapsUrl::resolve(
+                $branch->google_maps_url,
+                $branch->latitude,
+                $branch->longitude,
+            ),
+            'opening_hours' => BusinessHours::present($hours),
+            'schedule_summary' => BusinessHours::summarize($hours),
+            'working_days' => BusinessHours::workingDayLabels($hours),
         ];
     }
 

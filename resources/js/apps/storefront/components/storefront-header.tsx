@@ -132,18 +132,15 @@ export function StorefrontHeader() {
     return (
         <header className="sticky top-0 z-30 border-b border-border bg-surface">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-2 md:gap-3 md:px-6 md:py-3">
-                <div className="flex items-center justify-between gap-2 md:gap-3">
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5 md:flex-none md:gap-3">
-                        <Link href={home()} className="shrink-0">
-                            <BrandLogo
-                                variant="horizontal"
-                                className="h-6 md:h-8"
-                            />
-                        </Link>
-                        <DeliveryLocationCue />
-                    </div>
+                <div className="relative flex items-center gap-2 md:gap-3">
+                    <Link href={home()} className="relative z-10 shrink-0">
+                        <BrandLogo variant="responsive" />
+                    </Link>
+                    <DeliveryLocationCue
+                        className="absolute left-1/2 max-w-[min(13rem,calc(100%-7.5rem))] -translate-x-1/2 justify-center md:static md:ml-8 md:max-w-72 md:translate-x-0 md:justify-start"
+                    />
 
-                    <nav className="hidden items-center gap-1 md:flex">
+                    <nav className="ml-auto hidden items-center gap-1 md:flex">
                         <Button asChild variant="ghost" size="sm">
                             <Link href={home()}>Inicio</Link>
                         </Button>
@@ -205,7 +202,7 @@ export function StorefrontHeader() {
                         </Button>
                     </nav>
 
-                    <div className="flex shrink-0 items-center gap-0.5 md:gap-1.5">
+                    <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5 md:ml-0 md:gap-1.5">
                         {authenticated ? <NotificationBell compact /> : null}
                         <Button
                             asChild
