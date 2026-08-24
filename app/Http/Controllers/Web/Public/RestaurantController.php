@@ -122,15 +122,21 @@ class RestaurantController extends Controller
         $categories = ProductCategory::query()
             ->where('branch_id', $branch->id)
             ->where('is_active', true)
+            ->with(['children' => fn ($query) => $query
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')])
+            ->roots()
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['id', 'name', 'description', 'sort_order']);
+            ->get(['id', 'name', 'description', 'sort_order', 'parent_id']);
 
         $products = Product::query()
             ->where('branch_id', $branch->id)
             ->where('is_active', true)
             ->with([
-                'category:id,name',
+                'category:id,name,parent_id',
+                'category.parent:id,name',
                 'currentPrice',
                 'optionGroups' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order'),
                 'optionGroups.options' => fn ($query) => $query->where('is_available', true)->orderBy('sort_order'),
@@ -178,6 +184,11 @@ class RestaurantController extends Controller
                 'id' => $category->id,
                 'name' => $category->name,
                 'description' => $category->description,
+                'children' => $category->children->map(fn (ProductCategory $child): array => [
+                    'id' => $child->id,
+                    'name' => $child->name,
+                    'description' => $child->description,
+                ])->values()->all(),
             ])->values()->all(),
             'products' => $products->map(fn (Product $product): array => $this->productPayload($product, $business->slug))->values()->all(),
             'promotions' => $promotions->map(fn (Promotion $promotion): array => [

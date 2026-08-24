@@ -7,25 +7,32 @@ import { StatusBadge } from '@/components/data-display/status-badge';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { BackButton } from '@/components/navigation/back-button';
 
-type CategoryRow = {
+type SubcategoryRow = {
     id: number;
     name: string;
-    display_name?: string;
+    parent_name?: string | null;
     branch_name?: string;
     is_active: boolean;
 };
 
 type Props = {
     business: { id: number; name: string };
-    categories: { data: CategoryRow[] };
+    subcategories: { data: SubcategoryRow[] };
     options: CatalogFormOptions;
 };
 
-const columns: DataTableColumn<CategoryRow>[] = [
+const columns: DataTableColumn<SubcategoryRow>[] = [
     {
         key: 'name',
-        header: 'Categoría',
-        cell: (row) => row.display_name ?? row.name,
+        header: 'Subcategoría',
+        cell: (row) => (
+            <div>
+                <p className="font-medium">{row.name}</p>
+                <p className="text-xs text-muted-foreground">
+                    En {row.parent_name ?? '—'}
+                </p>
+            </div>
+        ),
     },
     { key: 'branch', header: 'Sucursal', cell: (row) => row.branch_name ?? '—' },
     {
@@ -39,32 +46,33 @@ const columns: DataTableColumn<CategoryRow>[] = [
     },
 ];
 
-export default function AdminCatalogCategoriesIndex({
+export default function AdminCatalogSubcategoriesIndex({
     business,
-    categories,
+    subcategories,
     options,
 }: Props) {
     const base = `/admin/businesses/${business.id}/catalog`;
 
     return (
         <>
-            <Head title={`Categorías · ${business.name}`} />
+            <Head title={`Subcategorías · ${business.name}`} />
             <PageContainer>
                 <PageHeader
-                    title="Categorías"
+                    title="Subcategorías"
+                    description="Opcional. Organiza dentro de una categoría principal."
                     actions={<BackButton href={base} />}
                 />
-                <div className="mb-6 rounded-xl border border-border bg-white p-4">
+                <div className="mb-6 rounded-xl border border-border bg-card p-4">
                     <CategoryForm
                         options={options}
-                        variant="principal"
-                        action={{ url: `${base}/categories`, method: 'post' }}
-                        submitLabel="Crear categoría"
+                        variant="subcategory"
+                        action={{ url: `${base}/subcategories`, method: 'post' }}
+                        submitLabel="Crear subcategoría"
                     />
                 </div>
                 <DataTable
                     columns={columns}
-                    data={categories.data}
+                    data={subcategories.data}
                     rowKey={(row) => row.id}
                 />
             </PageContainer>

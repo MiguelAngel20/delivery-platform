@@ -93,6 +93,9 @@ Route::middleware([
             Route::get('categories', [CatalogController::class, 'categoriesIndex'])->name('categories.index');
             Route::post('categories', [CatalogController::class, 'categoriesStore'])->name('categories.store');
 
+            Route::get('subcategories', [CatalogController::class, 'subcategoriesIndex'])->name('subcategories.index');
+            Route::post('subcategories', [CatalogController::class, 'subcategoriesStore'])->name('subcategories.store');
+
             Route::get('products', [CatalogController::class, 'productsIndex'])->name('products.index');
             Route::get('products/create', [CatalogController::class, 'productsCreate'])->name('products.create');
             Route::post('products', [CatalogController::class, 'productsStore'])->name('products.store');

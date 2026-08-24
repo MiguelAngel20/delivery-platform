@@ -1,0 +1,17 @@
+; Copy to /etc/supervisor/conf.d/ride-reverb.conf and run:
+;   sudo supervisorctl reread && sudo supervisorctl update && sudo supervisorctl start ride-reverb
+;
+; Adjust paths and user for your VPS.
+
+[program:ride-reverb]
+process_name=%(program_name)s
+command=php /var/www/delivery-platform/artisan reverb:start
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/delivery-platform/storage/logs/reverb.log
+stopwaitsecs=3600

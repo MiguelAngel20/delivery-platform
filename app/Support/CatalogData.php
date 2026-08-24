@@ -17,11 +17,16 @@ final class CatalogData
      */
     public static function category(ProductCategory $category): array
     {
+        $category->loadMissing(['branch:id,name', 'parent:id,name']);
+
         return [
             'id' => $category->id,
             'branch_id' => $category->branch_id,
             'branch_name' => $category->branch?->name,
+            'parent_id' => $category->parent_id,
+            'parent_name' => $category->parent?->name,
             'name' => $category->name,
+            'display_name' => $category->displayPath(),
             'description' => $category->description,
             'sort_order' => $category->sort_order,
             'is_active' => $category->is_active,
@@ -33,14 +38,24 @@ final class CatalogData
      */
     public static function product(Product $product): array
     {
-        $product->loadMissing(['category:id,name', 'currentPrice', 'optionGroups.options', 'branch:id,name']);
+        $product->loadMissing([
+            'category:id,name,parent_id',
+            'category.parent:id,name',
+            'currentPrice',
+            'optionGroups.options',
+            'branch:id,name',
+        ]);
 
         return [
             'id' => $product->id,
             'branch_id' => $product->branch_id,
             'branch_name' => $product->branch?->name,
             'product_category_id' => $product->product_category_id,
-            'category_name' => $product->category?->name,
+            'principal_category_id' => $product->category?->parent_id ?? $product->product_category_id,
+            'subcategory_id' => $product->category?->parent_id !== null
+                ? $product->product_category_id
+                : null,
+            'category_name' => $product->category?->displayPath(),
             'name' => $product->name,
             'description' => $product->description,
             'image_url' => $product->imageUrl(),
@@ -81,14 +96,19 @@ final class CatalogData
      */
     public static function productListRow(Product $product): array
     {
-        $product->loadMissing(['category:id,name', 'currentPrice', 'branch:id,name']);
+        $product->loadMissing([
+            'category:id,name,parent_id',
+            'category.parent:id,name',
+            'currentPrice',
+            'branch:id,name',
+        ]);
 
         return [
             'id' => $product->id,
             'branch_id' => $product->branch_id,
             'branch_name' => $product->branch?->name,
             'name' => $product->name,
-            'category_name' => $product->category?->name ?? '—',
+            'category_name' => $product->category?->displayPath() ?? '—',
             'list_price' => $product->currentPrice?->list_price !== null
                 ? (string) $product->currentPrice->list_price
                 : null,
@@ -146,6 +166,30 @@ final class CatalogData
         $categories = ProductCategory::query()
             ->whereIn('branch_id', $business->branches()->select('id'))
             ->where('is_active', true)
+            ->with('parent:id,name')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'branch_id', 'parent_id', 'name'])
+            ->sortBy(fn (ProductCategory $category): string => sprintf(
+                '%d-%s-%s',
+                $category->branch_id,
+                $category->parent?->name ?? $category->name,
+                $category->parent_id === null ? '0' : '1'.$category->name,
+            ))
+            ->values()
+            ->map(fn (ProductCategory $category): array => [
+                'value' => (string) $category->id,
+                'label' => $category->displayPath(),
+                'branch_id' => $category->branch_id,
+                'parent_id' => $category->parent_id,
+                'is_root' => $category->parent_id === null,
+            ])
+            ->all();
+
+        $parentCategories = ProductCategory::query()
+            ->whereIn('branch_id', $business->branches()->select('id'))
+            ->where('is_active', true)
+            ->roots()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'branch_id', 'name'])
@@ -173,6 +217,7 @@ final class CatalogData
         return [
             'branches' => $branches,
             'categories' => $categories,
+            'parent_categories' => $parentCategories,
             'products' => $products,
             'option_group_types' => collect(ProductOptionGroupType::cases())
                 ->map(fn (ProductOptionGroupType $type): array => [

@@ -1,0 +1,62 @@
+# ChisDrive — Nginx site (HTTPS)
+# Path example: /etc/nginx/sites-available/chisdrive.com
+#
+# Include the Reverb WebSocket block from reverb.conf.example inside server { listen 443 ssl; ... }
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name chisdrive.com www.chisdrive.com;
+    return 301 https://chisdrive.com$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name chisdrive.com www.chisdrive.com;
+
+    root /var/www/delivery-platform/public;
+    index index.php;
+
+    # ssl_certificate /etc/letsencrypt/live/chisdrive.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/chisdrive.com/privkey.pem;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    charset utf-8;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # Laravel Reverb WebSockets (Echo connects to wss://chisdrive.com/app/...)
+    location /app {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    error_page 404 /index.php;
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}

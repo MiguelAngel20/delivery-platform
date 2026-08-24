@@ -245,6 +245,62 @@ export function ProductForm({
         [options.categories, branchId],
     );
 
+    const principalCategories = useMemo(
+        () => categories.filter((category) => category.is_root !== false && !category.parent_id),
+        [categories],
+    );
+
+    const initialPrincipalId = useMemo(() => {
+        if (!product?.product_category_id) {
+            return '';
+        }
+
+        const selected = options.categories.find(
+            (category) => category.value === String(product.product_category_id),
+        );
+
+        if (!selected) {
+            return String(product.product_category_id);
+        }
+
+        return selected.parent_id
+            ? String(selected.parent_id)
+            : selected.value;
+    }, [options.categories, product?.product_category_id]);
+
+    const initialSubcategoryId = useMemo(() => {
+        if (!product?.product_category_id) {
+            return '';
+        }
+
+        const selected = options.categories.find(
+            (category) => category.value === String(product.product_category_id),
+        );
+
+        return selected?.parent_id ? selected.value : '';
+    }, [options.categories, product?.product_category_id]);
+
+    const [principalCategoryId, setPrincipalCategoryId] = useState(initialPrincipalId);
+    const [subcategoryId, setSubcategoryId] = useState(initialSubcategoryId);
+
+    useEffect(() => {
+        setPrincipalCategoryId(initialPrincipalId);
+        setSubcategoryId(initialSubcategoryId);
+    }, [initialPrincipalId, initialSubcategoryId]);
+
+    const subcategories = useMemo(
+        () =>
+            categories.filter(
+                (category) =>
+                    category.parent_id !== null &&
+                    category.parent_id !== undefined &&
+                    String(category.parent_id) === principalCategoryId,
+            ),
+        [categories, principalCategoryId],
+    );
+
+    const resolvedCategoryId = subcategoryId || principalCategoryId;
+
     const toggleSection = (type: SectionType, enabled: boolean) => {
         setGroups((current) => {
             if (enabled) {
@@ -408,8 +464,8 @@ export function ProductForm({
                         </FormField>
 
                         <FormField
-                            label="Categoría"
-                            htmlFor="product_category_id"
+                            label="Categoría principal"
+                            htmlFor="principal_category_id"
                             error={resolveFieldError(
                                 'product_category_id',
                                 clientErrors,
@@ -417,24 +473,71 @@ export function ProductForm({
                             )}
                         >
                             <select
-                                id="product_category_id"
-                                name="product_category_id"
-                                defaultValue={
-                                    product?.product_category_id ?? ''
-                                }
+                                id="principal_category_id"
+                                value={principalCategoryId}
+                                onChange={(event) => {
+                                    setPrincipalCategoryId(event.target.value);
+                                    setSubcategoryId('');
+                                }}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                             >
                                 <option value="">Sin categoría</option>
-                                {categories.map((category) => (
+                                {principalCategories.map((category) => (
                                     <option
                                         key={category.value}
                                         value={category.value}
                                     >
-                                        {category.label}
+                                        {category.label.includes(' › ')
+                                            ? category.label.split(' › ')[0]
+                                            : category.label}
                                     </option>
                                 ))}
                             </select>
                         </FormField>
+
+                        <FormField
+                            label="Subcategoría (opcional)"
+                            htmlFor="subcategory_id"
+                        >
+                            <select
+                                id="subcategory_id"
+                                value={subcategoryId}
+                                disabled={
+                                    principalCategoryId === '' ||
+                                    subcategories.length === 0
+                                }
+                                onChange={(event) =>
+                                    setSubcategoryId(event.target.value)
+                                }
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
+                            >
+                                <option value="">
+                                    {subcategories.length === 0
+                                        ? 'Sin subcategorías'
+                                        : 'Ninguna — solo categoría principal'}
+                                </option>
+                                {subcategories.map((category) => (
+                                    <option
+                                        key={category.value}
+                                        value={category.value}
+                                    >
+                                        {category.label.includes(' › ')
+                                            ? category.label.split(' › ').pop()
+                                            : category.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Si el negocio no usa subcategorías, deja este
+                                campo vacío.
+                            </p>
+                        </FormField>
+
+                        <input
+                            type="hidden"
+                            name="product_category_id"
+                            value={resolvedCategoryId}
+                        />
 
                         <FormField
                             label="Nombre"

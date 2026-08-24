@@ -11,10 +11,11 @@ use App\Models\ProductCategory;
 use App\Support\CatalogData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class CategoryController extends Controller
+class SubcategoryController extends Controller
 {
     use ResolvesBusinessCatalog;
 
@@ -25,10 +26,10 @@ class CategoryController extends Controller
 
         $branchIds = $business->branches()->pluck('id');
 
-        $categories = ProductCategory::query()
+        $subcategories = ProductCategory::query()
             ->whereIn('branch_id', $branchIds)
-            ->roots()
-            ->with(['branch:id,name'])
+            ->whereNotNull('parent_id')
+            ->with(['branch:id,name', 'parent:id,name'])
             ->when(
                 filled($request->string('search')->toString()),
                 fn ($query) => $query->where('name', 'like', '%'.$request->string('search')->toString().'%'),
@@ -36,6 +37,10 @@ class CategoryController extends Controller
             ->when(
                 filled($request->input('branch_id')),
                 fn ($query) => $query->where('branch_id', $request->integer('branch_id')),
+            )
+            ->when(
+                filled($request->input('parent_id')),
+                fn ($query) => $query->where('parent_id', $request->integer('parent_id')),
             )
             ->when(
                 $request->input('is_active') !== null && $request->input('is_active') !== '',
@@ -47,11 +52,12 @@ class CategoryController extends Controller
             ->withQueryString()
             ->through(fn (ProductCategory $category): array => CatalogData::category($category));
 
-        return Inertia::render('business/categories/index', [
-            'categories' => $categories,
+        return Inertia::render('business/subcategories/index', [
+            'subcategories' => $subcategories,
             'filters' => [
                 'search' => $request->string('search')->toString(),
                 'branch_id' => $request->input('branch_id', ''),
+                'parent_id' => $request->input('parent_id', ''),
                 'is_active' => $request->input('is_active', ''),
             ],
             'options' => CatalogData::formOptions($business),
@@ -63,7 +69,7 @@ class CategoryController extends Controller
         $business = $this->currentBusiness($request);
         $this->authorize('create', ProductCategory::class);
 
-        return Inertia::render('business/categories/create', [
+        return Inertia::render('business/subcategories/create', [
             'options' => CatalogData::formOptions($business),
         ]);
     }
@@ -73,87 +79,101 @@ class CategoryController extends Controller
         $business = $this->currentBusiness($request);
         $branch = $this->resolveBranch($request, $business, $request->validated('branch_id'));
 
+        if (! $request->filled('parent_id')) {
+            throw ValidationException::withMessages([
+                'parent_id' => 'Selecciona la categoría principal.',
+            ]);
+        }
+
         ProductCategory::query()->create([
-            ...$request->safe()->except(['branch_id', 'parent_id']),
+            ...$request->safe()->except('branch_id'),
             'branch_id' => $branch->id,
-            'parent_id' => null,
+            'parent_id' => $request->integer('parent_id'),
             'is_active' => $request->boolean('is_active', true),
             'sort_order' => $request->integer('sort_order', 0),
         ]);
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Categoría creada correctamente.',
+            'message' => 'Subcategoría creada correctamente.',
         ]);
 
-        return to_route('business.categories.index');
+        return to_route('business.subcategories.index');
     }
 
-    public function edit(Request $request, ProductCategory $category): Response
+    public function edit(Request $request, ProductCategory $subcategory): Response
     {
         $business = $this->currentBusiness($request);
-        $this->ensureCategoryBelongsToBusiness($business, $category);
-        abort_unless($category->isRoot(), 404);
-        $this->authorize('update', $category);
+        $this->ensureCategoryBelongsToBusiness($business, $subcategory);
+        abort_unless($subcategory->isSubcategory(), 404);
+        $this->authorize('update', $subcategory);
 
-        $category->load(['branch:id,name']);
+        $subcategory->load(['branch:id,name', 'parent:id,name']);
 
-        return Inertia::render('business/categories/edit', [
-            'category' => CatalogData::category($category),
+        return Inertia::render('business/subcategories/edit', [
+            'subcategory' => CatalogData::category($subcategory),
             'options' => CatalogData::formOptions($business),
         ]);
     }
 
     public function update(
         UpdateProductCategoryRequest $request,
-        ProductCategory $category,
+        ProductCategory $subcategory,
     ): RedirectResponse {
         $business = $this->currentBusiness($request);
-        $this->ensureCategoryBelongsToBusiness($business, $category);
-        abort_unless($category->isRoot(), 404);
+        $this->ensureCategoryBelongsToBusiness($business, $subcategory);
+        abort_unless($subcategory->isSubcategory(), 404);
 
-        $category->update([
-            ...$request->safe()->only(['name', 'description', 'sort_order', 'is_active']),
-            'parent_id' => null,
-            'is_active' => $request->boolean('is_active', $category->is_active),
-            'sort_order' => $request->integer('sort_order', $category->sort_order),
+        if (! $request->filled('parent_id')) {
+            throw ValidationException::withMessages([
+                'parent_id' => 'Selecciona la categoría principal.',
+            ]);
+        }
+
+        $subcategory->update([
+            ...$request->safe()->only(['name', 'description', 'sort_order', 'is_active', 'parent_id']),
+            'parent_id' => $request->integer('parent_id'),
+            'is_active' => $request->boolean('is_active', $subcategory->is_active),
+            'sort_order' => $request->integer('sort_order', $subcategory->sort_order),
         ]);
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Categoría actualizada correctamente.',
+            'message' => 'Subcategoría actualizada correctamente.',
         ]);
 
-        return to_route('business.categories.index');
+        return to_route('business.subcategories.index');
     }
 
-    public function deactivate(Request $request, ProductCategory $category): RedirectResponse
+    public function deactivate(Request $request, ProductCategory $subcategory): RedirectResponse
     {
         $business = $this->currentBusiness($request);
-        $this->ensureCategoryBelongsToBusiness($business, $category);
-        $this->authorize('update', $category);
+        $this->ensureCategoryBelongsToBusiness($business, $subcategory);
+        abort_unless($subcategory->isSubcategory(), 404);
+        $this->authorize('update', $subcategory);
 
-        $category->update(['is_active' => false]);
+        $subcategory->update(['is_active' => false]);
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Categoría desactivada.',
+            'message' => 'Subcategoría desactivada.',
         ]);
 
         return back();
     }
 
-    public function activate(Request $request, ProductCategory $category): RedirectResponse
+    public function activate(Request $request, ProductCategory $subcategory): RedirectResponse
     {
         $business = $this->currentBusiness($request);
-        $this->ensureCategoryBelongsToBusiness($business, $category);
-        $this->authorize('update', $category);
+        $this->ensureCategoryBelongsToBusiness($business, $subcategory);
+        abort_unless($subcategory->isSubcategory(), 404);
+        $this->authorize('update', $subcategory);
 
-        $category->update(['is_active' => true]);
+        $subcategory->update(['is_active' => true]);
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Categoría activada.',
+            'message' => 'Subcategoría activada.',
         ]);
 
         return back();

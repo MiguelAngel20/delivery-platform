@@ -2,6 +2,7 @@ import {
     ArrowUpRight,
     CircleDollarSign,
     LayoutDashboard,
+    Layers2,
     Package,
     Percent,
     Settings,
@@ -42,6 +43,12 @@ export const businessNavItems: NavItem[] = [
         title: 'Categorías',
         href: business.categories.index(),
         icon: Tag,
+        roles: ['business_admin'],
+    },
+    {
+        title: 'Subcategorías',
+        href: business.subcategories.index(),
+        icon: Layers2,
         roles: ['business_admin'],
     },
     {

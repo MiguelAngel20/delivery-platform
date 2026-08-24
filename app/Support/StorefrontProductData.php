@@ -12,16 +12,24 @@ final class StorefrontProductData
     public static function menuProduct(Product $product, string $restaurantSlug): array
     {
         $product->loadMissing([
-            'category:id,name',
+            'category:id,name,parent_id',
+            'category.parent:id,name',
             'currentPrice',
             'optionGroups.options',
         ]);
 
+        $category = $product->category;
+        $parentName = $category?->parent?->name;
+        $categoryName = $category?->name;
+
         return [
             'id' => $product->id,
             'restaurantSlug' => $restaurantSlug,
-            'category' => $product->category?->name ?? 'Sin categoría',
+            'category' => $category?->displayPath() ?? 'Sin categoría',
+            'subcategory' => $parentName !== null ? $categoryName : null,
+            'category_path' => $category?->displayPath() ?? 'Sin categoría',
             'product_category_id' => $product->product_category_id,
+            'parent_category_id' => $category?->parent_id,
             'name' => $product->name,
             'description' => $product->description ?? '',
             'price' => (float) ($product->currentPrice?->list_price ?? 0),

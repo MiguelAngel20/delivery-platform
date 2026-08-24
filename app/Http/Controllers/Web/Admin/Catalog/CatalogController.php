@@ -44,7 +44,8 @@ class CatalogController extends Controller
 
         $categories = ProductCategory::query()
             ->whereIn('branch_id', $business->branches()->select('id'))
-            ->with('branch:id,name')
+            ->roots()
+            ->with(['branch:id,name'])
             ->orderBy('sort_order')
             ->paginate(15)
             ->withQueryString()
@@ -77,6 +78,7 @@ class CatalogController extends Controller
 
         ProductCategory::query()->create([
             ...$validated,
+            'parent_id' => null,
             'is_active' => $request->boolean('is_active', true),
             'sort_order' => (int) ($validated['sort_order'] ?? 0),
         ]);
@@ -84,6 +86,63 @@ class CatalogController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Categoría creada.']);
 
         return to_route('admin.businesses.catalog.categories.index', $business);
+    }
+
+    public function subcategoriesIndex(Request $request, Business $business): Response
+    {
+        $this->ensurePlatformOperated($business);
+
+        $subcategories = ProductCategory::query()
+            ->whereIn('branch_id', $business->branches()->select('id'))
+            ->whereNotNull('parent_id')
+            ->with(['branch:id,name', 'parent:id,name'])
+            ->orderBy('sort_order')
+            ->paginate(15)
+            ->withQueryString()
+            ->through(fn (ProductCategory $category): array => CatalogData::category($category));
+
+        return Inertia::render('admin/businesses/catalog/subcategories/index', [
+            'business' => $this->businessPayload($business),
+            'subcategories' => $subcategories,
+            'options' => CatalogData::formOptions($business),
+        ]);
+    }
+
+    public function subcategoriesStore(Request $request, Business $business): RedirectResponse
+    {
+        $this->ensurePlatformOperated($business);
+
+        $validated = $request->validate([
+            'branch_id' => [
+                'required',
+                'integer',
+                Rule::exists('business_branches', 'id')
+                    ->where('business_id', $business->id)
+                    ->whereNull('deleted_at'),
+            ],
+            'parent_id' => [
+                'required',
+                'integer',
+                Rule::exists('product_categories', 'id')
+                    ->where('branch_id', $request->integer('branch_id'))
+                    ->whereNull('parent_id')
+                    ->whereNull('deleted_at'),
+            ],
+            'name' => ['required', 'string', 'max:100'],
+            'description' => ['nullable', 'string'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        ProductCategory::query()->create([
+            ...$validated,
+            'is_active' => $request->boolean('is_active', true),
+            'sort_order' => (int) ($validated['sort_order'] ?? 0),
+        ]);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Subcategoría creada.']);
+
+        return to_route('admin.businesses.catalog.subcategories.index', $business);
     }
 
     public function productsIndex(Request $request, Business $business): Response

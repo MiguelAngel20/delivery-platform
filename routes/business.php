@@ -12,6 +12,7 @@ use App\Http\Controllers\Web\Business\OrderController;
 use App\Http\Controllers\Web\Business\ProductController;
 use App\Http\Controllers\Web\Business\PromotionController;
 use App\Http\Controllers\Web\Business\SettingsController;
+use App\Http\Controllers\Web\Business\SubcategoryController;
 use App\Http\Controllers\Web\Business\UpgradeRequestController;
 use App\Http\Controllers\Web\Notifications\NotificationPreferencesController;
 use Illuminate\Support\Facades\Route;
@@ -49,6 +50,14 @@ Route::middleware([
             Route::put('categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
             Route::post('categories/{category}/deactivate', [CategoryController::class, 'deactivate'])->name('categories.deactivate');
             Route::post('categories/{category}/activate', [CategoryController::class, 'activate'])->name('categories.activate');
+
+            Route::get('subcategories', [SubcategoryController::class, 'index'])->name('subcategories.index');
+            Route::get('subcategories/create', [SubcategoryController::class, 'create'])->name('subcategories.create');
+            Route::post('subcategories', [SubcategoryController::class, 'store'])->name('subcategories.store');
+            Route::get('subcategories/{subcategory}/edit', [SubcategoryController::class, 'edit'])->name('subcategories.edit');
+            Route::put('subcategories/{subcategory}', [SubcategoryController::class, 'update'])->name('subcategories.update');
+            Route::post('subcategories/{subcategory}/deactivate', [SubcategoryController::class, 'deactivate'])->name('subcategories.deactivate');
+            Route::post('subcategories/{subcategory}/activate', [SubcategoryController::class, 'activate'])->name('subcategories.activate');
 
             Route::get('promotions', [PromotionController::class, 'index'])->name('promotions.index');
             Route::get('promotions/create', [PromotionController::class, 'create'])->name('promotions.create');

@@ -1,5 +1,5 @@
 import { Form } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,18 @@ import {
 
 export type CatalogFormOptions = {
     branches: Array<{ value: string; label: string }>;
-    categories: Array<{ value: string; label: string; branch_id: number }>;
+    categories: Array<{
+        value: string;
+        label: string;
+        branch_id: number;
+        parent_id?: number | null;
+        is_root?: boolean;
+    }>;
+    parent_categories?: Array<{
+        value: string;
+        label: string;
+        branch_id: number;
+    }>;
     products: Array<{ value: string; label: string; branch_id: number }>;
     option_group_types: Array<{ value: string; label: string }>;
     promotion_statuses: Array<{ value: string; label: string }>;
@@ -22,6 +33,7 @@ export type CatalogFormOptions = {
 export type CategoryFormValues = {
     id?: number;
     branch_id: string;
+    parent_id?: string | null;
     name: string;
     description?: string | null;
     sort_order?: number;
@@ -35,6 +47,8 @@ type CategoryFormProps = {
     submitLabel: string;
     cancelSlot?: ReactNode;
     lockBranch?: boolean;
+    /** principal = categoría del menú; subcategory = dentro de una categoría */
+    variant?: 'principal' | 'subcategory';
 };
 
 export function CategoryForm({
@@ -44,17 +58,36 @@ export function CategoryForm({
     submitLabel,
     cancelSlot,
     lockBranch = false,
+    variant = 'principal',
 }: CategoryFormProps) {
     const [clientErrors, setClientErrors] = useState<CategoryFormClientErrors>(
         {},
     );
+    const [branchId, setBranchId] = useState(category?.branch_id ?? '');
     const formRef = useRef<{ getData: () => Record<string, unknown> } | null>(
         null,
     );
 
     useEffect(() => {
         setClientErrors({});
-    }, [category?.id]);
+        setBranchId(category?.branch_id ?? '');
+    }, [category?.id, category?.branch_id]);
+
+    const parentOptions = useMemo(() => {
+        const parents = options.parent_categories ?? [];
+
+        return parents.filter((parent) => {
+            if (branchId === '') {
+                return true;
+            }
+
+            if (category?.id && parent.value === String(category.id)) {
+                return false;
+            }
+
+            return String(parent.branch_id) === branchId;
+        });
+    }, [options.parent_categories, branchId, category?.id]);
 
     function validateBeforeSubmit(): boolean {
         const data = formRef.current?.getData() ?? {};
@@ -110,15 +143,16 @@ export function CategoryForm({
                                 id="branch_id"
                                 name="branch_id"
                                 disabled={lockBranch || Boolean(category?.id)}
-                                defaultValue={category?.branch_id ?? ''}
-                                onChange={() =>
+                                value={branchId}
+                                onChange={(event) => {
+                                    setBranchId(event.target.value);
                                     setClientErrors((current) => {
                                         const next = { ...current };
                                         delete next.branch_id;
 
                                         return next;
-                                    })
-                                }
+                                    });
+                                }}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                             >
                                 <option value="">Selecciona sucursal</option>
@@ -149,7 +183,11 @@ export function CategoryForm({
                                 id="name"
                                 name="name"
                                 maxLength={100}
-                                placeholder="Ej. Desayunos, Bebidas, Postres"
+                                placeholder={
+                                    variant === 'subcategory'
+                                        ? 'Ej. Pizza, Bebidas, Hamburguesas'
+                                        : 'Ej. Homa, Pizza, Bebidas'
+                                }
                                 defaultValue={category?.name ?? ''}
                                 onChange={() =>
                                     setClientErrors((current) => {
@@ -161,6 +199,45 @@ export function CategoryForm({
                                 }
                             />
                         </FormField>
+                        {variant === 'subcategory' ? (
+                            <FormField
+                                label="Categoría principal"
+                                htmlFor="parent_id"
+                                required
+                                error={resolveFieldError(
+                                    'parent_id',
+                                    clientErrors,
+                                    errors,
+                                )}
+                                className="md:col-span-2"
+                            >
+                                <select
+                                    id="parent_id"
+                                    name="parent_id"
+                                    defaultValue={category?.parent_id ?? ''}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                    <option value="">
+                                        Selecciona la categoría principal
+                                    </option>
+                                    {parentOptions.map((parent) => (
+                                        <option
+                                            key={parent.value}
+                                            value={parent.value}
+                                        >
+                                            {parent.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    La subcategoría pertenece a una categoría
+                                    principal (por ejemplo Pizza dentro de Homa,
+                                    o Especialidades dentro de Pizza).
+                                </p>
+                            </FormField>
+                        ) : (
+                            <input type="hidden" name="parent_id" value="" />
+                        )}
                         <FormField
                             label="Descripción"
                             htmlFor="description"

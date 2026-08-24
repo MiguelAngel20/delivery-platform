@@ -1,15 +1,21 @@
 import { router } from '@inertiajs/react';
 import {
+    ChevronDown,
+    ChevronUp,
     Clock3,
-    ExternalLink,
     MapPin,
     Phone,
     Store,
     type LucideIcon,
 } from 'lucide-react';
-import { LocationPreviewMap } from '@/components/maps/location-preview-map';
+import { useState } from 'react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { Button } from '@/components/ui/button';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import restaurants from '@/routes/restaurants';
 
 export type RestaurantScheduleRow = {
@@ -56,39 +62,12 @@ export function RestaurantProfile({
     branchId,
 }: RestaurantProfileProps) {
     const mapsUrl = restaurant.google_maps_url;
-    const latitude = Number(restaurant.latitude);
-    const longitude = Number(restaurant.longitude);
-    const hasMap = Number.isFinite(latitude) && Number.isFinite(longitude);
+    const [detailsOpen, setDetailsOpen] = useState(false);
 
     return (
-        <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-            <div className="relative z-0 h-52 bg-secondary md:h-64">
-                {hasMap ? (
-                    <LocationPreviewMap
-                        latitude={latitude}
-                        longitude={longitude}
-                        title={restaurant.name}
-                    />
-                ) : (
-                    <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <MapPin className="size-8 text-primary" />
-                    </div>
-                )}
-                {mapsUrl ? (
-                    <a
-                        href={mapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="absolute right-3 bottom-3 inline-flex min-h-10 items-center gap-1.5 rounded-full bg-white/95 px-3 text-sm font-semibold text-navy shadow-md ring-1 ring-black/5"
-                    >
-                        Cómo llegar
-                        <ExternalLink className="size-3.5" />
-                    </a>
-                ) : null}
-            </div>
-
+        <section className="relative mt-10 rounded-2xl border border-border bg-surface shadow-sm md:mt-12">
             <div className="relative z-10 px-4 pb-5 md:px-6">
-                <div className="-mt-10 flex items-end gap-3 md:gap-4">
+                <div className="-mt-10 flex items-end gap-3 md:-mt-12 md:gap-4">
                     <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl border-4 border-surface bg-secondary shadow-lg md:size-24">
                         {restaurant.logo_url ? (
                             <img
@@ -141,101 +120,141 @@ export function RestaurantProfile({
                     </p>
                 ) : null}
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <InfoTile
-                        icon={Clock3}
-                        label="Horario de hoy"
-                        value={restaurant.schedule}
-                    />
-                    {restaurant.phone ? (
-                        <a href={telHref(restaurant.phone)} className="block">
+                <Collapsible
+                    open={detailsOpen}
+                    onOpenChange={setDetailsOpen}
+                    className="mt-4"
+                >
+                    <CollapsibleTrigger asChild>
+                        <button
+                            type="button"
+                            className="inline-flex min-h-10 w-full items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 px-3 py-2 text-left text-sm font-semibold text-navy transition-colors hover:border-primary/40 hover:bg-secondary/70"
+                        >
+                            <span>
+                                {detailsOpen
+                                    ? 'Ocultar información del negocio'
+                                    : 'Ver información del negocio'}
+                            </span>
+                            {detailsOpen ? (
+                                <ChevronUp
+                                    className="size-4 shrink-0 text-primary"
+                                    aria-hidden
+                                />
+                            ) : (
+                                <ChevronDown
+                                    className="size-4 shrink-0 text-primary"
+                                    aria-hidden
+                                />
+                            )}
+                        </button>
+                    </CollapsibleTrigger>
+
+                    <CollapsibleContent className="space-y-4 pt-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
                             <InfoTile
-                                icon={Phone}
-                                label="Teléfono"
-                                value={restaurant.phone}
-                                interactive
+                                icon={Clock3}
+                                label="Horario de hoy"
+                                value={restaurant.schedule}
                             />
-                        </a>
-                    ) : (
-                        <InfoTile
-                            icon={Phone}
-                            label="Teléfono"
-                            value="No publicado"
-                        />
-                    )}
-                    <div className="sm:col-span-2">
-                        <InfoTile
-                            icon={MapPin}
-                            label="Dirección"
-                            value={
-                                restaurant.reference
-                                    ? `${restaurant.address ?? 'Sin dirección'} · ${restaurant.reference}`
-                                    : (restaurant.address ?? 'Sin dirección')
-                            }
-                        />
-                    </div>
-                </div>
-
-                {restaurant.working_days.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                            Días de trabajo
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                            {restaurant.working_days.map((day) => (
-                                <span
-                                    key={day}
-                                    className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-navy"
+                            {restaurant.phone ? (
+                                <a
+                                    href={telHref(restaurant.phone)}
+                                    className="block"
                                 >
-                                    {day}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                ) : null}
-
-                {restaurant.schedule_summary.length > 0 ? (
-                    <div className="mt-4 overflow-hidden rounded-xl border border-border">
-                        {restaurant.schedule_summary.map((row) => (
-                            <div
-                                key={row.days_label}
-                                className="flex items-center justify-between gap-3 border-b border-border px-3 py-2 last:border-b-0"
-                            >
-                                <span className="text-sm font-medium text-navy">
-                                    {row.days_label}
-                                </span>
-                                <span
-                                    className={
-                                        row.is_open
-                                            ? 'text-sm font-medium text-navy'
-                                            : 'text-sm text-muted-foreground'
+                                    <InfoTile
+                                        icon={Phone}
+                                        label="Teléfono"
+                                        value={restaurant.phone}
+                                        interactive
+                                    />
+                                </a>
+                            ) : (
+                                <InfoTile
+                                    icon={Phone}
+                                    label="Teléfono"
+                                    value="No publicado"
+                                />
+                            )}
+                            <div className="sm:col-span-2">
+                                <InfoTile
+                                    icon={MapPin}
+                                    label="Dirección"
+                                    value={
+                                        restaurant.reference
+                                            ? `${restaurant.address ?? 'Sin dirección'} · ${restaurant.reference}`
+                                            : (restaurant.address ??
+                                              'Sin dirección')
                                     }
-                                >
-                                    {row.hours_label}
-                                </span>
+                                />
                             </div>
-                        ))}
-                    </div>
-                ) : null}
+                        </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                    {mapsUrl ? (
-                        <Button variant="outline" size="sm" asChild>
-                            <a href={mapsUrl} target="_blank" rel="noreferrer">
-                                <MapPin className="size-4" />
-                                Ver en Maps
-                            </a>
-                        </Button>
-                    ) : null}
-                    {restaurant.phone ? (
-                        <Button variant="outline" size="sm" asChild>
-                            <a href={telHref(restaurant.phone)}>
-                                <Phone className="size-4" />
-                                Llamar
-                            </a>
-                        </Button>
-                    ) : null}
-                </div>
+                        {restaurant.working_days.length > 0 ? (
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                    Días de trabajo
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {restaurant.working_days.map((day) => (
+                                        <span
+                                            key={day}
+                                            className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-navy"
+                                        >
+                                            {day}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {restaurant.schedule_summary.length > 0 ? (
+                            <div className="overflow-hidden rounded-xl border border-border">
+                                {restaurant.schedule_summary.map((row) => (
+                                    <div
+                                        key={row.days_label}
+                                        className="flex items-center justify-between gap-3 border-b border-border px-3 py-2 last:border-b-0"
+                                    >
+                                        <span className="text-sm font-medium text-navy">
+                                            {row.days_label}
+                                        </span>
+                                        <span
+                                            className={
+                                                row.is_open
+                                                    ? 'text-sm font-medium text-navy'
+                                                    : 'text-sm text-muted-foreground'
+                                            }
+                                        >
+                                            {row.hours_label}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : null}
+
+                        <div className="flex flex-wrap gap-2">
+                            {mapsUrl ? (
+                                <Button variant="outline" size="sm" asChild>
+                                    <a
+                                        href={mapsUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        <MapPin className="size-4" />
+                                        Ver en Maps
+                                    </a>
+                                </Button>
+                            ) : null}
+                            {restaurant.phone ? (
+                                <Button variant="outline" size="sm" asChild>
+                                    <a href={telHref(restaurant.phone)}>
+                                        <Phone className="size-4" />
+                                        Llamar
+                                    </a>
+                                </Button>
+                            ) : null}
+                        </div>
+                    </CollapsibleContent>
+                </Collapsible>
 
                 {restaurant.branches.length > 1 ? (
                     <label className="mt-4 block space-y-1.5">

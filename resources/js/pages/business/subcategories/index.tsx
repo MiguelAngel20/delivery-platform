@@ -2,10 +2,8 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
-import {
-    DataTable
-} from '@/components/data-display/data-table';
-import type {DataTableColumn} from '@/components/data-display/data-table';
+import { DataTable } from '@/components/data-display/data-table';
+import type { DataTableColumn } from '@/components/data-display/data-table';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { FilterSelect } from '@/components/forms/filter-select';
 import { PageContainer, PageHeader } from '@/components/layout/page';
@@ -16,9 +14,9 @@ import {
     create,
     edit,
     index,
-} from '@/routes/business/categories';
+} from '@/routes/business/subcategories';
 
-type CategoryRow = {
+type SubcategoryRow = {
     id: number;
     branch_id: number;
     branch_name?: string;
@@ -26,14 +24,13 @@ type CategoryRow = {
     parent_name?: string | null;
     name: string;
     display_name?: string;
-    description?: string | null;
-    sort_order: number;
     is_active: boolean;
 };
 
 type Filters = {
     search: string;
     branch_id: string;
+    parent_id: string;
     is_active: string;
 };
 
@@ -44,17 +41,22 @@ type Paginated<T> = {
 };
 
 type Props = {
-    categories: Paginated<CategoryRow>;
+    subcategories: Paginated<SubcategoryRow>;
     filters: Filters;
     options: CatalogFormOptions;
 };
 
-const columns: DataTableColumn<CategoryRow>[] = [
+const columns: DataTableColumn<SubcategoryRow>[] = [
     {
         key: 'name',
-        header: 'Categoría',
+        header: 'Subcategoría',
         cell: (row) => (
-            <p className="font-medium">{row.name}</p>
+            <div>
+                <p className="font-medium">{row.name}</p>
+                <p className="text-xs text-muted-foreground">
+                    En {row.parent_name ?? '—'}
+                </p>
+            </div>
         ),
     },
     {
@@ -99,8 +101,8 @@ function visitFilters(next: Partial<Filters> & { page?: number }) {
     );
 }
 
-export default function BusinessCategoriesIndex({
-    categories,
+export default function BusinessSubcategoriesIndex({
+    subcategories,
     filters,
     options,
 }: Props) {
@@ -118,14 +120,14 @@ export default function BusinessCategoriesIndex({
 
     return (
         <>
-            <Head title="Categorías" />
+            <Head title="Subcategorías" />
             <PageContainer>
                 <PageHeader
-                    title="Categorías"
-                    description="Categorías principales del menú (ej. Homa, Pizza, Bebidas)."
+                    title="Subcategorías"
+                    description="Opcional. Sirve para organizar mejor dentro de una categoría principal."
                     actions={
                         <Button asChild>
-                            <Link href={create.url()}>Nueva categoría</Link>
+                            <Link href={create.url()}>Nueva subcategoría</Link>
                         </Button>
                     }
                 />
@@ -134,7 +136,7 @@ export default function BusinessCategoriesIndex({
                     <Input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Buscar categoría..."
+                        placeholder="Buscar subcategoría..."
                     />
                     <FilterSelect
                         label="Sucursal"
@@ -155,68 +157,38 @@ export default function BusinessCategoriesIndex({
                         ))}
                     </FilterSelect>
                     <FilterSelect
-                        label="Estado"
-                        value={filters.is_active || ''}
+                        label="Categoría principal"
+                        value={filters.parent_id || ''}
                         onChange={(event) =>
                             visitFilters({
                                 ...filters,
-                                is_active: event.target.value,
+                                parent_id: event.target.value,
                                 page: 1,
                             })
                         }
                     >
-                        <option value="">Todos los estados</option>
-                        <option value="1">Activas</option>
-                        <option value="0">Inactivas</option>
+                        <option value="">Todas</option>
+                        {(options.parent_categories ?? []).map((parent) => (
+                            <option key={parent.value} value={parent.value}>
+                                {parent.label}
+                            </option>
+                        ))}
                     </FilterSelect>
                 </div>
 
                 <DataTable
                     columns={columns}
-                    data={categories.data}
+                    data={subcategories.data}
                     rowKey={(row) => row.id}
                 />
-
-                {categories.last_page > 1 ? (
-                    <div className="mt-4 flex justify-end gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={categories.current_page <= 1}
-                            onClick={() =>
-                                visitFilters({
-                                    ...filters,
-                                    page: categories.current_page - 1,
-                                })
-                            }
-                        >
-                            Anterior
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={
-                                categories.current_page >= categories.last_page
-                            }
-                            onClick={() =>
-                                visitFilters({
-                                    ...filters,
-                                    page: categories.current_page + 1,
-                                })
-                            }
-                        >
-                            Siguiente
-                        </Button>
-                    </div>
-                ) : null}
             </PageContainer>
         </>
     );
 }
 
-BusinessCategoriesIndex.layout = {
+BusinessSubcategoriesIndex.layout = {
     breadcrumbs: [
         { title: 'Business', href: business.home.url() },
-        { title: 'Categorías', href: index.url() },
+        { title: 'Subcategorías', href: index.url() },
     ],
 };

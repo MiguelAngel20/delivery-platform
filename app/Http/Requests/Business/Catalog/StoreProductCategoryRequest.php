@@ -40,6 +40,7 @@ class StoreProductCategoryRequest extends FormRequest
     public function rules(): array
     {
         $businessId = $this->user()?->activeBusinessMembership()?->business_id;
+        $branchId = $this->integer('branch_id') ?: null;
 
         return [
             'branch_id' => [
@@ -47,6 +48,14 @@ class StoreProductCategoryRequest extends FormRequest
                 'integer',
                 Rule::exists('business_branches', 'id')
                     ->where('business_id', $businessId)
+                    ->whereNull('deleted_at'),
+            ],
+            'parent_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('product_categories', 'id')
+                    ->where('branch_id', $branchId)
+                    ->whereNull('parent_id')
                     ->whereNull('deleted_at'),
             ],
             'name' => ['required', 'string', 'max:100'],
@@ -64,6 +73,7 @@ class StoreProductCategoryRequest extends FormRequest
         return [
             'branch_id.required' => 'Selecciona una sucursal.',
             'branch_id.exists' => 'La sucursal seleccionada no es válida.',
+            'parent_id.exists' => 'La categoría padre debe existir en la misma sucursal y no puede ser otra subcategoría.',
             'name.required' => 'El nombre de la categoría es obligatorio.',
             'name.max' => 'El nombre no puede superar :max caracteres.',
         ];
@@ -76,6 +86,7 @@ class StoreProductCategoryRequest extends FormRequest
     {
         return [
             'branch_id' => 'sucursal',
+            'parent_id' => 'categoría padre',
             'name' => 'nombre',
             'description' => 'descripción',
         ];

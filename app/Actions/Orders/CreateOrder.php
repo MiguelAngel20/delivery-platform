@@ -143,7 +143,9 @@ final class CreateOrder
                 $orderItem = OrderItem::query()->create([
                     'order_id' => $order->id,
                     'product_id' => $built['product']->id,
-                    'product_name' => $built['product']->name,
+                    'product_name' => $built['product']->category
+                        ? $built['product']->category->rootName().' · '.$built['product']->name
+                        : $built['product']->name,
                     'quantity' => $built['quantity'],
                     'unit_list_price' => $built['unit_list_price'],
                     'unit_discount' => '0.00',
@@ -199,7 +201,7 @@ final class CreateOrder
     private function buildItem(BusinessBranch $branch, array $itemInput, int $index): array
     {
         $product = Product::query()
-            ->with(['currentPrice', 'optionGroups.options'])
+            ->with(['currentPrice', 'optionGroups.options', 'category.parent'])
             ->whereKey($itemInput['product_id'] ?? null)
             ->where('branch_id', $branch->id)
             ->first();
