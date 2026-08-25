@@ -37,15 +37,50 @@ final class DriverReputationService
     {
         $facts = $this->collectFacts($driver);
         $score = $this->scoreFromFacts($facts);
+        $now = now();
 
-        $metrics = DriverMetric::query()->firstOrNew(['driver_id' => $driver->id]);
-        $metrics->forceFill([
-            ...$facts,
-            'trust_score' => $score,
-            'last_recalculated_at' => now(),
-        ])->save();
+        // Atomic INSERT ... ON DUPLICATE KEY UPDATE — safe under concurrent recalculates.
+        DriverMetric::query()->upsert(
+            [
+                [
+                    'driver_id' => $driver->id,
+                    'offered_orders' => $facts['offered_orders'],
+                    'accepted_orders' => $facts['accepted_orders'],
+                    'rejected_orders' => $facts['rejected_orders'],
+                    'completed_orders' => $facts['completed_orders'],
+                    'cancelled_orders' => $facts['cancelled_orders'],
+                    'responsible_cancellations' => $facts['responsible_cancellations'],
+                    'incident_count' => $facts['incident_count'],
+                    'responsible_incidents' => $facts['responsible_incidents'],
+                    'average_rating' => $facts['average_rating'],
+                    'total_ratings' => $facts['total_ratings'],
+                    'trust_score' => $score,
+                    'last_recalculated_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            ],
+            uniqueBy: ['driver_id'],
+            update: [
+                'offered_orders',
+                'accepted_orders',
+                'rejected_orders',
+                'completed_orders',
+                'cancelled_orders',
+                'responsible_cancellations',
+                'incident_count',
+                'responsible_incidents',
+                'average_rating',
+                'total_ratings',
+                'trust_score',
+                'last_recalculated_at',
+                'updated_at',
+            ],
+        );
 
-        return $metrics->fresh();
+        return DriverMetric::query()
+            ->where('driver_id', $driver->id)
+            ->firstOrFail();
     }
 
     /**

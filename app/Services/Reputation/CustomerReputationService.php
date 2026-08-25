@@ -29,27 +29,52 @@ final class CustomerReputationService
         $facts = $this->collectFacts($customer);
         $score = $this->scoreFromFacts($facts);
         $level = $this->levelFromFacts($facts, $score, $customer->trust_level);
+        $now = now();
 
-        $metrics = CustomerMetric::query()->firstOrNew(['customer_id' => $customer->id]);
-        $metrics->forceFill([
-            'total_orders' => $facts['total_orders'],
-            'completed_orders' => $facts['completed_orders'],
-            'cancelled_orders' => $facts['cancelled_orders'],
-            'late_cancellations' => $facts['late_cancellations'],
-            'rejected_at_delivery' => $facts['rejected_at_delivery'],
-            'payment_incidents' => $facts['payment_incidents'],
-            'incident_count' => $facts['incident_count'],
-            'responsible_incidents' => $facts['responsible_incidents'],
-            'trust_score' => $score,
-            'trust_level' => $level,
-            'last_recalculated_at' => now(),
-        ])->save();
+        // Atomic INSERT ... ON DUPLICATE KEY UPDATE — safe under concurrent recalculates.
+        CustomerMetric::query()->upsert(
+            [
+                [
+                    'customer_id' => $customer->id,
+                    'total_orders' => $facts['total_orders'],
+                    'completed_orders' => $facts['completed_orders'],
+                    'cancelled_orders' => $facts['cancelled_orders'],
+                    'late_cancellations' => $facts['late_cancellations'],
+                    'rejected_at_delivery' => $facts['rejected_at_delivery'],
+                    'payment_incidents' => $facts['payment_incidents'],
+                    'incident_count' => $facts['incident_count'],
+                    'responsible_incidents' => $facts['responsible_incidents'],
+                    'trust_score' => $score,
+                    'trust_level' => $level->value,
+                    'last_recalculated_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            ],
+            uniqueBy: ['customer_id'],
+            update: [
+                'total_orders',
+                'completed_orders',
+                'cancelled_orders',
+                'late_cancellations',
+                'rejected_at_delivery',
+                'payment_incidents',
+                'incident_count',
+                'responsible_incidents',
+                'trust_score',
+                'trust_level',
+                'last_recalculated_at',
+                'updated_at',
+            ],
+        );
 
         $customer->forceFill([
             'trust_level' => $level,
         ])->save();
 
-        return $metrics->fresh();
+        return CustomerMetric::query()
+            ->where('customer_id', $customer->id)
+            ->firstOrFail();
     }
 
     public function calculateScore(Customer $customer): float
