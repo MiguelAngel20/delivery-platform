@@ -15,6 +15,7 @@ use App\Services\Dispatch\DriverActiveOrderService;
 use App\Services\Dispatch\DriverEligibilityService;
 use App\Services\Orders\OrderStateService;
 use App\Services\Realtime\OrderRealtimePublisher;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -57,17 +58,35 @@ final class AcceptDeliveryOrder
 
             $now = now();
 
-            DriverAssignment::query()->create([
-                'order_id' => $locked->id,
-                'driver_id' => $lockedDriver->id,
-                'status' => DriverAssignmentStatus::Accepted,
-                'offered_at' => $now,
-                'accepted_at' => $now,
-            ]);
+            // Claim atómico: solo gana quien encuentra assigned_driver_id NULL.
+            $claimed = Order::query()
+                ->whereKey($locked->id)
+                ->whereNull('assigned_driver_id')
+                ->update([
+                    'assigned_driver_id' => $lockedDriver->id,
+                ]);
 
-            $locked->forceFill([
-                'assigned_driver_id' => $lockedDriver->id,
-            ])->save();
+            if ($claimed !== 1) {
+                throw ValidationException::withMessages([
+                    'order' => 'Este pedido ya fue tomado por otro repartidor.',
+                ]);
+            }
+
+            $locked->assigned_driver_id = $lockedDriver->id;
+
+            try {
+                DriverAssignment::query()->create([
+                    'order_id' => $locked->id,
+                    'driver_id' => $lockedDriver->id,
+                    'status' => DriverAssignmentStatus::Accepted,
+                    'offered_at' => $now,
+                    'accepted_at' => $now,
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                throw ValidationException::withMessages([
+                    'order' => 'Este pedido ya fue tomado por otro repartidor.',
+                ]);
+            }
 
             if ($locked->order_status !== OrderStatus::DriverAssigned) {
                 $this->stateService->assertCanTransition(

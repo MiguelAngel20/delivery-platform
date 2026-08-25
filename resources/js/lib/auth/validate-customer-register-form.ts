@@ -1,3 +1,5 @@
+import { validatePasswordStrength } from '@/lib/auth/password-requirements';
+
 export type CustomerRegisterClientErrors = Record<string, string>;
 
 export type CustomerRegisterDialCode = {
@@ -80,8 +82,12 @@ export function validateCustomerRegisterForm(
 
     if (password === '') {
         errors.password = 'Elige una contraseña para entrar después.';
-    } else if (password.length < 8) {
-        errors.password = 'La contraseña debe tener al menos 8 caracteres.';
+    } else {
+        const passwordError = validatePasswordStrength(password);
+
+        if (passwordError) {
+            errors.password = passwordError;
+        }
     }
 
     if (input.password_confirmation === '') {

@@ -9,6 +9,7 @@ use App\Models\BusinessBranch;
 use App\Models\BusinessUpgradeRequest;
 use App\Models\BusinessUser;
 use App\Models\User;
+use App\Support\BusinessHours;
 
 test('system admin can create branch within limit', function () {
     $admin = User::factory()->systemAdmin()->create();
@@ -26,6 +27,7 @@ test('system admin can create branch within limit', function () {
             'longitude' => '-90.5',
             'google_maps_url' => null,
             'status' => 'active',
+            'opening_hours' => BusinessHours::defaults(),
         ])
         ->assertRedirect();
 
@@ -48,6 +50,7 @@ test('system admin cannot create branch beyond limit', function () {
             'longitude' => '-90.5',
             'google_maps_url' => null,
             'status' => 'active',
+            'opening_hours' => BusinessHours::defaults(),
         ])
         ->assertSessionHasErrors('name');
 });

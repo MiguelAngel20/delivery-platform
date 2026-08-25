@@ -16,6 +16,7 @@ use App\Models\Order;
 use App\Models\OrderCancellation;
 use App\Services\Notifications\RideNotificationDispatcher;
 use App\Support\SafeBroadcast;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -118,20 +119,26 @@ final class DriverReputationService
             ]);
         }
 
-        $rating = DB::transaction(function () use ($order, $customer, $payload): DriverRating {
-            return DriverRating::query()->create([
-                'order_id' => $order->id,
-                'driver_id' => $order->assigned_driver_id,
-                'customer_id' => $customer->id,
-                'overall_rating' => $payload['overall_rating'],
-                'speed_rating' => $payload['speed_rating'] ?? null,
-                'service_rating' => $payload['service_rating'] ?? null,
-                'care_rating' => $payload['care_rating'] ?? null,
-                'respect_rating' => $payload['respect_rating'] ?? null,
-                'communication_rating' => $payload['communication_rating'] ?? null,
-                'comment' => $payload['comment'] ?? null,
+        try {
+            $rating = DB::transaction(function () use ($order, $customer, $payload): DriverRating {
+                return DriverRating::query()->create([
+                    'order_id' => $order->id,
+                    'driver_id' => $order->assigned_driver_id,
+                    'customer_id' => $customer->id,
+                    'overall_rating' => $payload['overall_rating'],
+                    'speed_rating' => $payload['speed_rating'] ?? null,
+                    'service_rating' => $payload['service_rating'] ?? null,
+                    'care_rating' => $payload['care_rating'] ?? null,
+                    'respect_rating' => $payload['respect_rating'] ?? null,
+                    'communication_rating' => $payload['communication_rating'] ?? null,
+                    'comment' => $payload['comment'] ?? null,
+                ]);
+            });
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages([
+                'order' => 'Ya calificaste este servicio.',
             ]);
-        });
+        }
 
         $driver = $order->assignedDriver ?? Driver::query()->findOrFail($order->assigned_driver_id);
         $metrics = $this->recalculate($driver);

@@ -58,15 +58,15 @@ test('business user can change the temporary password and then enter the portal'
 
     $this->actingAs($user)
         ->put(route('password.force.update'), [
-            'password' => 'nueva-clave-segura',
-            'password_confirmation' => 'nueva-clave-segura',
+            'password' => 'Nueva1!Clave',
+            'password_confirmation' => 'Nueva1!Clave',
         ])
         ->assertRedirect(route('business.home'));
 
     $user->refresh();
 
     expect($user->must_change_password)->toBeFalse()
-        ->and(Hash::check('nueva-clave-segura', $user->password))->toBeTrue();
+        ->and(Hash::check('Nueva1!Clave', $user->password))->toBeTrue();
 
     $this->actingAs($user)
         ->get(route('business.home'))

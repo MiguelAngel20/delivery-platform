@@ -14,6 +14,7 @@ import {
     type CustomerRegisterClientErrors,
     type CustomerRegisterDialCode,
 } from '@/lib/auth/validate-customer-register-form';
+import { PASSWORD_REQUIREMENTS_HINT } from '@/lib/auth/password-requirements';
 import type { AddressValue } from '@/lib/maps/types';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
@@ -21,11 +22,13 @@ import { store } from '@/routes/register';
 type Props = {
     dialCodes: CustomerRegisterDialCode[];
     defaultDialCode: string;
+    passwordRules: string;
 };
 
 export default function CustomerRegister({
     dialCodes,
     defaultDialCode,
+    passwordRules,
 }: Props) {
     const form = useForm({
         first_name: '',
@@ -114,11 +117,6 @@ export default function CustomerRegister({
                     <h1 className="text-2xl font-semibold text-navy">
                         Crea tu cuenta para continuar
                     </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Te enviaremos un código a tu correo para verificar la
-                        cuenta. Tu dirección quedará guardada como
-                        predeterminada.
-                    </p>
                 </div>
 
                 <form
@@ -192,7 +190,6 @@ export default function CustomerRegister({
                             label="Correo electrónico"
                             htmlFor="email"
                             required
-                            hint="Ahí te llegará el código para verificar tu cuenta."
                             error={fieldError('email')}
                         >
                             <Input
@@ -220,7 +217,7 @@ export default function CustomerRegister({
                         >
                             <div className="flex gap-2">
                                 <select
-                                    className="flex h-9 max-w-[11rem] rounded-md border border-input bg-background px-2 text-sm"
+                                    className="border-input flex h-9 w-[4.25rem] shrink-0 rounded-md border bg-background px-1 text-sm font-medium tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                     value={form.data.phone_dial_code}
                                     onChange={(event) => {
                                         form.setData(
@@ -237,12 +234,13 @@ export default function CustomerRegister({
                                             key={item.dial}
                                             value={item.dial}
                                         >
-                                            {item.label}
+                                            {item.dial}
                                         </option>
                                     ))}
                                 </select>
                                 <Input
                                     id="phone_national"
+                                    className="min-w-0 flex-1"
                                     inputMode="numeric"
                                     value={form.data.phone_national}
                                     onChange={(event) => {
@@ -267,6 +265,7 @@ export default function CustomerRegister({
                                 label="Contraseña"
                                 htmlFor="password"
                                 required
+                                hint={PASSWORD_REQUIREMENTS_HINT}
                                 error={fieldError('password')}
                             >
                                 <PasswordInput
@@ -284,6 +283,7 @@ export default function CustomerRegister({
                                     }}
                                     autoComplete="new-password"
                                     placeholder="Crea una contraseña"
+                                    passwordrules={passwordRules}
                                 />
                             </FormField>
                             <FormField
@@ -307,21 +307,16 @@ export default function CustomerRegister({
                                     }}
                                     autoComplete="new-password"
                                     placeholder="Repite tu contraseña"
+                                    passwordrules={passwordRules}
                                 />
                             </FormField>
                         </div>
                     </section>
 
                     <section className="space-y-4 rounded-2xl border border-border bg-surface p-4 shadow-sm md:p-5">
-                        <div className="space-y-1">
-                            <h2 className="font-semibold text-navy">
-                                Dirección de entrega
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                                Será tu dirección predeterminada. Después puedes
-                                agregar más desde tu perfil o al pedir.
-                            </p>
-                        </div>
+                        <h2 className="font-semibold text-navy">
+                            Dirección de entrega
+                        </h2>
                         <FormField
                             label="Etiqueta"
                             htmlFor="address_label"

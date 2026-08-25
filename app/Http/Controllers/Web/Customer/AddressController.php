@@ -7,15 +7,18 @@ use App\Http\Requests\Customer\StoreCustomerAddressRequest;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\User;
+use App\Services\Customers\CustomerAddressService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AddressController extends Controller
 {
+    public function __construct(
+        private readonly CustomerAddressService $addresses,
+    ) {}
+
     public function index(Request $request): Response
     {
         $customer = $this->currentCustomer($request);
@@ -45,28 +48,7 @@ class AddressController extends Controller
     {
         $customer = $this->currentCustomer($request);
 
-        $activeCount = $customer->addresses()->where('is_active', true)->count();
-        $max = (int) config('business.orders.max_customer_addresses', 4);
-
-        if ($activeCount >= $max) {
-            throw ValidationException::withMessages([
-                'label' => "Solo puedes tener hasta {$max} direcciones activas.",
-            ]);
-        }
-
-        DB::transaction(function () use ($customer, $request): void {
-            $isDefault = $request->boolean('is_default', $customer->addresses()->where('is_active', true)->count() === 0);
-
-            if ($isDefault) {
-                $customer->addresses()->update(['is_default' => false]);
-            }
-
-            $customer->addresses()->create([
-                ...$request->validated(),
-                'is_default' => $isDefault,
-                'is_active' => true,
-            ]);
-        });
+        $this->addresses->create($customer, $request->validated());
 
         Inertia::flash('toast', [
             'type' => 'success',
@@ -81,8 +63,7 @@ class AddressController extends Controller
         $customer = $this->currentCustomer($request);
         abort_unless($address->customer_id === $customer->id, 404);
 
-        $address->update(['is_active' => false, 'is_default' => false]);
-        $address->delete();
+        $this->addresses->delete($address);
 
         Inertia::flash('toast', [
             'type' => 'success',

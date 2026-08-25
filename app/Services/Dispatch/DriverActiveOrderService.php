@@ -10,6 +10,7 @@ use App\Models\Driver;
 use App\Models\Order;
 use App\Support\OrderActiveStatuses;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 final class DriverActiveOrderService
 {
@@ -49,24 +50,50 @@ final class DriverActiveOrderService
 
     public function markBusy(Driver $driver): void
     {
-        if ($driver->availability_status === DriverAvailabilityStatus::Available) {
-            $driver->forceFill([
-                'availability_status' => DriverAvailabilityStatus::Busy,
-            ])->save();
-        }
+        DB::transaction(function () use ($driver): void {
+            /** @var Driver $locked */
+            $locked = Driver::query()
+                ->whereKey($driver->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($locked->availability_status !== DriverAvailabilityStatus::Available) {
+                return;
+            }
+
+            Driver::query()
+                ->whereKey($locked->id)
+                ->where('availability_status', DriverAvailabilityStatus::Available)
+                ->update([
+                    'availability_status' => DriverAvailabilityStatus::Busy,
+                ]);
+        });
     }
 
     public function maybeMarkAvailable(Driver $driver): void
     {
-        if ($this->activeCount($driver) > 0) {
-            return;
-        }
+        DB::transaction(function () use ($driver): void {
+            /** @var Driver $locked */
+            $locked = Driver::query()
+                ->whereKey($driver->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($driver->availability_status === DriverAvailabilityStatus::Busy) {
-            $driver->forceFill([
-                'availability_status' => DriverAvailabilityStatus::Available,
-            ])->save();
-        }
+            if ($this->activeCount($locked) > 0) {
+                return;
+            }
+
+            if ($locked->availability_status !== DriverAvailabilityStatus::Busy) {
+                return;
+            }
+
+            Driver::query()
+                ->whereKey($locked->id)
+                ->where('availability_status', DriverAvailabilityStatus::Busy)
+                ->update([
+                    'availability_status' => DriverAvailabilityStatus::Available,
+                ]);
+        });
     }
 
     public function completeTripIfFinished(DeliveryTrip $trip): void

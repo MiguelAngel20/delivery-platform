@@ -6,16 +6,22 @@ use App\Enums\DriverAvailabilityStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\User;
+use App\Services\Dispatch\DriverActiveOrderService;
 use App\Services\Drivers\DriverLocationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class AvailabilityController extends Controller
 {
-    public function update(Request $request, DriverLocationService $locations): RedirectResponse
-    {
+    public function update(
+        Request $request,
+        DriverLocationService $locations,
+        DriverActiveOrderService $activeOrders,
+    ): RedirectResponse {
         /** @var User $user */
         $user = $request->user();
         /** @var Driver|null $driver */
@@ -32,9 +38,28 @@ class AvailabilityController extends Controller
 
         $status = DriverAvailabilityStatus::from($validated['availability_status']);
 
-        $driver->forceFill([
-            'availability_status' => $status,
-        ])->save();
+        DB::transaction(function () use ($driver, $status, $activeOrders): void {
+            /** @var Driver $locked */
+            $locked = Driver::query()
+                ->whereKey($driver->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (
+                $status === DriverAvailabilityStatus::Available
+                && $activeOrders->activeCount($locked) > 0
+            ) {
+                throw ValidationException::withMessages([
+                    'availability_status' => 'No puedes marcar Available mientras tienes pedidos activos.',
+                ]);
+            }
+
+            $locked->forceFill([
+                'availability_status' => $status,
+            ])->save();
+        });
+
+        $driver = $driver->fresh();
 
         if ($status === DriverAvailabilityStatus::Offline) {
             $locations->clear($driver);

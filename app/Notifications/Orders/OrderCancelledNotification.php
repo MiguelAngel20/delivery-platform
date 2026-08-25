@@ -49,6 +49,11 @@ final class OrderCancelledNotification extends RideNotification
         return true;
     }
 
+    public function requiresPersistentDedupe(): bool
+    {
+        return true;
+    }
+
     public function priority(): NotificationPriority
     {
         return NotificationPriority::High;

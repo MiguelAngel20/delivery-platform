@@ -25,6 +25,11 @@ final class DriverRatingPromptNotification extends RideNotification
         return 'Aún puedes calificar al repartidor de tu pedido #'.$this->order->order_number.'.';
     }
 
+    public function requiresPersistentDedupe(): bool
+    {
+        return true;
+    }
+
     public function dedupeKey(): ?string
     {
         return 'rating-prompt:'.$this->order->id;

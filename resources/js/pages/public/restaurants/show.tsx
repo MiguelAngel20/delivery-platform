@@ -1,26 +1,30 @@
 import { Head } from '@inertiajs/react';
 import { Percent, UtensilsCrossed } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { AddToCartInput } from '@/apps/storefront/cart/use-storefront-cart';
 import { useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
-import { ProductCard } from '@/apps/storefront/components/product-card';
 import type { StorefrontProduct } from '@/apps/storefront/components/product-dialog';
 import { ProductDialog } from '@/apps/storefront/components/product-dialog';
 import { PromotionCard } from '@/apps/storefront/components/promotion-card';
+import {
+    RestaurantMenu,
+    type RestaurantMenuCategory,
+    type RestaurantMenuProduct,
+} from '@/apps/storefront/components/restaurant-menu';
+import { RestaurantPromotionsCarousel } from '@/apps/storefront/components/restaurant-promotions-carousel';
 import {
     RestaurantProfile,
     type RestaurantProfileData,
 } from '@/apps/storefront/components/restaurant-profile';
 import { SwitchRestaurantDialog } from '@/apps/storefront/components/switch-restaurant-dialog';
+import type { MockPromotion } from '@/apps/storefront/mocks';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
 
-type Product = StorefrontProduct & {
-    restaurantSlug: string;
-    category: string;
-    is_available?: boolean;
-    image_url?: string | null;
-};
+type Product = StorefrontProduct &
+    RestaurantMenuProduct & {
+        restaurantSlug: string;
+    };
 
 type Promotion = {
     id: number;
@@ -34,7 +38,7 @@ type Promotion = {
 type Props = {
     restaurant: RestaurantProfileData;
     branch_id: number;
-    categories: Array<{ id: number; name: string; description?: string | null }>;
+    categories: RestaurantMenuCategory[];
     products: Product[];
     promotions: Promotion[];
 };
@@ -42,21 +46,15 @@ type Props = {
 export default function RestaurantShow({
     restaurant,
     branch_id,
+    categories,
     products,
     promotions,
 }: Props) {
     const { cart, addItem, replaceWithItem } = useStorefrontCart();
-    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(
+        null,
+    );
     const [pendingAdd, setPendingAdd] = useState<AddToCartInput | null>(null);
-
-    const grouped = useMemo(() => {
-        return products.reduce<Record<string, Product[]>>((groups, product) => {
-            groups[product.category] ??= [];
-            groups[product.category].push(product);
-
-            return groups;
-        }, {});
-    }, [products]);
 
     const confirmAdd = (input: AddToCartInput) => {
         const result = addItem(input);
@@ -90,7 +88,19 @@ export default function RestaurantShow({
                                 </p>
                             </div>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <RestaurantPromotionsCarousel
+                            promotions={promotions.map(
+                                (promotion): MockPromotion => ({
+                                    id: String(promotion.id),
+                                    name: promotion.name,
+                                    description: promotion.description ?? '',
+                                    price: promotion.price,
+                                    composition: promotion.composition,
+                                    image_url: promotion.image_url,
+                                }),
+                            )}
+                        />
+                        <div className="hidden gap-3 md:grid md:grid-cols-2">
                             {promotions.map((promotion) => (
                                 <PromotionCard
                                     key={promotion.id}
@@ -109,7 +119,7 @@ export default function RestaurantShow({
                     </section>
                 ) : null}
 
-                <section className="space-y-5">
+                <section className="space-y-4 md:space-y-5">
                     <div className="flex items-center gap-2">
                         <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-navy">
                             <UtensilsCrossed className="size-4" />
@@ -123,39 +133,17 @@ export default function RestaurantShow({
                             </p>
                         </div>
                     </div>
-                    {Object.keys(grouped).length === 0 ? (
+                    {products.length === 0 ? (
                         <EmptyState title="No hay productos" />
                     ) : (
-                        Object.entries(grouped).map(([category, items]) => (
-                            <div key={category} className="space-y-3">
-                                <h3 className="font-semibold text-navy">
-                                    {category}
-                                </h3>
-                                <div className="grid gap-3">
-                                    {items.map((product) => (
-                                        <ProductCard
-                                            key={product.id}
-                                            product={{
-                                                id: String(product.id),
-                                                name: product.name,
-                                                description:
-                                                    product.description,
-                                                price: product.price,
-                                                image_url: product.image_url,
-                                            }}
-                                            canOrder={
-                                                restaurant.canOrder &&
-                                                restaurant.open &&
-                                                product.is_available !== false
-                                            }
-                                            onAdd={() =>
-                                                setSelectedProduct(product)
-                                            }
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        ))
+                        <RestaurantMenu
+                            categories={categories}
+                            products={products}
+                            canOrder={restaurant.canOrder && restaurant.open}
+                            onAdd={(product) =>
+                                setSelectedProduct(product as Product)
+                            }
+                        />
                     )}
                 </section>
             </PageContainer>

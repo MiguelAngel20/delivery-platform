@@ -37,20 +37,26 @@ final class OrderFinancialService
 
         $allocated = $this->allocation->allocate($order);
 
-        $financial = OrderFinancial::query()->create([
-            'order_id' => $order->id,
-            'products_amount' => $order->subtotal_before_discount,
-            'discount_amount' => $order->discount_total,
-            'service_fee' => $order->service_fee,
-            'delivery_fee' => $order->delivery_fee,
-            'customer_total' => $order->total,
-            'business_amount' => $allocated['business_amount'],
-            'driver_earning' => $allocated['driver_earning'],
-            'platform_earning' => $allocated['platform_earning'],
-            'payment_method' => $order->payment_method,
-            'collection_party' => $allocated['collection_party'],
-            'settlement_status' => SettlementStatus::Open,
-        ]);
+        try {
+            $financial = OrderFinancial::query()->create([
+                'order_id' => $order->id,
+                'products_amount' => $order->subtotal_before_discount,
+                'discount_amount' => $order->discount_total,
+                'service_fee' => $order->service_fee,
+                'delivery_fee' => $order->delivery_fee,
+                'customer_total' => $order->total,
+                'business_amount' => $allocated['business_amount'],
+                'driver_earning' => $allocated['driver_earning'],
+                'platform_earning' => $allocated['platform_earning'],
+                'payment_method' => $order->payment_method,
+                'collection_party' => $allocated['collection_party'],
+                'settlement_status' => SettlementStatus::Open,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            $financial = OrderFinancial::query()
+                ->where('order_id', $order->id)
+                ->firstOrFail();
+        }
 
         $this->ensurePendingPayment($order);
 
@@ -97,15 +103,21 @@ final class OrderFinancialService
             return $payment;
         }
 
-        return Payment::query()->create([
-            'order_id' => $order->id,
-            'payment_method' => $order->payment_method,
-            'amount' => $order->total,
-            'status' => PaymentStatus::Pending,
-            'received_by_type' => null,
-            'received_by_id' => null,
-            'paid_at' => null,
-        ]);
+        try {
+            return Payment::query()->create([
+                'order_id' => $order->id,
+                'payment_method' => $order->payment_method,
+                'amount' => $order->total,
+                'status' => PaymentStatus::Pending,
+                'received_by_type' => null,
+                'received_by_id' => null,
+                'paid_at' => null,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return Payment::query()
+                ->where('order_id', $order->id)
+                ->firstOrFail();
+        }
     }
 
     public function shouldDriverPayBusinessOnPickup(Order $order): bool
@@ -274,18 +286,25 @@ final class OrderFinancialService
             return $payment;
         }
 
-        $payment->forceFill([
-            'status' => PaymentStatus::Paid,
-            'received_by_type' => FinancialPartyType::Driver,
-            'received_by_id' => $driver->id,
-            'paid_at' => now(),
-            'amount' => $order->total,
-            'payment_method' => $order->payment_method,
-        ])->save();
+        $updated = Payment::query()
+            ->whereKey($payment->id)
+            ->where('status', PaymentStatus::Pending)
+            ->update([
+                'status' => PaymentStatus::Paid,
+                'received_by_type' => FinancialPartyType::Driver,
+                'received_by_id' => $driver->id,
+                'paid_at' => now(),
+                'amount' => $order->total,
+                'payment_method' => $order->payment_method,
+            ]);
 
-        $this->syncOrderPaymentStatus($order, $payment);
+        $payment = Payment::query()->whereKey($payment->id)->firstOrFail();
 
-        return $payment->fresh();
+        if ($updated === 1) {
+            $this->syncOrderPaymentStatus($order, $payment);
+        }
+
+        return $payment;
     }
 
     private function syncOrderPaymentStatus(Order $order, Payment $payment): void
@@ -310,6 +329,12 @@ final class OrderFinancialService
         ?User $actor,
         string $description,
     ): FinancialTransaction {
+        if (! $type->isUniquePerOrder()) {
+            throw ValidationException::withMessages([
+                'transaction_type' => 'Este tipo de movimiento no usa registro único por pedido.',
+            ]);
+        }
+
         if (bccomp($amount, '0.00', 2) === -1) {
             throw ValidationException::withMessages([
                 'amount' => 'El monto financiero no puede ser negativo.',
@@ -358,7 +383,13 @@ final class OrderFinancialService
             ]);
         } catch (UniqueConstraintViolationException) {
             $existing = FinancialTransaction::query()
-                ->where('idempotency_key', $idempotencyKey)
+                ->where(function ($query) use ($idempotencyKey, $order, $type): void {
+                    $query->where('idempotency_key', $idempotencyKey)
+                        ->orWhere(function ($inner) use ($order, $type): void {
+                            $inner->where('order_id', $order->id)
+                                ->where('transaction_type', $type);
+                        });
+                })
                 ->firstOrFail();
 
             $this->recalculateSettlement($order->fresh(['financial', 'financialTransactions']));

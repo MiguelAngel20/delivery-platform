@@ -8,6 +8,7 @@ use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Models\BusinessLimit;
 use App\Models\BusinessUser;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\ValidationException;
 
 class BusinessLimitService
@@ -24,11 +25,15 @@ class BusinessLimitService
             return $existing;
         }
 
-        return $business->limits()->create([
-            'max_branches' => (int) config('business.defaults.max_branches'),
-            'max_business_admins' => (int) config('business.defaults.max_business_admins'),
-            'max_employees_per_branch' => (int) config('business.defaults.max_employees_per_branch'),
-        ]);
+        try {
+            return $business->limits()->create([
+                'max_branches' => (int) config('business.defaults.max_branches'),
+                'max_business_admins' => (int) config('business.defaults.max_business_admins'),
+                'max_employees_per_branch' => (int) config('business.defaults.max_employees_per_branch'),
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return $business->limits()->firstOrFail();
+        }
     }
 
     public function lockForUpdate(Business $business): BusinessLimit

@@ -123,6 +123,7 @@ export default function CustomerAddressesIndex({
                                     : undefined,
                                 place_id: form.data.place_id,
                             }}
+                            showCurrentLocation
                             onChange={onAddressChange}
                         />
                         {form.errors.address_text || form.errors.latitude ? (

@@ -42,6 +42,8 @@ final class FcmChannel
                 priority: $notification->priority(),
                 ttlSeconds: $notification->ttlSeconds(),
             ),
+            $notification->dedupeKey(),
+            $notification->requiresPersistentDedupe(),
         );
     }
 }

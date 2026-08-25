@@ -87,13 +87,6 @@ export function RestaurantProfile({
                         >
                             {restaurant.open ? 'Abierto ahora' : 'Cerrado ahora'}
                         </StatusBadge>
-                        {restaurant.canOrder ? (
-                            <StatusBadge tone="primary">
-                                {restaurant.modeLabel}
-                            </StatusBadge>
-                        ) : (
-                            <StatusBadge>{restaurant.modeLabel}</StatusBadge>
-                        )}
                     </div>
                 </div>
 

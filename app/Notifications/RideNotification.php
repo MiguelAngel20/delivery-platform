@@ -7,6 +7,7 @@ use App\Enums\NotificationPriority;
 use App\Models\User;
 use App\Notifications\Channels\FcmChannel;
 use App\Notifications\Concerns\RideNotificationContract;
+use App\Services\Notifications\NotificationIdempotencyService;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
 
@@ -22,15 +23,29 @@ abstract class RideNotification extends Notification implements RideNotification
             return [];
         }
 
-        if ($this->dedupeKey() !== null) {
-            $cacheKey = sprintf(
-                'notif:dedupe:%d:%s',
-                $notifiable->id,
-                $this->dedupeKey(),
-            );
+        $dedupeKey = $this->dedupeKey();
 
-            if (! Cache::add($cacheKey, true, (int) config('push.dedupe_ttl_seconds', 120))) {
+        if ($dedupeKey !== null) {
+            $cacheTtl = $this->requiresPersistentDedupe()
+                ? max(
+                    (int) config('push.dedupe_ttl_seconds', 120),
+                    (int) config('push.push_idempotency_ttl_seconds', 7 * 24 * 3600),
+                )
+                : (int) config('push.dedupe_ttl_seconds', 120);
+
+            $cacheKey = sprintf('notif:dedupe:%d:%s', $notifiable->id, $dedupeKey);
+
+            if (! Cache::add($cacheKey, true, $cacheTtl)) {
                 return [];
+            }
+
+            if ($this->requiresPersistentDedupe()) {
+                $idempotency = app(NotificationIdempotencyService::class);
+                $persistentKey = $idempotency->notificationKey($notifiable->id, $dedupeKey);
+
+                if (! $idempotency->claim($persistentKey)) {
+                    return [];
+                }
             }
         }
 
@@ -66,6 +81,11 @@ abstract class RideNotification extends Notification implements RideNotification
     }
 
     public function isCritical(): bool
+    {
+        return false;
+    }
+
+    public function requiresPersistentDedupe(): bool
     {
         return false;
     }

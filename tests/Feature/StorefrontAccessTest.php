@@ -4,6 +4,8 @@ use App\Enums\BusinessStatus;
 use App\Enums\PromotionStatus;
 use App\Models\Business;
 use App\Models\BusinessBranch;
+use App\Models\Customer;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductPrice;
 use App\Models\Promotion;
@@ -119,6 +121,7 @@ test('promotions index lists real promotions and links to an existing business',
 
 test('customer can open customer portal pages', function (string $routeName) {
     $user = User::factory()->customer()->create();
+    Customer::factory()->for($user)->create();
 
     $this->actingAs($user)
         ->get(route($routeName))
@@ -142,9 +145,11 @@ test('customer can logout from the storefront', function () {
 
 test('customer can open order tracking', function () {
     $user = User::factory()->customer()->create();
+    $customer = Customer::factory()->for($user)->create();
+    $order = Order::factory()->create(['customer_id' => $customer->id]);
 
     $this->actingAs($user)
-        ->get(route('customer.orders.show', ['order' => 'ord-1']))
+        ->get(route('customer.orders.show', $order))
         ->assertOk();
 });
 

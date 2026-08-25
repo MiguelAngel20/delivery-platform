@@ -260,9 +260,10 @@ final class OrderCancellationService
             $trip = $tripOrder?->trip;
             $tripOrder?->delete();
 
-            $nextStatus = $locked->ready_at !== null
-                ? OrderStatus::ReadyForPickup
-                : OrderStatus::Preparing;
+            // Solo ReadyForPickup es transición válida desde DriverAssigned / DriverAtBusiness
+            // (Preparing no está permitido por OrderStateService).
+            $nextStatus = OrderStatus::ReadyForPickup;
+            $this->stateService->assertCanTransition($locked->order_status, $nextStatus);
 
             $locked->forceFill([
                 'assigned_driver_id' => null,
@@ -270,12 +271,14 @@ final class OrderCancellationService
                 'order_status' => $nextStatus,
             ])->save();
 
-            $locked->statusHistory()->create([
-                'status' => $nextStatus,
-                'changed_by_user_id' => $actor->id,
-                'notes' => 'Repartidor no puede continuar: '.$reasonCode->label(),
-                'created_at' => now(),
-            ]);
+            if ($previous !== $nextStatus) {
+                $locked->statusHistory()->create([
+                    'status' => $nextStatus,
+                    'changed_by_user_id' => $actor->id,
+                    'notes' => 'Repartidor no puede continuar: '.$reasonCode->label(),
+                    'created_at' => now(),
+                ]);
+            }
 
             if ($trip !== null) {
                 $this->activeOrders->completeTripIfFinished($trip->fresh('orders'));

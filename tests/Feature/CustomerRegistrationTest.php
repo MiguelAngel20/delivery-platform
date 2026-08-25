@@ -12,8 +12,8 @@ function customerRegistrationPayload(array $overrides = []): array
         'email' => 'ana.lopez@example.com',
         'phone_dial_code' => '+52',
         'phone_national' => '9611234567',
-        'password' => 'password',
-        'password_confirmation' => 'password',
+        'password' => 'Clave123!',
+        'password_confirmation' => 'Clave123!',
         'address_label' => 'Casa',
         'address_text' => 'Calle Central 12, Comitán',
         'formatted_address' => 'Calle Central 12, Comitán de Domínguez, Chiapas',
@@ -66,6 +66,13 @@ test('a guest can register and must verify email before checkout', function () {
         ->and($address->address_text)->toBe('Calle Central 12, Comitán');
 
     Notification::assertSentTo($user, CustomerEmailVerificationCode::class);
+});
+
+test('registration rejects weak passwords', function () {
+    $this->post(route('register.store'), customerRegistrationPayload([
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ]))->assertSessionHasErrors(['password']);
 });
 
 test('registration requires a valid email and matching country phone length', function () {

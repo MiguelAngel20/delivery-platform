@@ -47,12 +47,19 @@ export function StorefrontHeader() {
     const authenticated = auth.user?.role === 'customer';
     const onHomePage = page.component === 'public/home';
     const onSearchPage = page.component === 'public/search/index';
+    const showSearch = onHomePage || onSearchPage;
     const selectedCategory = String(
         (page.props as { filters?: { category?: string | null } }).filters
             ?.category ?? '',
     );
 
     useEffect(() => {
+        if (!showSearch) {
+            setSearchOpen(false);
+
+            return;
+        }
+
         if (onSearchPage) {
             setSearchOpen(true);
 
@@ -60,10 +67,10 @@ export function StorefrontHeader() {
         }
 
         setSearchOpen(false);
-    }, [onSearchPage, page.url]);
+    }, [showSearch, onSearchPage, page.url]);
 
     useEffect(() => {
-        if (!searchOpen) {
+        if (!showSearch || !searchOpen) {
             return;
         }
 
@@ -127,7 +134,7 @@ export function StorefrontHeader() {
             document.removeEventListener('pointerdown', onPointerDown);
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [searchOpen, onSearchPage]);
+    }, [showSearch, searchOpen, onSearchPage]);
 
     return (
         <header className="sticky top-0 z-30 border-b border-border bg-surface">
@@ -189,17 +196,19 @@ export function StorefrontHeader() {
                         <Button asChild variant="ghost" size="sm">
                             <Link href={promotions.index()}>Promociones</Link>
                         </Button>
-                        <Button
-                            type="button"
-                            variant={searchOpen ? 'secondary' : 'ghost'}
-                            size="sm"
-                            aria-expanded={searchOpen}
-                            aria-controls="storefront-search"
-                            onClick={() => setSearchOpen((open) => !open)}
-                        >
-                            <Search className="size-4" />
-                            Buscar
-                        </Button>
+                        {showSearch ? (
+                            <Button
+                                type="button"
+                                variant={searchOpen ? 'secondary' : 'ghost'}
+                                size="sm"
+                                aria-expanded={searchOpen}
+                                aria-controls="storefront-search"
+                                onClick={() => setSearchOpen((open) => !open)}
+                            >
+                                <Search className="size-4" />
+                                Buscar
+                            </Button>
+                        ) : null}
                     </nav>
 
                     <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5 md:ml-0 md:gap-1.5">
@@ -310,15 +319,17 @@ export function StorefrontHeader() {
                     </div>
                 </div>
 
-                <div id="storefront-search" className="md:hidden">
-                    <SearchBar
-                        key="storefront-search-bar-mobile"
-                        defaultValue={searchQuery}
-                        compact
-                    />
-                </div>
+                {showSearch ? (
+                    <div id="storefront-search" className="md:hidden">
+                        <SearchBar
+                            key="storefront-search-bar-mobile"
+                            defaultValue={searchQuery}
+                            compact
+                        />
+                    </div>
+                ) : null}
 
-                {searchOpen ? (
+                {showSearch && searchOpen ? (
                     <div id="storefront-search-desktop" className="hidden md:block">
                         <SearchBar
                             key="storefront-search-bar"

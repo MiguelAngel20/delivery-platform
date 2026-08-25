@@ -6,9 +6,9 @@ use App\Actions\Customers\RegisterCustomer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterCustomerRequest;
 use App\Services\Auth\EmailVerificationCodeService;
+use App\Support\ApplicationPassword;
 use App\Support\PhoneDialCodes;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Validation\Rules\Password as PasswordRule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,8 +19,7 @@ class CustomerRegisterController extends Controller
         return Inertia::render('public/register/index', [
             'dialCodes' => PhoneDialCodes::options(),
             'defaultDialCode' => PhoneDialCodes::defaultDial(),
-            'passwordRules' => PasswordRule::defaults()?->toPasswordRulesString()
-                ?? 'min:8',
+            'passwordRules' => ApplicationPassword::rule()->toPasswordRulesString(),
         ]);
     }
 

@@ -59,7 +59,7 @@ final class PhoneDialCodes
         return collect(self::all())
             ->map(fn (array $row): array => [
                 'dial' => $row['dial'],
-                'label' => sprintf('%s (%s)', $row['label'], $row['dial']),
+                'label' => $row['dial'],
                 'national_length' => $row['national_length'],
             ])
             ->values()

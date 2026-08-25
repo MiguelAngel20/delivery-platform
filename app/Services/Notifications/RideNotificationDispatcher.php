@@ -32,6 +32,7 @@ use App\Notifications\Orders\DriverWasRatedNotification;
 use App\Notifications\Orders\NewBusinessOrderNotification;
 use App\Notifications\Orders\NewDriverOfferNotification;
 use App\Notifications\Orders\OrderCancelledNotification;
+use App\Notifications\Orders\OrderDriverAssignedNotification;
 use App\Notifications\Orders\OrderStatusChangedNotification;
 use App\Notifications\Orders\PlatformOrderPendingNotification;
 use Illuminate\Support\Collection;
@@ -105,7 +106,23 @@ final class RideNotificationDispatcher
         });
     }
 
-    public function driverAssigned(Order $order): void {}
+    public function driverAssigned(Order $order): void
+    {
+        $this->afterCommit(function () use ($order): void {
+            $order->loadMissing([
+                'customer.user',
+                'assignedDriver.user',
+            ]);
+
+            $customerUser = $order->customer?->user;
+
+            if ($customerUser === null || $order->assigned_driver_id === null) {
+                return;
+            }
+
+            $customerUser->notify(new OrderDriverAssignedNotification($order));
+        });
+    }
 
     public function driverOffer(Order $order, Driver $driver): void
     {

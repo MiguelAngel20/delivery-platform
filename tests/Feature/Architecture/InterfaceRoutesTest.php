@@ -1,9 +1,14 @@
 <?php
 
+use App\Models\Driver;
 use App\Models\User;
 
 test('authenticated users can visit interface homes', function (string $factoryState, string $routeName, int $status = 200) {
     $user = User::factory()->{$factoryState}()->create();
+
+    if ($factoryState === 'driver') {
+        Driver::factory()->approved()->forUser($user)->create();
+    }
 
     $response = $this->actingAs($user)->get(route($routeName));
 

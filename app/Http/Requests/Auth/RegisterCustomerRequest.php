@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\ApplicationPassword;
 use App\Support\PhoneDialCodes;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Validator;
 
 class RegisterCustomerRequest extends FormRequest
@@ -40,12 +40,7 @@ class RegisterCustomerRequest extends FormRequest
             'phone_dial_code' => ['required', 'string', Rule::in(PhoneDialCodes::dials())],
             'phone_national' => ['required', 'string'],
             'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
-            'password' => array_values(array_filter([
-                'required',
-                'string',
-                'confirmed',
-                Password::defaults(),
-            ])),
+            'password' => ApplicationPassword::validationRules(),
             'address_label' => ['nullable', 'string', 'max:100'],
             'address_text' => ['required', 'string', 'max:255'],
             'formatted_address' => ['nullable', 'string', 'max:500'],
@@ -105,7 +100,8 @@ class RegisterCustomerRequest extends FormRequest
             'password.letters' => 'La contraseña debe incluir al menos una letra.',
             'password.mixed' => 'La contraseña debe incluir mayúsculas y minúsculas.',
             'password.numbers' => 'La contraseña debe incluir al menos un número.',
-            'password.symbols' => 'La contraseña debe incluir al menos un símbolo.',
+            'password.symbols' => 'La contraseña debe incluir al menos un carácter especial (ej. #, $, %).',
+            'password.regex' => 'La contraseña debe incluir al menos una letra mayúscula.',
             'password.uncompromised' => 'Esa contraseña apareció en una filtración de datos. Elige otra.',
             'address_label.max' => 'La etiqueta no puede superar :max caracteres.',
             'address_text.required' => 'Selecciona tu dirección de entrega en el mapa.',

@@ -1,3 +1,4 @@
+import { createMapPinElement } from '@/components/maps/map-center-pin';
 import type { LatLng } from '@/lib/maps/types';
 
 /** Required by AdvancedMarkerElement. Demo ID is valid for production maps without a custom Cloud style. */
@@ -17,6 +18,7 @@ export function createAdvancedMarker(
         position: options.position,
         title: options.title,
         gmpDraggable: options.draggable ?? false,
+        content: createMapPinElement(),
     });
 }
 

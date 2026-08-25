@@ -2,18 +2,41 @@
 
 namespace App\Notifications\Auth;
 
+use App\Services\Notifications\NotificationIdempotencyService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class CustomerEmailVerificationCode extends Notification implements ShouldQueue
+/**
+ * One intentional OTP send = one issuanceId.
+ *
+ * Explicit resend mints a new issuanceId (allowed). Queue retries / duplicate
+ * jobs for the same issuanceId must not send another email.
+ * Claim failure/retry is handled via NotificationFailed / NotificationSent listeners.
+ */
+class CustomerEmailVerificationCode extends Notification implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public string $code)
-    {
+    public int $tries = 3;
+
+    public function __construct(
+        public string $code,
+        public string $issuanceId,
+    ) {
         $this->afterCommit();
+    }
+
+    public function uniqueId(): string
+    {
+        return $this->issuanceId;
+    }
+
+    public function uniqueFor(): int
+    {
+        return 3600;
     }
 
     /**
@@ -21,6 +44,12 @@ class CustomerEmailVerificationCode extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
+        $idempotency = app(NotificationIdempotencyService::class);
+
+        if (! $idempotency->claim($idempotency->otpMailKey($this->issuanceId))) {
+            return [];
+        }
+
         return ['mail'];
     }
 

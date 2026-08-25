@@ -24,5 +24,10 @@ interface RideNotificationContract
 
     public function isCritical(): bool;
 
+    /**
+     * When true, duplicates must be blocked via persistent DB claims (not only cache TTL).
+     */
+    public function requiresPersistentDedupe(): bool;
+
     public function dedupeKey(): ?string;
 }

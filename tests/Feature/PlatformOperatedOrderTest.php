@@ -19,6 +19,7 @@ use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\Driver;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\ProductPrice;
 use App\Models\User;
 use App\Services\Dispatch\DriverEligibilityService;
@@ -79,7 +80,7 @@ test('system admin can create platform-operated business', function () {
         ->and($business?->operation_mode)->toBe(BusinessOperationMode::PlatformOperated);
 });
 
-test('business user cannot manage platform-operated catalog', function () {
+test('business user can manage platform-operated catalog', function () {
     $admin = User::factory()->businessAdmin()->create();
     ['business' => $business, 'branch' => $branch] = seedPlatformCatalog();
 
@@ -93,9 +94,11 @@ test('business user cannot manage platform-operated catalog', function () {
     $this->actingAs($admin)
         ->post(route('business.categories.store'), [
             'branch_id' => $branch->id,
-            'name' => 'No permitido',
+            'name' => 'Categoría afiliación',
         ])
-        ->assertForbidden();
+        ->assertRedirect();
+
+    expect(ProductCategory::query()->where('name', 'Categoría afiliación')->exists())->toBeTrue();
 });
 
 test('customer can view published platform-operated business', function () {

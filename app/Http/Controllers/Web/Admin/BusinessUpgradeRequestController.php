@@ -37,30 +37,51 @@ class BusinessUpgradeRequestController extends Controller
         $data = $request->validated();
 
         DB::transaction(function () use ($business, $upgradeRequest, $data, $request): void {
+            /** @var BusinessUpgradeRequest $lockedRequest */
+            $lockedRequest = BusinessUpgradeRequest::query()
+                ->whereKey($upgradeRequest->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedRequest->status !== UpgradeRequestStatus::Pending) {
+                throw ValidationException::withMessages([
+                    'status' => 'Solo se pueden aprobar solicitudes pendientes.',
+                ]);
+            }
+
             $limits = $this->limitService->lockForUpdate($business);
 
             if (($data['apply_limit_increase'] ?? false) === true) {
-                $quantity = max(1, (int) ($data['quantity'] ?? $upgradeRequest->requested_quantity));
+                $quantity = max(1, (int) ($data['quantity'] ?? $lockedRequest->requested_quantity));
 
-                if ($upgradeRequest->type === UpgradeRequestType::AdditionalBranch) {
+                if ($lockedRequest->type === UpgradeRequestType::AdditionalBranch) {
                     $limits->update([
                         'max_branches' => $limits->max_branches + $quantity,
                     ]);
                 }
 
-                if ($upgradeRequest->type === UpgradeRequestType::AdditionalEmployees) {
+                if ($lockedRequest->type === UpgradeRequestType::AdditionalEmployees) {
                     $limits->update([
                         'max_employees_per_branch' => $limits->max_employees_per_branch + $quantity,
                     ]);
                 }
             }
 
-            $upgradeRequest->update([
-                'status' => UpgradeRequestStatus::Approved,
-                'notes' => $data['notes'] ?? $upgradeRequest->notes,
-                'reviewed_by_user_id' => $request->user()?->id,
-                'reviewed_at' => now(),
-            ]);
+            $updated = BusinessUpgradeRequest::query()
+                ->whereKey($lockedRequest->id)
+                ->where('status', UpgradeRequestStatus::Pending)
+                ->update([
+                    'status' => UpgradeRequestStatus::Approved,
+                    'notes' => $data['notes'] ?? $lockedRequest->notes,
+                    'reviewed_by_user_id' => $request->user()?->id,
+                    'reviewed_at' => now(),
+                ]);
+
+            if ($updated !== 1) {
+                throw ValidationException::withMessages([
+                    'status' => 'Solo se pueden aprobar solicitudes pendientes.',
+                ]);
+            }
         });
 
         Inertia::flash('toast', [
@@ -85,12 +106,29 @@ class BusinessUpgradeRequestController extends Controller
             ]);
         }
 
-        $upgradeRequest->update([
-            'status' => UpgradeRequestStatus::Rejected,
-            'notes' => $request->validated('notes') ?? $upgradeRequest->notes,
-            'reviewed_by_user_id' => $request->user()?->id,
-            'reviewed_at' => now(),
-        ]);
+        DB::transaction(function () use ($upgradeRequest, $request): void {
+            /** @var BusinessUpgradeRequest $lockedRequest */
+            $lockedRequest = BusinessUpgradeRequest::query()
+                ->whereKey($upgradeRequest->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $updated = BusinessUpgradeRequest::query()
+                ->whereKey($lockedRequest->id)
+                ->where('status', UpgradeRequestStatus::Pending)
+                ->update([
+                    'status' => UpgradeRequestStatus::Rejected,
+                    'notes' => $request->validated('notes') ?? $lockedRequest->notes,
+                    'reviewed_by_user_id' => $request->user()?->id,
+                    'reviewed_at' => now(),
+                ]);
+
+            if ($updated !== 1) {
+                throw ValidationException::withMessages([
+                    'status' => 'Solo se pueden rechazar solicitudes pendientes.',
+                ]);
+            }
+        });
 
         Inertia::flash('toast', [
             'type' => 'success',

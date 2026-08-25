@@ -59,13 +59,14 @@ export function DeliveryLocationDialog({ open, onOpenChange }: Props) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+            <DialogContent className="flex max-h-[95dvh] flex-col gap-3 overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>¿Dónde entregamos?</DialogTitle>
                 </DialogHeader>
                 <AddressPicker
                     value={draft}
                     showCurrentLocation
+                    mapHeightClassName="h-[min(45vh,20rem)] sm:h-80"
                     onChange={setDraft}
                 />
                 <Button

@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Models\Customer;
 use App\Models\User;
+use App\Services\Customers\CustomerAddressService;
 use App\Services\Notifications\NotificationPreferenceService;
 use App\Support\GoogleMapsUrl;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ class RegisterCustomer
 {
     public function __construct(
         private readonly NotificationPreferenceService $notificationPreferences,
+        private readonly CustomerAddressService $addresses,
     ) {}
 
     /**
@@ -41,7 +43,7 @@ class RegisterCustomer
                 'trust_level' => CustomerTrustLevel::New,
             ]);
 
-            $customer->addresses()->create([
+            $this->addresses->create($customer, [
                 'label' => $data['address_label'] ?? 'Casa',
                 'address_text' => $data['address_text'],
                 'formatted_address' => $data['formatted_address'] ?? null,
@@ -55,7 +57,6 @@ class RegisterCustomer
                     $data['longitude'],
                 ),
                 'is_default' => true,
-                'is_active' => true,
             ]);
 
             $this->notificationPreferences->forUser($user);

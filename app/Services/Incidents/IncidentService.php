@@ -68,22 +68,62 @@ final class IncidentService
         }
 
         try {
-            $incident = Incident::query()->create([
-                'order_id' => $order->id,
-                'customer_id' => $order->customer_id,
-                'driver_id' => $order->assigned_driver_id,
-                'business_id' => $order->branch?->business_id,
-                'reported_by_user_id' => $actor->id,
-                'type' => $type,
-                'severity' => $severity,
-                'status' => $status,
-                'description' => $description,
-                'idempotency_key' => $idempotencyKey,
-            ]);
+            $incident = DB::transaction(function () use ($order, $actor, $type, $severity, $status, $description, $idempotencyKey): Incident {
+                /** @var Order $locked */
+                $locked = Order::query()
+                    ->with('branch')
+                    ->whereKey($order->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($idempotencyKey !== null) {
+                    $existing = Incident::query()->where('idempotency_key', $idempotencyKey)->first();
+
+                    if ($existing !== null) {
+                        return $existing;
+                    }
+                }
+
+                $duplicate = Incident::query()
+                    ->where('order_id', $locked->id)
+                    ->where('type', $type)
+                    ->whereIn('status', [IncidentStatus::Open->value, IncidentStatus::UnderReview->value])
+                    ->first();
+
+                if ($duplicate !== null) {
+                    return $duplicate;
+                }
+
+                return Incident::query()->create([
+                    'order_id' => $locked->id,
+                    'customer_id' => $locked->customer_id,
+                    'driver_id' => $locked->assigned_driver_id,
+                    'business_id' => $locked->branch?->business_id ?? $order->branch?->business_id,
+                    'reported_by_user_id' => $actor->id,
+                    'type' => $type,
+                    'severity' => $severity,
+                    'status' => $status,
+                    'description' => $description,
+                    'idempotency_key' => $idempotencyKey,
+                ]);
+            });
         } catch (UniqueConstraintViolationException) {
+            if ($idempotencyKey !== null) {
+                return Incident::query()
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->firstOrFail();
+            }
+
             return Incident::query()
-                ->where('idempotency_key', $idempotencyKey)
+                ->where('order_id', $order->id)
+                ->where('type', $type)
+                ->whereIn('status', [IncidentStatus::Open->value, IncidentStatus::UnderReview->value])
                 ->firstOrFail();
+        }
+
+        // Already existed (idempotent return from inner transaction) — skip side effects.
+        if (! $incident->wasRecentlyCreated) {
+            return $incident;
         }
 
         $this->broadcastCreated($incident->fresh(['order.branch.business', 'reportedBy']));

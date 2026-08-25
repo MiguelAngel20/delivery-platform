@@ -6,27 +6,43 @@ use App\Models\User;
 use App\Notifications\Auth\CustomerEmailVerificationCode;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class EmailVerificationCodeService
 {
-    public function issue(User $user): void
+    /**
+     * Issue a new OTP for the user and queue the mail.
+     *
+     * Explicit calls (register / resend) always mint a fresh code and issuance id,
+     * which invalidates any previous code stored under the same cache key.
+     * Technical retries of the same queued notification share one issuance id and
+     * must not send additional emails (see CustomerEmailVerificationCode).
+     */
+    public function issue(User $user): string
     {
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $issuanceId = (string) Str::uuid();
 
         Cache::put(
             $this->key($user),
-            Hash::make($code),
+            [
+                'hash' => Hash::make($code),
+                'issuance_id' => $issuanceId,
+            ],
             now()->addMinutes((int) config('business.customers.email_verification_ttl_minutes', 15)),
         );
 
-        $user->notify(new CustomerEmailVerificationCode($code));
+        $user->notify(new CustomerEmailVerificationCode($code, $issuanceId));
+
+        return $issuanceId;
     }
 
     public function verify(User $user, string $code): bool
     {
-        $hashed = Cache::get($this->key($user));
+        $payload = Cache::get($this->key($user));
+        $hashed = $this->extractHash($payload);
 
-        if (! is_string($hashed) || ! Hash::check($code, $hashed)) {
+        if ($hashed === null || ! Hash::check($code, $hashed)) {
             return false;
         }
 
@@ -37,6 +53,19 @@ class EmailVerificationCodeService
         ])->save();
 
         return true;
+    }
+
+    private function extractHash(mixed $payload): ?string
+    {
+        if (is_string($payload)) {
+            return $payload;
+        }
+
+        if (is_array($payload) && isset($payload['hash']) && is_string($payload['hash'])) {
+            return $payload['hash'];
+        }
+
+        return null;
     }
 
     private function key(User $user): string

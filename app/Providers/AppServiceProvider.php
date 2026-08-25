@@ -8,6 +8,7 @@ use App\Services\Geo\GoogleMapsClient;
 use App\Services\Push\FcmHttpV1PushProvider;
 use App\Services\Push\LogPushProvider;
 use App\Services\Push\NullPushProvider;
+use App\Support\ApplicationPassword;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -74,15 +75,7 @@ class AppServiceProvider extends ServiceProvider
             app()->isProduction(),
         );
 
-        Password::defaults(fn (): ?Password => app()->isProduction()
-            ? Password::min(12)
-                ->mixedCase()
-                ->letters()
-                ->numbers()
-                ->symbols()
-                ->uncompromised()
-            : null,
-        );
+        Password::defaults(fn (): Password => ApplicationPassword::rule());
     }
 
     protected function configureRateLimiting(): void

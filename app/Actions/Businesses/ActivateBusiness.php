@@ -11,19 +11,34 @@ class ActivateBusiness
 {
     public function handle(Business $business): Business
     {
-        if ($business->status !== BusinessStatus::Suspended) {
-            throw ValidationException::withMessages([
-                'status' => 'Solo se pueden reactivar empresas suspendidas.',
-            ]);
-        }
-
         return DB::transaction(function () use ($business): Business {
-            $business->update([
-                'status' => BusinessStatus::Active,
-                'suspension_reason' => null,
-            ]);
+            /** @var Business $locked */
+            $locked = Business::query()
+                ->whereKey($business->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            return $business->fresh();
+            if ($locked->status !== BusinessStatus::Suspended) {
+                throw ValidationException::withMessages([
+                    'status' => 'Solo se pueden reactivar empresas suspendidas.',
+                ]);
+            }
+
+            $updated = Business::query()
+                ->whereKey($locked->id)
+                ->where('status', BusinessStatus::Suspended)
+                ->update([
+                    'status' => BusinessStatus::Active,
+                    'suspension_reason' => null,
+                ]);
+
+            if ($updated !== 1) {
+                throw ValidationException::withMessages([
+                    'status' => 'Solo se pueden reactivar empresas suspendidas.',
+                ]);
+            }
+
+            return $locked->fresh();
         });
     }
 }

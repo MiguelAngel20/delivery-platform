@@ -76,6 +76,21 @@ final class OrderStatusChangedNotification extends RideNotification
         ], true);
     }
 
+    public function requiresPersistentDedupe(): bool
+    {
+        if ($this->audience !== UserRole::Customer) {
+            return false;
+        }
+
+        return in_array($this->status, [
+            OrderStatus::Accepted,
+            OrderStatus::Preparing,
+            OrderStatus::PickedUp,
+            OrderStatus::OnTheWay,
+            OrderStatus::Delivered,
+        ], true);
+    }
+
     public function priority(): NotificationPriority
     {
         return $this->isCritical()

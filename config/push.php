@@ -34,4 +34,7 @@ return [
 
     'dedupe_ttl_seconds' => (int) env('PUSH_DEDUPE_TTL', 120),
 
+    // How long SendPushToUserJob remembers an idempotency key after a successful send.
+    'push_idempotency_ttl_seconds' => (int) env('PUSH_IDEMPOTENCY_TTL', 604800),
+
 ];

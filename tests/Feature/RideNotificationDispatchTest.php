@@ -34,6 +34,7 @@ use App\Notifications\Orders\DriverWasRatedNotification;
 use App\Notifications\Orders\NewBusinessOrderNotification;
 use App\Notifications\Orders\NewDriverOfferNotification;
 use App\Notifications\Orders\OrderCancelledNotification;
+use App\Notifications\Orders\OrderDriverAssignedNotification;
 use App\Notifications\Orders\OrderStatusChangedNotification;
 use App\Notifications\Orders\PlatformOrderPendingNotification;
 use App\Services\Notifications\RideNotificationDispatcher;
@@ -62,18 +63,21 @@ test('order accepted notifies customer with estimated time', function () {
     );
 });
 
-test('DriverAssigned does not notify Customer', function () {
+test('DriverAssigned notifies Customer with OrderDriverAssignedNotification', function () {
     Notification::fake();
 
     $customerUser = User::factory()->customer()->create();
     $customer = Customer::factory()->for($customerUser)->create();
+    $driver = Driver::factory()->create();
     $order = Order::factory()->create([
         'customer_id' => $customer->id,
+        'assigned_driver_id' => $driver->id,
         'order_status' => OrderStatus::DriverAssigned,
     ]);
 
     app(RideNotificationDispatcher::class)->driverAssigned($order);
 
+    Notification::assertSentTo($customerUser, OrderDriverAssignedNotification::class);
     Notification::assertNotSentTo($customerUser, OrderStatusChangedNotification::class);
 });
 
