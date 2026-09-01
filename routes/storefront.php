@@ -54,3 +54,17 @@ Route::prefix('legal')->name('legal.')->group(function () {
     Route::get('quejas-y-sugerencias', [LegalPageController::class, 'feedback'])->name('feedback');
     Route::get('afiliacion', [LegalPageController::class, 'affiliation'])->name('affiliation');
 });
+
+Route::get('manifest.webmanifest', function () {
+    return response()->file(
+        public_path('manifest.webmanifest'),
+        ['Content-Type' => 'application/manifest+json; charset=utf-8'],
+    );
+});
+
+Route::get('sw.js', function () {
+    return response()->file(
+        public_path('sw.js'),
+        ['Content-Type' => 'application/javascript; charset=utf-8'],
+    );
+});

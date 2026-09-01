@@ -73,7 +73,7 @@ function serviceWorkerUrl(config: PushWebConfig): string {
         appId: config.appId,
     });
 
-    return `/firebase-messaging-sw.js?${params.toString()}`;
+    return `/sw.js?${params.toString()}`;
 }
 
 export async function registerMessagingServiceWorker(

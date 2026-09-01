@@ -6,6 +6,7 @@ import {
     consumePendingCartClear,
 } from '@/apps/storefront/cart/use-storefront-cart';
 import { StorefrontBottomNav } from '@/apps/storefront/components/storefront-bottom-nav';
+import { InstallAppBanner } from '@/apps/storefront/components/install-app-banner';
 import { StorefrontFooter } from '@/apps/storefront/components/storefront-footer';
 import { StorefrontHeader } from '@/apps/storefront/components/storefront-header';
 import { useStorefrontShell } from '@/apps/storefront/hooks/use-storefront-shell';
@@ -56,6 +57,7 @@ export default function StorefrontLayout({
                 <StorefrontFooter className="hidden md:block" />
             </div>
             {showBottomNav ? <StorefrontBottomNav /> : null}
+            <InstallAppBanner />
         </div>
     );
 }
