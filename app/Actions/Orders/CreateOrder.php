@@ -11,6 +11,7 @@ use App\Enums\OrderType;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\ProductOptionGroupType;
+use App\Enums\PromotionStatus;
 use App\Models\BusinessBranch;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
@@ -21,6 +22,8 @@ use App\Models\OrderItemOption;
 use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductOption;
+use App\Models\Promotion;
+use App\Models\PromotionItem;
 use App\Models\User;
 use App\Services\BusinessBranchContext;
 use App\Services\Finance\OrderFinancialService;
@@ -30,6 +33,7 @@ use App\Services\PricingEngine;
 use App\Services\Realtime\OrderRealtimePublisher;
 use App\Support\BusinessHours;
 use App\Support\GoogleMapsUrl;
+use App\Support\StorefrontPromotionData;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -79,12 +83,16 @@ final class CreateOrder
             $subtotalBeforeDiscount = '0.00';
 
             foreach ($itemsInput as $index => $itemInput) {
-                $built = $this->buildItem($branch, $itemInput, $index);
+                $built = ! empty($itemInput['promotion_id'])
+                    ? $this->buildPromotionItem($branch, $itemInput, $index)
+                    : $this->buildItem($branch, $itemInput, $index);
                 $builtItems[] = $built;
                 $subtotalBeforeDiscount = bcadd($subtotalBeforeDiscount, $built['subtotal'], 2);
 
-                for ($i = 0; $i < (int) ceil((float) $built['quantity']); $i++) {
-                    $productsForDiscount[] = $built['product'];
+                if ($built['product'] !== null) {
+                    for ($i = 0; $i < (int) ceil((float) $built['quantity']); $i++) {
+                        $productsForDiscount[] = $built['product'];
+                    }
                 }
             }
 
@@ -142,10 +150,9 @@ final class CreateOrder
             foreach ($builtItems as $built) {
                 $orderItem = OrderItem::query()->create([
                     'order_id' => $order->id,
-                    'product_id' => $built['product']->id,
-                    'product_name' => $built['product']->category
-                        ? $built['product']->category->rootName().' · '.$built['product']->name
-                        : $built['product']->name,
+                    'product_id' => $built['product']?->id,
+                    'promotion_id' => $built['promotion_id'] ?? null,
+                    'product_name' => $built['product_name'],
                     'quantity' => $built['quantity'],
                     'unit_list_price' => $built['unit_list_price'],
                     'unit_discount' => '0.00',
@@ -153,6 +160,7 @@ final class CreateOrder
                     'unit_acquisition_cost' => $built['unit_acquisition_cost'],
                     'subtotal' => $built['subtotal'],
                     'notes' => $built['notes'],
+                    'metadata' => $built['metadata'] ?? null,
                 ]);
 
                 foreach ($built['options'] as $optionRow) {
@@ -258,6 +266,10 @@ final class CreateOrder
 
         return [
             'product' => $product,
+            'promotion_id' => null,
+            'product_name' => $product->category
+                ? $product->category->rootName().' · '.$product->name
+                : $product->name,
             'quantity' => $quantity,
             'unit_list_price' => (string) $listPrice,
             'unit_final_price' => $unitFinal,
@@ -267,7 +279,238 @@ final class CreateOrder
             'subtotal' => $subtotal,
             'notes' => $notes ?: null,
             'options' => $optionRows,
+            'metadata' => null,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $itemInput
+     * @return array<string, mixed>
+     */
+    private function buildPromotionItem(BusinessBranch $branch, array $itemInput, int $index): array
+    {
+        $promotion = Promotion::query()
+            ->with([
+                'items.product.optionGroups.options',
+            ])
+            ->whereKey($itemInput['promotion_id'] ?? null)
+            ->where('branch_id', $branch->id)
+            ->where('status', PromotionStatus::Active)
+            ->first();
+
+        if ($promotion === null) {
+            throw ValidationException::withMessages([
+                "items.{$index}.promotion_id" => 'La promoción no está disponible en esta sucursal.',
+            ]);
+        }
+
+        if ($promotion->starts_at !== null && $promotion->starts_at->isFuture()) {
+            throw ValidationException::withMessages([
+                "items.{$index}.promotion_id" => 'La promoción aún no está vigente.',
+            ]);
+        }
+
+        if ($promotion->ends_at !== null && $promotion->ends_at->isPast()) {
+            throw ValidationException::withMessages([
+                "items.{$index}.promotion_id" => 'La promoción ya no está vigente.',
+            ]);
+        }
+
+        $quantity = (string) ($itemInput['quantity'] ?? 1);
+
+        if (bccomp($quantity, '0.01', 2) === -1) {
+            throw ValidationException::withMessages([
+                "items.{$index}.quantity" => 'La cantidad debe ser mayor a 0.',
+            ]);
+        }
+
+        $promotionItemsInput = collect($itemInput['promotion_items'] ?? [])
+            ->keyBy('promotion_item_id');
+
+        if ($promotionItemsInput->count() !== $promotion->items->count()) {
+            throw ValidationException::withMessages([
+                "items.{$index}.promotion_items" => 'La configuración de la promoción está incompleta.',
+            ]);
+        }
+
+        $optionRows = [];
+        $composition = [];
+
+        foreach ($promotion->items as $promotionItem) {
+            $selection = $promotionItemsInput->get($promotionItem->id);
+
+            if (! is_array($selection)) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.promotion_items" => "Falta la configuración del ítem {$promotionItem->name}.",
+                ]);
+            }
+
+            $selectedOptions = $selection['selected_options'] ?? [];
+            $itemOptionRows = $promotionItem->is_external_item
+                ? $this->resolveExternalPromotionItemOptions(
+                    $promotionItem,
+                    $selectedOptions,
+                    $index,
+                )
+                : $this->resolvePromotionMenuItemOptions(
+                    $promotionItem,
+                    $selectedOptions,
+                    $index,
+                );
+
+            foreach ($itemOptionRows as $optionRow) {
+                $optionRows[] = [
+                    ...$optionRow,
+                    'option_name' => $promotionItem->name.' · '.$optionRow['option_name'],
+                ];
+            }
+
+            $composition[] = [
+                'promotion_item_id' => $promotionItem->id,
+                'name' => $promotionItem->name,
+                'is_external_item' => $promotionItem->is_external_item,
+                'product_id' => $promotionItem->product_id,
+                'selected_options' => $selectedOptions,
+                'special_instructions' => $selection['special_instructions'] ?? null,
+            ];
+        }
+
+        $unitFinal = (string) $promotion->promotion_price;
+        $subtotal = bcmul($unitFinal, $quantity, 2);
+
+        return [
+            'product' => null,
+            'promotion_id' => $promotion->id,
+            'product_name' => 'Promoción · '.$promotion->name,
+            'quantity' => $quantity,
+            'unit_list_price' => $unitFinal,
+            'unit_final_price' => $unitFinal,
+            'unit_acquisition_cost' => null,
+            'subtotal' => $subtotal,
+            'notes' => $itemInput['special_instructions'] ?? $itemInput['notes'] ?? null,
+            'options' => $optionRows,
+            'metadata' => [
+                'promotion_id' => $promotion->id,
+                'promotion_name' => $promotion->name,
+                'items' => $composition,
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $selectedOptions
+     * @return list<array<string, mixed>>
+     */
+    private function resolvePromotionMenuItemOptions(
+        PromotionItem $promotionItem,
+        array $selectedOptions,
+        int $itemIndex,
+    ): array {
+        $product = $promotionItem->product;
+
+        if ($product === null) {
+            throw ValidationException::withMessages([
+                "items.{$itemIndex}.promotion_items" => "El ítem {$promotionItem->name} no tiene producto asociado.",
+            ]);
+        }
+
+        $product->loadMissing(['optionGroups.options']);
+
+        return $this->resolveOptions($product, $selectedOptions, $itemIndex);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $selectedOptions
+     * @return list<array<string, mixed>>
+     */
+    private function resolveExternalPromotionItemOptions(
+        PromotionItem $promotionItem,
+        array $selectedOptions,
+        int $itemIndex,
+    ): array {
+        $groups = StorefrontPromotionData::externalOptionGroups(
+            is_array($promotionItem->option_groups) ? $promotionItem->option_groups : [],
+            $promotionItem->id,
+        );
+
+        $rows = [];
+        $countsByGroup = [];
+
+        foreach ($selectedOptions as $optionIndex => $selection) {
+            $optionId = (int) ($selection['option_id'] ?? 0);
+            $action = OptionSelectionAction::tryFrom((string) ($selection['action'] ?? ''));
+
+            $decoded = StorefrontPromotionData::decodeExternalOptionId($optionId);
+
+            if ($decoded === null) {
+                throw ValidationException::withMessages([
+                    "items.{$itemIndex}.selected_options.{$optionIndex}" => 'La opción no pertenece al ítem de la promoción.',
+                ]);
+            }
+
+            $group = $groups[$decoded['group_index']] ?? null;
+            $option = $group['options'][$decoded['option_index']] ?? null;
+
+            if ($group === null || $option === null) {
+                throw ValidationException::withMessages([
+                    "items.{$itemIndex}.selected_options.{$optionIndex}" => 'La opción no pertenece al ítem de la promoción.',
+                ]);
+            }
+
+            $groupType = ProductOptionGroupType::tryFrom((string) ($group['type'] ?? ''))
+                ?? ProductOptionGroupType::Choice;
+
+            if (
+                $action === OptionSelectionAction::Selected
+                && $groupType === ProductOptionGroupType::Addon
+            ) {
+                $action = OptionSelectionAction::Added;
+            }
+
+            $expectedAction = match ($groupType) {
+                ProductOptionGroupType::Removable => OptionSelectionAction::Removed,
+                ProductOptionGroupType::Addon => OptionSelectionAction::Added,
+                ProductOptionGroupType::Choice => OptionSelectionAction::Selected,
+            };
+
+            if ($action !== $expectedAction) {
+                throw ValidationException::withMessages([
+                    "items.{$itemIndex}.selected_options.{$optionIndex}" => 'Acción de opción inválida.',
+                ]);
+            }
+
+            if ($action !== OptionSelectionAction::Removed) {
+                $countsByGroup[$group['id']] = ($countsByGroup[$group['id']] ?? 0) + 1;
+            }
+
+            $rows[] = [
+                'product_option_id' => null,
+                'option_name' => (string) $option['name'],
+                'option_type' => $groupType,
+                'price_modifier' => '0.00',
+                'selection_action' => $action,
+            ];
+        }
+
+        foreach ($groups as $group) {
+            $count = $countsByGroup[$group['id']] ?? 0;
+            $groupType = ProductOptionGroupType::tryFrom((string) ($group['type'] ?? ''))
+                ?? ProductOptionGroupType::Choice;
+
+            if ($groupType === ProductOptionGroupType::Choice || ($group['is_required'] ?? false)) {
+                if ($count < (int) ($group['min_selection'] ?? 0) || $count > (int) ($group['max_selection'] ?? 1)) {
+                    throw ValidationException::withMessages([
+                        "items.{$itemIndex}.selected_options" => "Selección inválida para {$group['name']}.",
+                    ]);
+                }
+            } elseif ($count > (int) ($group['max_selection'] ?? 1)) {
+                throw ValidationException::withMessages([
+                    "items.{$itemIndex}.selected_options" => "Selección inválida para {$group['name']}.",
+                ]);
+            }
+        }
+
+        return $rows;
     }
 
     /**

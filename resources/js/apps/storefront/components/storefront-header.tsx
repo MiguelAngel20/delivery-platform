@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
+    ArrowLeft,
     Bell,
     ChevronDown,
     ClipboardList,
@@ -15,6 +16,10 @@ import { applyStorefrontCategoryFilter } from '@/apps/storefront/components/cate
 import { DeliveryLocationCue } from '@/apps/storefront/components/delivery-location-cue';
 import { MobileCategoryTabs } from '@/apps/storefront/components/mobile-category-tabs';
 import { SearchBar } from '@/apps/storefront/components/search-bar';
+import {
+    storefrontGoBack,
+    useStorefrontShell,
+} from '@/apps/storefront/hooks/use-storefront-shell';
 import type { MockCategory } from '@/apps/storefront/mocks';
 import { BrandLogo } from '@/components/brand-logo';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -28,6 +33,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { deactivateStoredPushDevice } from '@/lib/push/devices';
+import { cn } from '@/lib/utils';
 import { cart, home, login, logout } from '@/routes';
 import customer from '@/routes/customer';
 import promotions from '@/routes/promotions';
@@ -43,9 +49,9 @@ export function StorefrontHeader() {
     };
     const categories = storefront?.categories ?? [];
     const { itemCount } = useStorefrontCart();
+    const { onHomePage } = useStorefrontShell();
     const [searchOpen, setSearchOpen] = useState(false);
     const authenticated = auth.user?.role === 'customer';
-    const onHomePage = page.component === 'public/home';
     const onSearchPage = page.component === 'public/search/index';
     const showSearch = onHomePage || onSearchPage;
     const selectedCategory = String(
@@ -140,11 +146,33 @@ export function StorefrontHeader() {
         <header className="sticky top-0 z-30 border-b border-border bg-surface">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-2 md:gap-3 md:px-6 md:py-3">
                 <div className="relative flex items-center gap-2 md:gap-3">
-                    <Link href={home()} className="relative z-10 shrink-0">
+                    {!onHomePage ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="relative z-10 size-8 shrink-0 md:hidden"
+                            aria-label="Volver"
+                            onClick={storefrontGoBack}
+                        >
+                            <ArrowLeft className="size-5" />
+                        </Button>
+                    ) : null}
+                    <Link
+                        href={home()}
+                        className={cn(
+                            'relative z-10 shrink-0',
+                            !onHomePage && 'hidden md:inline-flex',
+                        )}
+                    >
                         <BrandLogo variant="responsive" />
                     </Link>
                     <DeliveryLocationCue
-                        className="absolute left-1/2 max-w-[min(13rem,calc(100%-7.5rem))] -translate-x-1/2 justify-center md:static md:ml-8 md:max-w-72 md:translate-x-0 md:justify-start"
+                        className={cn(
+                            'absolute left-1/2 max-w-[min(13rem,calc(100%-7.5rem))] -translate-x-1/2 justify-center md:static md:ml-8 md:max-w-72 md:translate-x-0 md:justify-start',
+                            !onHomePage &&
+                                'hidden md:flex md:max-w-72 md:translate-x-0',
+                        )}
                     />
 
                     <nav className="ml-auto hidden items-center gap-1 md:flex">
@@ -211,7 +239,7 @@ export function StorefrontHeader() {
                         ) : null}
                     </nav>
 
-                    <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5 md:ml-0 md:gap-1.5">
+                    <div className="relative z-10 ml-auto flex shrink-0 items-center gap-2.5 md:ml-0 md:gap-1.5">
                         {authenticated ? <NotificationBell compact /> : null}
                         <Button
                             asChild
@@ -223,7 +251,7 @@ export function StorefrontHeader() {
                             <Link href={cart()}>
                                 <ShoppingCart className="size-4 md:size-5" />
                                 {itemCount > 0 ? (
-                                    <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground md:size-5 md:text-[10px]">
+                                    <span className="absolute top-0 right-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground md:-top-0.5 md:-right-0.5 md:size-5 md:text-[10px]">
                                         {itemCount}
                                     </span>
                                 ) : null}

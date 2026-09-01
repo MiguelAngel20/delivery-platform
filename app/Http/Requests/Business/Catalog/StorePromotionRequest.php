@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Business\Catalog;
 
+use App\Enums\ProductOptionGroupType;
 use App\Enums\PromotionStatus;
 use App\Models\Promotion;
 use App\Support\Catalog\PromotionFormValidation;
@@ -84,6 +85,21 @@ class StorePromotionRequest extends FormRequest
             'items.*.description' => ['nullable', 'string'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.original_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.option_groups' => ['nullable', 'array'],
+            'items.*.option_groups.*.name' => ['required_with:items.*.option_groups', 'string', 'max:100'],
+            'items.*.option_groups.*.type' => ['required_with:items.*.option_groups', Rule::enum(ProductOptionGroupType::class)],
+            'items.*.option_groups.*.is_required' => ['sometimes', 'boolean'],
+            'items.*.option_groups.*.min_selection' => ['required_with:items.*.option_groups', 'integer', 'min:0'],
+            'items.*.option_groups.*.max_selection' => ['required_with:items.*.option_groups', 'integer', 'gte:items.*.option_groups.*.min_selection'],
+            'items.*.option_groups.*.sort_order' => ['nullable', 'integer', 'min:0'],
+            'items.*.option_groups.*.is_active' => ['sometimes', 'boolean'],
+            'items.*.option_groups.*.options' => ['required', 'array', 'min:1'],
+            'items.*.option_groups.*.options.*.name' => ['required', 'string', 'max:100'],
+            'items.*.option_groups.*.options.*.description' => ['nullable', 'string'],
+            'items.*.option_groups.*.options.*.price_modifier' => ['nullable', 'numeric'],
+            'items.*.option_groups.*.options.*.is_default' => ['sometimes', 'boolean'],
+            'items.*.option_groups.*.options.*.is_available' => ['sometimes', 'boolean'],
+            'items.*.option_groups.*.options.*.sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
 

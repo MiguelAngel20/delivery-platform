@@ -1,7 +1,8 @@
 import { Link } from '@inertiajs/react';
-import { Sparkles } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { MockPromotion } from '@/apps/storefront/mocks';
 import { formatMoney } from '@/apps/storefront/mocks';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import restaurants from '@/routes/restaurants';
 
@@ -9,22 +10,74 @@ type PromotionCardProps = {
     promotion: MockPromotion;
     className?: string;
     square?: boolean;
+    squareImage?: boolean;
+    canOrder?: boolean;
+    onAdd?: () => void;
 };
 
 export function PromotionCard({
     promotion,
     className,
     square = false,
+    squareImage = false,
+    canOrder = false,
+    onAdd,
 }: PromotionCardProps) {
     const content = (
         <article
             className={cn(
                 'overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:border-primary/40 hover:shadow-md',
-                square ? 'relative aspect-square' : '',
+                square && !squareImage ? 'relative aspect-square' : '',
                 className,
             )}
         >
-            {square ? (
+            {squareImage ? (
+                <>
+                    <div className="relative aspect-square overflow-hidden bg-secondary">
+                        {promotion.image_url ? (
+                            <img
+                                src={promotion.image_url}
+                                alt={promotion.name}
+                                className="size-full object-cover"
+                            />
+                        ) : (
+                            <div className="flex size-full items-center justify-center bg-gradient-to-br from-primary/20 to-navy/10 text-3xl font-semibold text-navy">
+                                {promotion.name.slice(0, 1)}
+                            </div>
+                        )}
+                    </div>
+                    <div className="space-y-1.5 p-4">
+                        <h3 className="line-clamp-2 font-semibold text-navy">
+                            {promotion.name}
+                        </h3>
+                        {promotion.composition ? (
+                            <p className="line-clamp-2 text-sm text-muted-foreground">
+                                {promotion.composition}
+                            </p>
+                        ) : null}
+                        <p className="pt-1 text-base font-semibold text-primary">
+                            {promotion.price > 0
+                                ? formatMoney(promotion.price)
+                                : 'Ver detalle'}
+                        </p>
+                        {canOrder && onAdd ? (
+                            <Button
+                                type="button"
+                                size="sm"
+                                className="mt-2 w-full"
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    onAdd();
+                                }}
+                            >
+                                <Plus className="size-4" />
+                                Agregar
+                            </Button>
+                        ) : null}
+                    </div>
+                </>
+            ) : square ? (
                 <>
                     <div className="absolute inset-0 bg-secondary">
                         {promotion.image_url ? (
@@ -39,16 +92,7 @@ export function PromotionCard({
                             </div>
                         )}
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/25 to-transparent" />
-                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
-                        <Sparkles className="size-3" />
-                        Promo
-                    </span>
-                    {promotion.is_affiliated ? (
-                        <span className="absolute top-2 right-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-navy">
-                            Afiliada
-                        </span>
-                    ) : null}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-navy/70 via-navy/20 to-transparent" />
                     <div className="absolute inset-x-0 bottom-0 space-y-1 p-3 text-white">
                         <h3 className="line-clamp-2 text-sm font-semibold">
                             {promotion.name}
@@ -77,16 +121,6 @@ export function PromotionCard({
                                 {promotion.name.slice(0, 1)}
                             </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-navy/50 to-transparent" />
-                        <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-sm">
-                            <Sparkles className="size-3" />
-                            Promoción
-                        </span>
-                        {promotion.is_affiliated ? (
-                            <span className="absolute top-2 right-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-navy">
-                                Afiliada
-                            </span>
-                        ) : null}
                     </div>
                     <div className="space-y-1.5 p-4">
                         <h3 className="font-semibold text-navy">
@@ -108,14 +142,14 @@ export function PromotionCard({
         </article>
     );
 
-    if (!promotion.restaurantSlug) {
+    if (!promotion.restaurantSlug || (canOrder && onAdd)) {
         return content;
     }
 
     return (
         <Link
             href={restaurants.show.url(promotion.restaurantSlug)}
-            className={cn(square && 'block')}
+            className={cn((square || squareImage) && 'block')}
         >
             {content}
         </Link>

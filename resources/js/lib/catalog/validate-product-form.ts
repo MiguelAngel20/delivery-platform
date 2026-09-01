@@ -1,6 +1,4 @@
-import type {
-    ProductOptionGroupDraft,
-} from '@/components/catalog/product-form';
+import type { ProductOptionGroupDraft } from '@/components/catalog/product-option-group-types';
 
 export type ProductFormClientErrors = Record<string, string>;
 
@@ -29,6 +27,57 @@ export function resolveFieldError(
     serverErrors: Record<string, string>,
 ): string | undefined {
     return clientErrors[key] ?? serverErrors[key];
+}
+
+export function validateProductOptionGroups(
+    groups: ProductOptionGroupDraft[],
+    errorPrefix = 'option_groups',
+): ProductFormClientErrors {
+    const errors: ProductFormClientErrors = {};
+
+    groups.forEach((group, groupIndex) => {
+        const sectionLabel =
+            SECTION_LABELS[group.type] ?? group.name ?? 'Personalización';
+        const namedOptions = group.options.filter(
+            (option) => option.name.trim() !== '',
+        );
+
+        if (namedOptions.length === 0) {
+            errors[`${errorPrefix}.${groupIndex}.options`] =
+                `Agrega al menos una opción en "${sectionLabel}".`;
+        }
+
+        if (group.min_selection > group.max_selection) {
+            errors[`${errorPrefix}.${groupIndex}.max_selection`] =
+                'El máximo no puede ser menor que el mínimo.';
+        }
+
+        group.options.forEach((option, optionIndex) => {
+            const optionName = option.name.trim();
+
+            if (optionName === '') {
+                return;
+            }
+
+            if (optionName.length > 100) {
+                errors[
+                    `${errorPrefix}.${groupIndex}.options.${optionIndex}.name`
+                ] = 'El nombre de la opción no puede superar 100 caracteres.';
+            }
+
+            if (group.type === 'addon' && option.price_modifier.trim() !== '') {
+                const modifier = Number(option.price_modifier);
+
+                if (Number.isNaN(modifier) || modifier < 0) {
+                    errors[
+                        `${errorPrefix}.${groupIndex}.options.${optionIndex}.price_modifier`
+                    ] = 'Ingresa un precio adicional válido.';
+                }
+            }
+        });
+    });
+
+    return errors;
 }
 
 export function validateProductForm(input: {
@@ -65,47 +114,8 @@ export function validateProductForm(input: {
         }
     }
 
-    input.groups.forEach((group, groupIndex) => {
-        const sectionLabel =
-            SECTION_LABELS[group.type] ?? group.name ?? 'Personalización';
-        const namedOptions = group.options.filter(
-            (option) => option.name.trim() !== '',
-        );
-
-        if (namedOptions.length === 0) {
-            errors[`option_groups.${groupIndex}.options`] =
-                `Agrega al menos una opción en "${sectionLabel}".`;
-        }
-
-        if (group.min_selection > group.max_selection) {
-            errors[`option_groups.${groupIndex}.max_selection`] =
-                'El máximo no puede ser menor que el mínimo.';
-        }
-
-        group.options.forEach((option, optionIndex) => {
-            const optionName = option.name.trim();
-
-            if (optionName === '') {
-                return;
-            }
-
-            if (optionName.length > 100) {
-                errors[
-                    `option_groups.${groupIndex}.options.${optionIndex}.name`
-                ] = 'El nombre de la opción no puede superar 100 caracteres.';
-            }
-
-            if (group.type === 'addon' && option.price_modifier.trim() !== '') {
-                const modifier = Number(option.price_modifier);
-
-                if (Number.isNaN(modifier) || modifier < 0) {
-                    errors[
-                        `option_groups.${groupIndex}.options.${optionIndex}.price_modifier`
-                    ] = 'Ingresa un precio adicional válido.';
-                }
-            }
-        });
-    });
-
-    return errors;
+    return {
+        ...errors,
+        ...validateProductOptionGroups(input.groups),
+    };
 }

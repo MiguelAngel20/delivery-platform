@@ -1,4 +1,8 @@
 import type { PromotionItemDraft } from '@/components/catalog/promotion-form';
+import {
+    sanitizeProductOptionGroups,
+    validateProductOptionGroups,
+} from '@/lib/catalog/validate-product-form';
 
 export type PromotionFormClientErrors = Record<string, string>;
 
@@ -18,6 +22,73 @@ function parseDateTime(value: string): Date | null {
     const parsed = new Date(value);
 
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function validatePromotionItemAtIndex(
+    item: PromotionItemDraft,
+    index: number,
+): PromotionFormClientErrors {
+    const errors: PromotionFormClientErrors = {};
+
+    if (item.is_external_item) {
+        if (item.name.trim() === '') {
+            errors[`items.${index}.name`] = 'El ítem externo requiere nombre.';
+        } else if (item.name.trim().length > 150) {
+            errors[`items.${index}.name`] =
+                'El nombre del ítem no puede superar 150 caracteres.';
+        }
+
+        if (String(item.product_id ?? '').trim() !== '') {
+            errors[`items.${index}.product_id`] =
+                'Un ítem externo no debe tener producto del menú.';
+        }
+
+        const groups = item.option_groups ?? [];
+
+        if (groups.length > 0) {
+            Object.assign(
+                errors,
+                validateProductOptionGroups(
+                    groups,
+                    `items.${index}.option_groups`,
+                ),
+            );
+        }
+    } else if (String(item.product_id ?? '').trim() === '') {
+        errors[`items.${index}.product_id`] =
+            'Debes seleccionar un producto del menú.';
+    }
+
+    const quantity = item.quantity.trim();
+
+    if (quantity === '') {
+        errors[`items.${index}.quantity`] =
+            'La cantidad del ítem es obligatoria.';
+    } else {
+        const parsedQuantity = Number(quantity);
+
+        if (Number.isNaN(parsedQuantity) || parsedQuantity <= 0) {
+            errors[`items.${index}.quantity`] =
+                'La cantidad debe ser mayor a 0.';
+        }
+    }
+
+    return errors;
+}
+
+export function validatePromotionItemDraft(
+    item: PromotionItemDraft,
+): Record<string, string> {
+    const prefixed = validatePromotionItemAtIndex(item, 0);
+    const errors: Record<string, string> = {};
+
+    Object.entries(prefixed).forEach(([key, value]) => {
+        if (key.startsWith('items.0.')) {
+            errors[key.slice('items.0.'.length)] = value;
+        }
+    });
+
+    return errors;
 }
 
 export function validatePromotionForm(input: {
@@ -84,38 +155,32 @@ export function validatePromotionForm(input: {
     }
 
     input.items.forEach((item, index) => {
-        if (item.is_external_item) {
-            if (item.name.trim() === '') {
-                errors[`items.${index}.name`] =
-                    'El ítem externo requiere nombre.';
-            } else if (item.name.trim().length > 150) {
-                errors[`items.${index}.name`] =
-                    'El nombre del ítem no puede superar 150 caracteres.';
-            }
-
-            if (String(item.product_id ?? '').trim() !== '') {
-                errors[`items.${index}.product_id`] =
-                    'Un ítem externo no debe tener producto del menú.';
-            }
-        } else if (String(item.product_id ?? '').trim() === '') {
-            errors[`items.${index}.product_id`] =
-                'Debes seleccionar un producto del menú.';
-        }
-
-        const quantity = item.quantity.trim();
-
-        if (quantity === '') {
-            errors[`items.${index}.quantity`] =
-                'La cantidad del ítem es obligatoria.';
-        } else {
-            const parsedQuantity = Number(quantity);
-
-            if (Number.isNaN(parsedQuantity) || parsedQuantity <= 0) {
-                errors[`items.${index}.quantity`] =
-                    'La cantidad debe ser mayor a 0.';
-            }
-        }
+        Object.assign(errors, validatePromotionItemAtIndex(item, index));
     });
 
     return errors;
+}
+
+export function serializePromotionItems(items: PromotionItemDraft[]) {
+    return items.map((item) => {
+        if (item.is_external_item) {
+            const groups = item.option_groups ?? [];
+            const sanitizedGroups =
+                groups.length > 0
+                    ? sanitizeProductOptionGroups(groups)
+                    : undefined;
+
+            return {
+                ...item,
+                option_groups:
+                    sanitizedGroups && sanitizedGroups.length > 0
+                        ? sanitizedGroups
+                        : undefined,
+            };
+        }
+
+        const { option_groups: _optionGroups, ...menuItem } = item;
+
+        return menuItem;
+    });
 }

@@ -6,11 +6,13 @@ import {
     useStorefrontCart,
 } from '@/apps/storefront/cart/use-storefront-cart';
 import type { CartLine } from '@/apps/storefront/cart/use-storefront-cart';
+import { isPromotionCartLine } from '@/apps/storefront/cart/use-storefront-cart';
 import { CartLineCard } from '@/apps/storefront/components/cart-line-card';
 import { CheckoutFooter } from '@/apps/storefront/components/checkout-footer';
 import { CheckoutStepper } from '@/apps/storefront/components/checkout-stepper';
 import type { StorefrontProduct } from '@/apps/storefront/components/product-dialog';
 import { ProductDialog } from '@/apps/storefront/components/product-dialog';
+import { PromotionDialog } from '@/apps/storefront/components/promotion-dialog';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
 import { notify } from '@/components/feedback/toast';
 import { EmptyState } from '@/components/feedback/empty-state';
@@ -53,7 +55,11 @@ export default function CartIndex() {
     const [editContext, setEditContext] = useState<CartProductResponse | null>(
         null,
     );
-    const [editLoadingKey, setEditLoadingKey] = useState<string | null>(null);
+    const [editingPromotionId, setEditingPromotionId] = useState<number | null>(
+        null,
+    );
+    const [editingPromotionLine, setEditingPromotionLine] =
+        useState<CartLine | null>(null);
 
     const handleContinue = () => {
         if (!isCustomer) {
@@ -63,7 +69,16 @@ export default function CartIndex() {
         router.visit(checkoutHref);
     };
 
+    const [editLoadingKey, setEditLoadingKey] = useState<string | null>(null);
+
     const openEdit = async (line: CartLine) => {
+        if (isPromotionCartLine(line)) {
+            setEditingPromotionLine(line);
+            setEditingPromotionId(Number(line.promotionId));
+
+            return;
+        }
+
         setEditLoadingKey(line.key);
 
         try {
@@ -96,12 +111,19 @@ export default function CartIndex() {
         setEditingLine(null);
         setEditProduct(null);
         setEditContext(null);
+        setEditingPromotionId(null);
+        setEditingPromotionLine(null);
     };
+
+    const promotionEditLine =
+        editingPromotionLine && isPromotionCartLine(editingPromotionLine)
+            ? editingPromotionLine
+            : null;
 
     return (
         <>
             <Head title="Carrito" />
-            <PageContainer className="gap-5 px-4 py-4 pb-28 md:px-6 md:pb-32">
+            <PageContainer className="gap-5 px-4 py-4 pb-32 md:px-6 md:pb-36">
                 <CheckoutStepper currentStep={1} />
 
                 {cart.lines.length === 0 ? (
@@ -165,17 +187,51 @@ export default function CartIndex() {
                             subtotal={subtotal}
                             service={service}
                             discount={discount}
-                            total={total}
                         />
 
                         <CheckoutFooter
                             total={total}
-                            primaryLabel="Confirmar pedido"
+                            primaryLabel="Continuar"
                             onPrimary={handleContinue}
                         />
                     </>
                 )}
             </PageContainer>
+
+            <PromotionDialog
+                promotionId={editingPromotionId}
+                open={promotionEditLine !== null}
+                editSelections={promotionEditLine?.promotionItems}
+                editQuantity={promotionEditLine?.quantity}
+                confirmLabel="Guardar cambios"
+                onOpenChange={(open) => {
+                    if (!open) {
+                        closeEdit();
+                    }
+                }}
+                onConfirm={({ promotion, quantity, promotionItems }) => {
+                    if (!promotionEditLine) {
+                        return;
+                    }
+
+                    replaceLine(promotionEditLine.key, {
+                        promotion: {
+                            id: promotion.id,
+                            branchId: promotionEditLine.branchId,
+                            restaurantSlug: promotionEditLine.restaurantSlug,
+                            restaurantName: promotionEditLine.restaurantName,
+                            name: promotion.name,
+                            price: promotion.price,
+                            composition: promotion.composition,
+                        },
+                        quantity,
+                        promotionItems,
+                    });
+
+                    notify.success('Promoción actualizada.');
+                    closeEdit();
+                }}
+            />
 
             <ProductDialog
                 product={editProduct}

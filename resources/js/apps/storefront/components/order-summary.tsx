@@ -5,7 +5,6 @@ type OrderSummaryProps = {
     subtotal: number;
     service: number;
     discount: number;
-    total: number;
     className?: string;
 };
 
@@ -13,7 +12,6 @@ export function OrderSummary({
     subtotal,
     service,
     discount,
-    total,
     className,
 }: OrderSummaryProps) {
     return (
@@ -43,12 +41,6 @@ export function OrderSummary({
                     </dd>
                 </div>
             ) : null}
-            <div className="flex justify-between gap-3 border-t border-border pt-2 text-base">
-                <dt className="font-semibold text-navy">Total</dt>
-                <dd className="font-semibold text-navy">
-                    {formatMoney(total)}
-                </dd>
-            </div>
         </dl>
     );
 }

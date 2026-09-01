@@ -4,6 +4,7 @@ import {
     getCartLineCustomizations,
 } from '@/apps/storefront/cart/cart-line-customizations';
 import type { CartLine } from '@/apps/storefront/cart/use-storefront-cart';
+import { isPromotionCartLine } from '@/apps/storefront/cart/use-storefront-cart';
 import { formatMoney } from '@/apps/storefront/mocks';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,9 @@ export function CartLineCard({
                         <p className="font-semibold text-navy">{line.name}</p>
                         {!compact ? (
                             <p className="text-xs text-muted-foreground">
-                                {formatMoney(line.unitPrice)} c/u
+                                {isPromotionCartLine(line)
+                                    ? line.composition || 'Promoción'
+                                    : `${formatMoney(line.unitPrice)} c/u`}
                             </p>
                         ) : null}
                     </div>
@@ -99,6 +102,15 @@ export function CartLineCard({
                             </ul>
                         </div>
                     ) : null}
+
+                    {customizations.itemNotes?.map((itemNote) => (
+                        <p
+                            key={`${itemNote.name}-${itemNote.note}`}
+                            className="rounded-lg bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground italic"
+                        >
+                            Nota ({itemNote.name}): {itemNote.note}
+                        </p>
+                    ))}
 
                     {customizations.note ? (
                         <p className="rounded-lg bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground italic">

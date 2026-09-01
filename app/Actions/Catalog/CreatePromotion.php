@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Promotion;
 use App\Models\PromotionItem;
 use App\Models\User;
+use App\Support\Catalog\PromotionItemOptionGroups;
 use App\Support\PromotionImageStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -74,6 +75,7 @@ final class CreatePromotion
                     'quantity' => $item['quantity'] ?? 1,
                     'original_price' => $item['original_price'] ?? null,
                     'is_external_item' => true,
+                    'option_groups' => PromotionItemOptionGroups::sanitize($item['option_groups'] ?? null),
                 ]);
 
                 continue;
@@ -99,6 +101,7 @@ final class CreatePromotion
                 'quantity' => $item['quantity'] ?? 1,
                 'original_price' => $item['original_price'] ?? $product->listPrice(),
                 'is_external_item' => false,
+                'option_groups' => null,
             ]);
         }
     }

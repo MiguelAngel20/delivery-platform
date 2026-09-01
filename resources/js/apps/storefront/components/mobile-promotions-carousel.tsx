@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
 import { MobilePromotionCard } from '@/apps/storefront/components/mobile-promotion-card';
+import {
+    PROMOTION_AUTO_ADVANCE_MS,
+    useCarouselAutoAdvance,
+    useCarouselPauseHandlers,
+} from '@/apps/storefront/hooks/use-carousel-auto-advance';
 import type { MockPromotion } from '@/apps/storefront/mocks';
 import { cn } from '@/lib/utils';
 
@@ -8,29 +13,23 @@ type MobilePromotionsCarouselProps = {
     className?: string;
 };
 
-const AUTO_ADVANCE_MS = 5000;
-
 export function MobilePromotionsCarousel({
     promotions,
     className,
 }: MobilePromotionsCarouselProps) {
     const [index, setIndex] = useState(0);
+    const { isPaused, pauseHandlers } = useCarouselPauseHandlers();
 
     useEffect(() => {
         setIndex(0);
     }, [promotions]);
 
-    useEffect(() => {
-        if (promotions.length <= 1) {
-            return;
-        }
-
-        const timer = window.setInterval(() => {
-            setIndex((current) => (current + 1) % promotions.length);
-        }, AUTO_ADVANCE_MS);
-
-        return () => window.clearInterval(timer);
-    }, [promotions]);
+    useCarouselAutoAdvance(
+        promotions.length > 1,
+        isPaused,
+        () => setIndex((current) => (current + 1) % promotions.length),
+        PROMOTION_AUTO_ADVANCE_MS,
+    );
 
     if (promotions.length === 0) {
         return (
@@ -45,6 +44,7 @@ export function MobilePromotionsCarousel({
             className={cn('space-y-3 md:hidden', className)}
             aria-roledescription="carrusel"
             aria-label="Promociones"
+            {...pauseHandlers}
         >
             <div className="overflow-hidden">
                 <div

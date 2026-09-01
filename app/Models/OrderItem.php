@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $order_id
  * @property int|null $product_id
+ * @property int|null $promotion_id
  * @property string $product_name
  * @property string $quantity
  * @property string $unit_list_price
@@ -22,12 +23,14 @@ use Illuminate\Support\Carbon;
  * @property string|null $unit_acquisition_cost
  * @property string $subtotal
  * @property string|null $notes
+ * @property array<string, mixed>|null $metadata
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Fillable([
     'order_id',
     'product_id',
+    'promotion_id',
     'product_name',
     'quantity',
     'unit_list_price',
@@ -36,6 +39,7 @@ use Illuminate\Support\Carbon;
     'unit_acquisition_cost',
     'subtotal',
     'notes',
+    'metadata',
 ])]
 class OrderItem extends Model
 {
@@ -54,6 +58,7 @@ class OrderItem extends Model
             'unit_final_price' => 'decimal:2',
             'unit_acquisition_cost' => 'decimal:2',
             'subtotal' => 'decimal:2',
+            'metadata' => 'array',
         ];
     }
 
@@ -65,6 +70,11 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function promotion(): BelongsTo
+    {
+        return $this->belongsTo(Promotion::class);
     }
 
     public function options(): HasMany

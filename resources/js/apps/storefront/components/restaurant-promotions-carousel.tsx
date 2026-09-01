@@ -1,156 +1,72 @@
-import { useEffect, useRef, useState } from 'react';
-import { PromotionCard } from '@/apps/storefront/components/promotion-card';
+import { useEffect, useState } from 'react';
+import { MobilePromotionCard } from '@/apps/storefront/components/mobile-promotion-card';
+import { PromotionsCarousel } from '@/apps/storefront/components/promotions-carousel';
+import {
+    PROMOTION_AUTO_ADVANCE_MS,
+    useCarouselAutoAdvance,
+    useCarouselPauseHandlers,
+} from '@/apps/storefront/hooks/use-carousel-auto-advance';
 import type { MockPromotion } from '@/apps/storefront/mocks';
 import { cn } from '@/lib/utils';
 
 type RestaurantPromotionsCarouselProps = {
     promotions: MockPromotion[];
     className?: string;
+    canOrder?: boolean;
+    onAdd?: (promotionId: string) => void;
 };
 
-const AUTO_ADVANCE_MS = 4000;
-const SWIPE_THRESHOLD_PX = 48;
-
-export function RestaurantPromotionsCarousel({
+function RestaurantPromotionsMobileCarousel({
     promotions,
     className,
+    canOrder = false,
+    onAdd,
 }: RestaurantPromotionsCarouselProps) {
     const [index, setIndex] = useState(0);
-    const [dragOffset, setDragOffset] = useState(0);
-    const [isDragging, setIsDragging] = useState(false);
-    const dragStartX = useRef(0);
-    const dragDelta = useRef(0);
-    const pointerId = useRef<number | null>(null);
-    const pauseUntil = useRef(0);
+    const { isPaused, pauseHandlers } = useCarouselPauseHandlers();
 
     useEffect(() => {
         setIndex(0);
-        setDragOffset(0);
     }, [promotions]);
 
-    useEffect(() => {
-        if (promotions.length <= 1) {
-            return;
-        }
-
-        const timer = window.setInterval(() => {
-            if (Date.now() < pauseUntil.current || isDragging) {
-                return;
-            }
-
-            setIndex((current) => (current + 1) % promotions.length);
-        }, AUTO_ADVANCE_MS);
-
-        return () => window.clearInterval(timer);
-    }, [promotions.length, isDragging]);
-
-    const goTo = (next: number): void => {
-        if (promotions.length === 0) {
-            return;
-        }
-
-        const normalized =
-            ((next % promotions.length) + promotions.length) %
-            promotions.length;
-        setIndex(normalized);
-        pauseUntil.current = Date.now() + AUTO_ADVANCE_MS;
-    };
-
-    const onPointerDown = (
-        event: React.PointerEvent<HTMLDivElement>,
-    ): void => {
-        if (promotions.length <= 1 || event.button !== 0) {
-            return;
-        }
-
-        pointerId.current = event.pointerId;
-        dragStartX.current = event.clientX;
-        dragDelta.current = 0;
-        setIsDragging(true);
-        setDragOffset(0);
-        event.currentTarget.setPointerCapture(event.pointerId);
-    };
-
-    const onPointerMove = (
-        event: React.PointerEvent<HTMLDivElement>,
-    ): void => {
-        if (!isDragging || pointerId.current !== event.pointerId) {
-            return;
-        }
-
-        const delta = event.clientX - dragStartX.current;
-        dragDelta.current = delta;
-        setDragOffset(delta);
-    };
-
-    const endDrag = (event: React.PointerEvent<HTMLDivElement>): void => {
-        if (!isDragging || pointerId.current !== event.pointerId) {
-            return;
-        }
-
-        const delta = dragDelta.current;
-        setIsDragging(false);
-        setDragOffset(0);
-        pointerId.current = null;
-
-        try {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-        } catch {
-            // Capture may already be released.
-        }
-
-        if (Math.abs(delta) < SWIPE_THRESHOLD_PX) {
-            pauseUntil.current = Date.now() + AUTO_ADVANCE_MS;
-            return;
-        }
-
-        if (delta < 0) {
-            goTo(index + 1);
-        } else {
-            goTo(index - 1);
-        }
-    };
+    useCarouselAutoAdvance(
+        promotions.length > 1,
+        isPaused,
+        () => setIndex((current) => (current + 1) % promotions.length),
+        PROMOTION_AUTO_ADVANCE_MS,
+    );
 
     if (promotions.length === 0) {
         return null;
     }
-
-    const trackOffset =
-        promotions.length > 1
-            ? `calc(-${index * 100}% + ${dragOffset}px)`
-            : '0px';
 
     return (
         <div
             className={cn('space-y-3 md:hidden', className)}
             aria-roledescription="carrusel"
             aria-label="Promociones del negocio"
+            {...pauseHandlers}
         >
-            <div
-                className={cn(
-                    'overflow-hidden touch-pan-y',
-                    promotions.length > 1 && 'cursor-grab',
-                    isDragging && 'cursor-grabbing',
-                )}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
-            >
+            <div className="overflow-hidden">
                 <div
-                    className={cn(
-                        'flex',
-                        !isDragging &&
-                            'transition-transform duration-500 ease-out',
-                    )}
-                    style={{ transform: `translateX(${trackOffset})` }}
+                    className="flex transition-transform duration-500 ease-out"
+                    style={{ transform: `translateX(-${index * 100}%)` }}
                 >
                     {promotions.map((promotion) => (
                         <div
                             key={promotion.id}
-                            className="w-full shrink-0 select-none px-0.5"
+                            className="w-full shrink-0 px-0.5"
                         >
-                            <PromotionCard promotion={promotion} />
+                            <MobilePromotionCard
+                                promotion={promotion}
+                                variant="restaurant"
+                                canOrder={canOrder}
+                                onAdd={
+                                    onAdd
+                                        ? () => onAdd(promotion.id)
+                                        : undefined
+                                }
+                            />
                         </div>
                     ))}
                 </div>
@@ -172,11 +88,38 @@ export function RestaurantPromotionsCarousel({
                                     ? 'bg-navy'
                                     : 'bg-border hover:bg-muted-foreground/40',
                             )}
-                            onClick={() => goTo(promotionIndex)}
+                            onClick={() => setIndex(promotionIndex)}
                         />
                     ))}
                 </div>
             ) : null}
+        </div>
+    );
+}
+
+export function RestaurantPromotionsCarousel({
+    promotions,
+    className,
+    canOrder = false,
+    onAdd,
+}: RestaurantPromotionsCarouselProps) {
+    if (promotions.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className={className}>
+            <RestaurantPromotionsMobileCarousel
+                promotions={promotions}
+                canOrder={canOrder}
+                onAdd={onAdd}
+            />
+            <PromotionsCarousel
+                promotions={promotions}
+                cardVariant="restaurant"
+                canOrder={canOrder}
+                onAdd={onAdd}
+            />
         </div>
     );
 }

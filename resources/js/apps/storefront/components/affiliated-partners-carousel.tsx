@@ -77,20 +77,11 @@ export function AffiliatedPartnersCarousel({
                                 alt={partner.name}
                                 className="block h-auto w-full object-contain object-center md:absolute md:inset-0 md:size-full md:object-cover"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-navy/55 via-transparent to-transparent md:from-navy/75 md:via-navy/20" />
-                            <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-1.5 px-3 pb-7 text-center md:flex-row md:items-end md:justify-between md:gap-3 md:p-6 md:pb-11 md:text-left">
-                                <div className="max-w-xl space-y-0.5 text-white">
-                                    <p className="text-[10px] font-medium uppercase tracking-wide text-white/80 md:text-xs">
-                                        Empresa afiliada
-                                    </p>
-                                    <h2 className="line-clamp-2 text-sm font-semibold drop-shadow-sm md:text-2xl">
-                                        {partner.name}
-                                    </h2>
-                                </div>
+                            <div className="absolute bottom-2 right-2 z-10 md:bottom-4 md:right-4">
                                 <Button
                                     asChild
                                     size="sm"
-                                    className="h-8 bg-white px-3 text-xs text-navy hover:bg-white/90 md:h-10 md:px-4 md:text-sm"
+                                    className="h-6 rounded-md bg-white/95 px-2 text-[10px] font-medium text-navy shadow-sm hover:bg-white md:h-8 md:px-3 md:text-xs"
                                 >
                                     <Link href={restaurants.show(partner.slug)}>
                                         Ver negocio

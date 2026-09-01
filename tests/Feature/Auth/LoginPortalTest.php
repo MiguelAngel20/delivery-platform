@@ -1,7 +1,11 @@
 <?php
 
 test('customer login screen can be rendered', function () {
-    $this->get(route('login'))->assertOk();
+    $this->get(route('login'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('auth/login')
+            ->where('portal', 'customer'));
 });
 
 test('admin login screen can be rendered', function () {

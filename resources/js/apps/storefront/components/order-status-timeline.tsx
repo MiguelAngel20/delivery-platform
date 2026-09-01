@@ -1,5 +1,6 @@
 import type { MockCustomerOrder } from '@/apps/storefront/mocks';
 import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
 
 type OrderStatusTimelineProps = {
     timeline: MockCustomerOrder['timeline'];
@@ -20,16 +21,25 @@ export function OrderStatusTimeline({
                         <div className="flex flex-col items-center">
                             <span
                                 className={cn(
-                                    'mt-1 size-3 rounded-full border-2',
-                                    step.done || step.current
-                                        ? 'border-primary bg-primary'
-                                        : 'border-border bg-surface',
+                                    'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2',
+                                    step.done
+                                        ? 'border-primary bg-primary text-white'
+                                        : step.current
+                                          ? 'border-primary bg-primary/10'
+                                          : 'border-border bg-surface',
                                 )}
-                            />
+                            >
+                                {step.done ? (
+                                    <Check
+                                        className="size-3 stroke-[3]"
+                                        aria-hidden
+                                    />
+                                ) : null}
+                            </span>
                             {!isLast ? (
                                 <span
                                     className={cn(
-                                        'my-1 w-px flex-1',
+                                        'my-1 w-0.5 min-h-6 flex-1',
                                         step.done
                                             ? 'bg-primary'
                                             : 'bg-border',

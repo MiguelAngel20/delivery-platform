@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Banknote, CheckCircle2, MapPin } from 'lucide-react';
+import { Banknote, CheckCircle2, CreditCard, MapPin } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     markCartPendingClear,
@@ -77,15 +77,37 @@ export default function CustomerCheckout({ addresses }: Props) {
 
     const payloadItems = useMemo(
         () =>
-            bag.lines.map((line) => ({
-                product_id: Number(line.productId),
-                quantity: line.quantity,
-                special_instructions: line.note,
-                selected_options: (line.selectedOptions ?? []).map((option) => ({
-                    option_id: option.option_id,
-                    action: option.action,
-                })),
-            })),
+            bag.lines.map((line) => {
+                if (line.lineType === 'promotion') {
+                    return {
+                        promotion_id: Number(line.promotionId),
+                        quantity: line.quantity,
+                        special_instructions: line.note,
+                        promotion_items: line.promotionItems.map((item) => ({
+                            promotion_item_id: item.promotionItemId,
+                            special_instructions: item.note,
+                            selected_options: (item.selectedOptions ?? []).map(
+                                (option) => ({
+                                    option_id: option.option_id,
+                                    action: option.action,
+                                }),
+                            ),
+                        })),
+                    };
+                }
+
+                return {
+                    product_id: Number(line.productId),
+                    quantity: line.quantity,
+                    special_instructions: line.note,
+                    selected_options: (line.selectedOptions ?? []).map(
+                        (option) => ({
+                            option_id: option.option_id,
+                            action: option.action,
+                        }),
+                    ),
+                };
+            }),
         [bag.lines],
     );
 
@@ -230,7 +252,7 @@ export default function CustomerCheckout({ addresses }: Props) {
     return (
         <>
             <Head title="Checkout" />
-            <PageContainer className="gap-5 px-4 py-4 pb-28 md:px-6 md:pb-32">
+            <PageContainer className="gap-5 px-4 py-4 pb-32 md:px-6 md:pb-36">
                 <CheckoutStepper currentStep={step} />
 
                 <div className="space-y-1">
@@ -354,6 +376,21 @@ export default function CustomerCheckout({ addresses }: Props) {
                             </button>
                         </div>
 
+                        <div className="flex items-start gap-3 rounded-2xl border border-dashed border-border bg-muted/40 p-4">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-background">
+                                <CreditCard className="size-4 text-muted-foreground" />
+                            </div>
+                            <div className="space-y-0.5">
+                                <p className="text-sm font-medium text-navy">
+                                    Pagos en línea
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    Muy pronto podrás pagar en línea con tarjeta
+                                    de crédito o débito.
+                                </p>
+                            </div>
+                        </div>
+
                         <p className="text-xs text-muted-foreground">
                             Método seleccionado:{' '}
                             {paymentMethod === 'cash' ? 'Efectivo' : paymentMethod}
@@ -413,7 +450,6 @@ export default function CustomerCheckout({ addresses }: Props) {
                             subtotal={subtotal}
                             service={service}
                             discount={discount}
-                            total={total}
                         />
                     </section>
                 ) : null}
@@ -421,7 +457,7 @@ export default function CustomerCheckout({ addresses }: Props) {
                 <CheckoutFooter
                     total={total}
                     primaryLabel={
-                        step === 4 ? 'Finalizar pedido' : 'Continuar'
+                        step === 4 ? 'Confirmar pedido' : 'Continuar'
                     }
                     onPrimary={step === 4 ? submit : goNext}
                     primaryDisabled={
@@ -429,7 +465,6 @@ export default function CustomerCheckout({ addresses }: Props) {
                     }
                     primaryLoading={processing}
                     onBack={goBack}
-                    backLabel={step === 2 ? 'Editar pedido' : 'Atrás'}
                 />
             </PageContainer>
 

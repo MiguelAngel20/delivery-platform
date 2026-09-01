@@ -29,6 +29,9 @@ Route::get('cart', fn () => Inertia::render('public/cart/index'))
 Route::get('cart/products/{product}', [CartController::class, 'product'])
     ->name('cart.products.show');
 
+Route::get('cart/promotions/{promotion}', [CartController::class, 'promotion'])
+    ->name('cart.promotions.show');
+
 Route::middleware('guest')->group(function () {
     Route::get('registro', [CustomerRegisterController::class, 'create'])
         ->name('register');

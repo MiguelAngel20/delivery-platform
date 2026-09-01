@@ -36,7 +36,7 @@ type OrderDetail = {
         notes?: string | null;
         options: Array<{ display: string }>;
     }>;
-    timeline: Array<{
+    customer_timeline: Array<{
         key: string;
         label: string;
         done: boolean;
@@ -154,7 +154,7 @@ export default function CustomerOrderShow({ order }: Props) {
 
                 <section className="rounded-xl border border-border bg-surface p-4">
                     <h2 className="mb-4 font-semibold text-navy">Seguimiento</h2>
-                    <OrderStatusTimeline timeline={order.timeline} />
+                    <OrderStatusTimeline timeline={order.customer_timeline} />
                 </section>
 
                 <section className="space-y-3 rounded-xl border border-border bg-surface p-4">

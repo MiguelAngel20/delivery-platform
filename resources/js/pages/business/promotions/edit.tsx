@@ -34,6 +34,9 @@ export default function BusinessPromotionsEdit({ promotion, options }: Props) {
                                     ? String(item.product_id)
                                     : '',
                                 quantity: String(item.quantity ?? 1),
+                                option_groups: item.is_external_item
+                                    ? item.option_groups
+                                    : undefined,
                             })),
                         }}
                         action={update(promotion.id!)}

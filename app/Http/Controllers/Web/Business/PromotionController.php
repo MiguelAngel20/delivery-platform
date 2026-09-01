@@ -83,7 +83,7 @@ class PromotionController extends Controller
             'message' => 'Promoción creada correctamente.',
         ]);
 
-        return to_route('business.promotions.edit', $promotion);
+        return to_route('business.promotions.index');
     }
 
     public function edit(Request $request, Promotion $promotion): Response
@@ -113,7 +113,7 @@ class PromotionController extends Controller
             'message' => 'Promoción actualizada correctamente.',
         ]);
 
-        return to_route('business.promotions.edit', $promotion);
+        return to_route('business.promotions.index');
     }
 
     public function pause(Request $request, Promotion $promotion): RedirectResponse

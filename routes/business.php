@@ -41,6 +41,7 @@ Route::middleware([
             Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
             Route::post('products', [ProductController::class, 'store'])->name('products.store');
             Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+            Route::get('products/{product}/customization', [ProductController::class, 'customization'])->name('products.customization');
             Route::post('products/{product}', [ProductController::class, 'update'])->name('products.update');
 
             Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');

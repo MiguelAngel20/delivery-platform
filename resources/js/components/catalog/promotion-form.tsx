@@ -1,13 +1,25 @@
 import { Form } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
+import {
+    mapApiOptionGroupsToDrafts,
+    type ProductOptionGroupApi,
+} from '@/components/catalog/product-option-group-types';
+import type { ProductOptionGroupDraft } from '@/components/catalog/product-option-group-types';
+import {
+    clonePromotionItem,
+    createEmptyPromotionItem,
+    PromotionItemDialog,
+    PromotionItemList,
+} from '@/components/catalog/promotion-item-dialog';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
     resolveFieldError,
+    serializePromotionItems,
     validatePromotionForm,
     type PromotionFormClientErrors,
 } from '@/lib/catalog/validate-promotion-form';
@@ -19,6 +31,7 @@ export type PromotionItemDraft = {
     description?: string;
     quantity: string;
     original_price?: string;
+    option_groups?: ProductOptionGroupDraft[];
 };
 
 export type PromotionFormValues = {
@@ -42,12 +55,15 @@ type PromotionFormProps = {
     cancelSlot?: ReactNode;
 };
 
-const emptyItem = (): PromotionItemDraft => ({
-    is_external_item: false,
-    product_id: '',
-    name: '',
-    quantity: '1',
-});
+function normalizeOptionGroups(
+    groups: ProductOptionGroupDraft[] | undefined,
+): ProductOptionGroupDraft[] {
+    if (!groups?.length) {
+        return [];
+    }
+
+    return mapApiOptionGroupsToDrafts(groups as ProductOptionGroupApi[]);
+}
 
 export function PromotionForm({
     options,
@@ -58,10 +74,22 @@ export function PromotionForm({
 }: PromotionFormProps) {
     const [branchId, setBranchId] = useState(promotion?.branch_id ?? '');
     const [items, setItems] = useState<PromotionItemDraft[]>(
-        promotion?.items?.length ? promotion.items : [emptyItem()],
+        promotion?.items?.length
+            ? promotion.items.map((item) => ({
+                  ...item,
+                  option_groups: item.is_external_item
+                      ? normalizeOptionGroups(item.option_groups)
+                      : undefined,
+              }))
+            : [],
     );
     const [clientErrors, setClientErrors] = useState<PromotionFormClientErrors>(
         {},
+    );
+    const [itemDialogOpen, setItemDialogOpen] = useState(false);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [draftItem, setDraftItem] = useState<PromotionItemDraft>(
+        createEmptyPromotionItem(),
     );
     const itemsInputRef = useRef<HTMLInputElement>(null);
     const formRef = useRef<{ getData: () => Record<string, unknown> } | null>(
@@ -72,12 +100,8 @@ export function PromotionForm({
         setClientErrors({});
     }, [promotion?.id]);
 
-    const products = useMemo(
-        () =>
-            options.products.filter(
-                (product) => String(product.branch_id) === branchId,
-            ),
-        [options.products, branchId],
+    const products = options.products.filter(
+        (product) => String(product.branch_id) === branchId,
     );
 
     function clearFieldError(key: string) {
@@ -89,14 +113,38 @@ export function PromotionForm({
         });
     }
 
-    function clearItemFieldError(index: number, field: string) {
-        setClientErrors((current) => {
-            const next = { ...current };
-            delete next[`items.${index}.${field}`];
-            delete next.items;
+    function remapItemErrors(
+        errors: PromotionFormClientErrors,
+        removedIndex: number,
+    ): PromotionFormClientErrors {
+        const next: PromotionFormClientErrors = {};
 
-            return next;
+        Object.entries(errors).forEach(([key, value]) => {
+            if (key === 'items' || !key.startsWith('items.')) {
+                next[key] = value;
+
+                return;
+            }
+
+            const match = /^items\.(\d+)(.*)$/.exec(key);
+
+            if (match === null) {
+                next[key] = value;
+
+                return;
+            }
+
+            const itemIndex = Number(match[1]);
+            const suffix = match[2];
+
+            if (itemIndex < removedIndex) {
+                next[key] = value;
+            } else if (itemIndex > removedIndex) {
+                next[`items.${itemIndex - 1}${suffix}`] = value;
+            }
         });
+
+        return next;
     }
 
     function validateBeforeSubmit(): boolean {
@@ -121,19 +169,48 @@ export function PromotionForm({
         setClientErrors({});
 
         if (itemsInputRef.current) {
-            itemsInputRef.current.value = JSON.stringify(items);
+            itemsInputRef.current.value = JSON.stringify(
+                serializePromotionItems(items),
+            );
         }
 
         return true;
     }
 
-    const updateItem = (index: number, patch: Partial<PromotionItemDraft>) => {
-        setItems((current) =>
-            current.map((item, itemIndex) =>
-                itemIndex === index ? { ...item, ...patch } : item,
-            ),
-        );
-    };
+    function openAddDialog() {
+        setEditingIndex(null);
+        setDraftItem(createEmptyPromotionItem());
+        setItemDialogOpen(true);
+        clearFieldError('items');
+    }
+
+    function openEditDialog(index: number) {
+        setEditingIndex(index);
+        setDraftItem(clonePromotionItem(items[index]));
+        setItemDialogOpen(true);
+    }
+
+    function saveDialogItem() {
+        if (editingIndex === null) {
+            setItems((current) => [...current, clonePromotionItem(draftItem)]);
+        } else {
+            setItems((current) =>
+                current.map((item, index) =>
+                    index === editingIndex
+                        ? clonePromotionItem(draftItem)
+                        : item,
+                ),
+            );
+        }
+
+        setItemDialogOpen(false);
+        clearFieldError('items');
+    }
+
+    function removeItem(index: number) {
+        setItems((current) => current.filter((_, i) => i !== index));
+        setClientErrors((current) => remapItemErrors(current, index));
+    }
 
     return (
         <Form
@@ -334,220 +411,25 @@ export function PromotionForm({
                         </FormField>
                     </div>
 
-                    <section className="space-y-4 rounded-xl border border-border bg-surface p-4">
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <h2 className="text-base font-semibold text-foreground">
-                                    Ítems
-                                </h2>
-                                <p className="text-sm text-muted-foreground">
-                                    Producto del menú o elemento externo.
-                                </p>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                    setItems((current) => [...current, emptyItem()]);
-                                    clearFieldError('items');
-                                }}
-                            >
-                                + Ítem
-                            </Button>
-                        </div>
+                    <PromotionItemList
+                        items={items}
+                        clientErrors={clientErrors}
+                        serverErrors={errors}
+                        onAdd={openAddDialog}
+                        onEdit={openEditDialog}
+                        onRemove={removeItem}
+                        addDisabled={branchId.trim() === ''}
+                    />
 
-                        {items.map((item, index) => (
-                            <div
-                                key={index}
-                                className="space-y-3 rounded-lg border border-border p-3"
-                            >
-                                <div className="flex flex-wrap gap-4 text-sm text-foreground">
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            checked={!item.is_external_item}
-                                            onChange={() => {
-                                                updateItem(index, {
-                                                    is_external_item: false,
-                                                    name: '',
-                                                });
-                                                clearItemFieldError(index, 'name');
-                                                clearItemFieldError(
-                                                    index,
-                                                    'product_id',
-                                                );
-                                            }}
-                                        />
-                                        Producto del menú
-                                    </label>
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            checked={item.is_external_item}
-                                            onChange={() => {
-                                                updateItem(index, {
-                                                    is_external_item: true,
-                                                    product_id: null,
-                                                });
-                                                clearItemFieldError(index, 'name');
-                                                clearItemFieldError(
-                                                    index,
-                                                    'product_id',
-                                                );
-                                            }}
-                                        />
-                                        Elemento externo
-                                    </label>
-                                </div>
-
-                                {item.is_external_item ? (
-                                    <FormField
-                                        label="Nombre del ítem"
-                                        error={resolveFieldError(
-                                            `items.${index}.name`,
-                                            clientErrors,
-                                            errors,
-                                        )}
-                                    >
-                                        <Input
-                                            value={item.name}
-                                            onChange={(event) => {
-                                                updateItem(index, {
-                                                    name: event.target.value,
-                                                });
-                                                clearItemFieldError(index, 'name');
-                                            }}
-                                            placeholder="Ej. Jugo"
-                                        />
-                                    </FormField>
-                                ) : (
-                                    <FormField
-                                        label="Producto"
-                                        error={resolveFieldError(
-                                            `items.${index}.product_id`,
-                                            clientErrors,
-                                            errors,
-                                        )}
-                                    >
-                                        <select
-                                            value={item.product_id ?? ''}
-                                            onChange={(event) => {
-                                                const selected = products.find(
-                                                    (product) =>
-                                                        product.value ===
-                                                        event.target.value,
-                                                );
-                                                updateItem(index, {
-                                                    product_id: event.target.value,
-                                                    name: selected?.label ?? '',
-                                                });
-                                                clearItemFieldError(
-                                                    index,
-                                                    'product_id',
-                                                );
-                                            }}
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                        >
-                                            <option value="">Selecciona producto</option>
-                                            {products.map((product) => (
-                                                <option
-                                                    key={product.value}
-                                                    value={product.value}
-                                                >
-                                                    {product.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </FormField>
-                                )}
-
-                                <FormField
-                                    label="Cantidad"
-                                    error={resolveFieldError(
-                                        `items.${index}.quantity`,
-                                        clientErrors,
-                                        errors,
-                                    )}
-                                >
-                                    <Input
-                                        type="number"
-                                        min="0.01"
-                                        step="0.01"
-                                        value={item.quantity}
-                                        onChange={(event) => {
-                                            updateItem(index, {
-                                                quantity: event.target.value,
-                                            });
-                                            clearItemFieldError(index, 'quantity');
-                                        }}
-                                    />
-                                </FormField>
-
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-danger"
-                                    onClick={() => {
-                                        setItems((current) =>
-                                            current.filter((_, i) => i !== index),
-                                        );
-                                        setClientErrors((current) => {
-                                            const next: PromotionFormClientErrors =
-                                                {};
-
-                                            Object.entries(current).forEach(
-                                                ([key, value]) => {
-                                                    if (
-                                                        key === 'items' ||
-                                                        !key.startsWith('items.')
-                                                    ) {
-                                                        next[key] = value;
-
-                                                        return;
-                                                    }
-
-                                                    const match =
-                                                        /^items\.(\d+)\./.exec(
-                                                            key,
-                                                        );
-
-                                                    if (match === null) {
-                                                        next[key] = value;
-
-                                                        return;
-                                                    }
-
-                                                    const itemIndex = Number(
-                                                        match[1],
-                                                    );
-
-                                                    if (itemIndex < index) {
-                                                        next[key] = value;
-                                                    } else if (itemIndex > index) {
-                                                        const newKey = key.replace(
-                                                            `items.${itemIndex}.`,
-                                                            `items.${itemIndex - 1}.`,
-                                                        );
-                                                        next[newKey] = value;
-                                                    }
-                                                },
-                                            );
-
-                                            return next;
-                                        });
-                                    }}
-                                >
-                                    Quitar ítem
-                                </Button>
-                            </div>
-                        ))}
-                        {resolveFieldError('items', clientErrors, errors) ? (
-                            <p className="text-sm text-destructive">
-                                {resolveFieldError('items', clientErrors, errors)}
-                            </p>
-                        ) : null}
-                    </section>
+                    <PromotionItemDialog
+                        open={itemDialogOpen}
+                        onOpenChange={setItemDialogOpen}
+                        mode={editingIndex === null ? 'create' : 'edit'}
+                        item={draftItem}
+                        onItemChange={setDraftItem}
+                        products={products}
+                        onSave={saveDialogItem}
+                    />
 
                     <div className="flex flex-wrap gap-3">
                         <Button type="submit" disabled={processing}>

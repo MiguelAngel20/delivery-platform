@@ -68,27 +68,37 @@ final class CatalogData
             'acquisition_cost' => $product->currentPrice?->acquisition_cost !== null
                 ? (string) $product->currentPrice->acquisition_cost
                 : null,
-            'option_groups' => $product->optionGroups->map(fn ($group): array => [
-                'id' => $group->id,
-                'name' => $group->name,
-                'type' => $group->type->value,
-                'type_label' => $group->type->displayLabel(),
-                'is_required' => $group->is_required,
-                'min_selection' => $group->min_selection,
-                'max_selection' => $group->max_selection,
-                'sort_order' => $group->sort_order,
-                'is_active' => $group->is_active,
-                'options' => $group->options->map(fn ($option): array => [
-                    'id' => $option->id,
-                    'name' => $option->name,
-                    'description' => $option->description,
-                    'price_modifier' => (string) $option->price_modifier,
-                    'is_default' => $option->is_default,
-                    'is_available' => $option->is_available,
-                    'sort_order' => $option->sort_order,
-                ])->values()->all(),
-            ])->values()->all(),
+            'option_groups' => self::productOptionGroups($product),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function productOptionGroups(Product $product): array
+    {
+        $product->loadMissing(['optionGroups.options']);
+
+        return $product->optionGroups->map(fn ($group): array => [
+            'id' => $group->id,
+            'name' => $group->name,
+            'type' => $group->type->value,
+            'type_label' => $group->type->displayLabel(),
+            'is_required' => $group->is_required,
+            'min_selection' => $group->min_selection,
+            'max_selection' => $group->max_selection,
+            'sort_order' => $group->sort_order,
+            'is_active' => $group->is_active,
+            'options' => $group->options->map(fn ($option): array => [
+                'id' => $option->id,
+                'name' => $option->name,
+                'description' => $option->description,
+                'price_modifier' => (string) $option->price_modifier,
+                'is_default' => $option->is_default,
+                'is_available' => $option->is_available,
+                'sort_order' => $option->sort_order,
+            ])->values()->all(),
+        ])->values()->all();
     }
 
     /**
@@ -144,6 +154,7 @@ final class CatalogData
                 'quantity' => (string) $item->quantity,
                 'original_price' => $item->original_price !== null ? (string) $item->original_price : null,
                 'is_external_item' => $item->is_external_item,
+                'option_groups' => $item->is_external_item ? $item->option_groups : null,
             ])->values()->all(),
         ];
     }

@@ -21,6 +21,15 @@ trait PromotionFormValidation
                         $validator->errors()->add("items.{$index}.product_id", 'Un ítem externo no debe tener producto del menú.');
                     }
 
+                    foreach (
+                        PromotionItemOptionGroups::validationErrors(
+                            is_array($item['option_groups'] ?? null) ? $item['option_groups'] : null,
+                            "items.{$index}.option_groups",
+                        ) as $key => $message
+                    ) {
+                        $validator->errors()->add($key, $message);
+                    }
+
                     continue;
                 }
 

@@ -39,11 +39,6 @@ export function RestaurantCard({
                                 </span>
                             </div>
                         )}
-                        {restaurant.is_affiliated ? (
-                            <span className="absolute top-2 left-2 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                                Afiliada
-                            </span>
-                        ) : null}
                     </div>
                     <div className="space-y-1.5 p-3">
                         <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-navy">

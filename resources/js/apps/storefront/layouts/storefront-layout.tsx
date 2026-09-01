@@ -8,9 +8,11 @@ import {
 import { StorefrontBottomNav } from '@/apps/storefront/components/storefront-bottom-nav';
 import { StorefrontFooter } from '@/apps/storefront/components/storefront-footer';
 import { StorefrontHeader } from '@/apps/storefront/components/storefront-header';
+import { useStorefrontShell } from '@/apps/storefront/hooks/use-storefront-shell';
 import { PushPermissionPrompt } from '@/components/notifications/push-permission-prompt';
 import { useCustomerForegroundPush } from '@/hooks/use-customer-foreground-push';
 import { forceLightTheme } from '@/hooks/use-appearance';
+import { cn } from '@/lib/utils';
 import type { Auth } from '@/types';
 
 export default function StorefrontLayout({
@@ -19,6 +21,7 @@ export default function StorefrontLayout({
     children: ReactNode;
 }) {
     const { auth } = usePage().props as { auth: Auth };
+    const { showBottomNav } = useStorefrontShell();
 
     useCustomerForegroundPush();
 
@@ -49,10 +52,10 @@ export default function StorefrontLayout({
             <main className="mx-auto w-full min-w-0 max-w-6xl flex-1">
                 {children}
             </main>
-            <div className="pb-24 md:pb-0">
-                <StorefrontFooter />
+            <div className={cn('md:pb-0', showBottomNav ? 'pb-24' : 'pb-0')}>
+                <StorefrontFooter className="hidden md:block" />
             </div>
-            <StorefrontBottomNav />
+            {showBottomNav ? <StorefrontBottomNav /> : null}
         </div>
     );
 }

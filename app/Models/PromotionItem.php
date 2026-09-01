@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property string $quantity
  * @property string|null $original_price
  * @property bool $is_external_item
+ * @property array<int, array<string, mixed>>|null $option_groups
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -29,6 +30,7 @@ use Illuminate\Support\Carbon;
     'quantity',
     'original_price',
     'is_external_item',
+    'option_groups',
 ])]
 class PromotionItem extends Model
 {
@@ -52,6 +54,7 @@ class PromotionItem extends Model
             'quantity' => 'decimal:2',
             'original_price' => 'decimal:2',
             'is_external_item' => 'boolean',
+            'option_groups' => 'array',
         ];
     }
 

@@ -12,20 +12,45 @@ export type CartExtra = {
     price: number;
 };
 
-export type CartLine = {
+export type PromotionCartItemSelection = {
+    promotionItemId: number;
+    name: string;
+    selectedOptions: SelectedProductOption[];
+    note?: string;
+};
+
+type BaseCartLine = {
     key: string;
-    productId: string;
     branchId: number;
     restaurantSlug: string;
     restaurantName: string;
     name: string;
     unitPrice: number;
     quantity: number;
+};
+
+export type ProductCartLine = BaseCartLine & {
+    lineType?: 'product';
+    productId: string;
     extras: CartExtra[];
     note?: string;
     removedIngredients?: string[];
     selectedOptions?: SelectedProductOption[];
 };
+
+export type PromotionCartLine = BaseCartLine & {
+    lineType: 'promotion';
+    promotionId: string;
+    composition?: string;
+    promotionItems: PromotionCartItemSelection[];
+    note?: string;
+};
+
+export type CartLine = ProductCartLine | PromotionCartLine;
+
+export function isPromotionCartLine(line: CartLine): line is PromotionCartLine {
+    return line.lineType === 'promotion';
+}
 
 export type CartState = {
     branchId: number | null;
@@ -78,7 +103,13 @@ function readCart(): CartState {
             return cachedCart;
         }
 
-        cachedCart = parsed;
+        cachedCart = {
+            ...parsed,
+            lines: parsed.lines.map((line) => ({
+                lineType: line.lineType ?? 'product',
+                ...line,
+            })),
+        };
 
         return cachedCart;
     } catch {
@@ -138,6 +169,25 @@ function subscribe(listener: () => void): () => void {
     };
 }
 
+function promotionLineKey(
+    promotionId: string,
+    promotionItems: PromotionCartItemSelection[],
+    note?: string,
+): string {
+    const itemSignature = promotionItems
+        .map((item) => {
+            const options = (item.selectedOptions ?? [])
+                .map((option) => `${option.option_id}:${option.action}`)
+                .sort()
+                .join(',');
+
+            return `${item.promotionItemId}|${options}|${item.note ?? ''}`;
+        })
+        .join(';');
+
+    return ['promotion', promotionId, itemSignature, note ?? ''].join('|');
+}
+
 function lineKey(
     productId: string,
     extras: CartExtra[],
@@ -170,6 +220,24 @@ export type AddToCartProduct = {
     price: number;
 };
 
+export type AddToCartPromotion = {
+    id: number | string;
+    branchId: number;
+    restaurantSlug: string;
+    restaurantName: string;
+    restaurantMode?: string;
+    name: string;
+    price: number;
+    composition?: string;
+};
+
+export type AddPromotionToCartInput = {
+    promotion: AddToCartPromotion;
+    quantity: number;
+    promotionItems: PromotionCartItemSelection[];
+    note?: string;
+};
+
 export type AddToCartInput = {
     product: AddToCartProduct;
     quantity: number;
@@ -193,6 +261,10 @@ export function useStorefrontCart() {
     const subtotal = useMemo(
         () =>
             cart.lines.reduce((sum, line) => {
+                if (isPromotionCartLine(line)) {
+                    return sum + line.unitPrice * line.quantity;
+                }
+
                 const extrasTotal = line.extras.reduce(
                     (extraSum, extra) => extraSum + extra.price,
                     0,
@@ -246,7 +318,14 @@ export function useStorefrontCart() {
             : [
                   ...current.lines,
                   {
-                      key,
+                      key: lineKey(
+                          String(input.product.id),
+                          input.extras,
+                          input.note,
+                          input.removedIngredients,
+                          input.selectedOptions,
+                      ),
+                      lineType: 'product',
                       productId: String(input.product.id),
                       branchId,
                       restaurantSlug: input.product.restaurantSlug,
@@ -272,6 +351,95 @@ export function useStorefrontCart() {
         return 'ok';
     }, []);
 
+    const addPromotion = useCallback(
+        (input: AddPromotionToCartInput): 'ok' | 'conflict' => {
+            const current = readCart();
+            const branchId = input.promotion.branchId;
+
+            if (
+                current.branchId &&
+                current.branchId !== branchId &&
+                current.lines.length > 0
+            ) {
+                return 'conflict';
+            }
+
+            const key = promotionLineKey(
+                String(input.promotion.id),
+                input.promotionItems,
+                input.note,
+            );
+
+            const existing = current.lines.find((line) => line.key === key);
+            const lines = existing
+                ? current.lines.map((line) =>
+                      line.key === key
+                          ? {
+                                ...line,
+                                quantity: line.quantity + input.quantity,
+                            }
+                          : line,
+                  )
+                : [
+                      ...current.lines,
+                      {
+                          key,
+                          lineType: 'promotion' as const,
+                          promotionId: String(input.promotion.id),
+                          branchId,
+                          restaurantSlug: input.promotion.restaurantSlug,
+                          restaurantName: input.promotion.restaurantName,
+                          name: input.promotion.name,
+                          unitPrice: input.promotion.price,
+                          quantity: input.quantity,
+                          composition: input.promotion.composition,
+                          promotionItems: input.promotionItems,
+                          note: input.note,
+                      },
+                  ];
+
+            writeCart({
+                branchId,
+                restaurantSlug: input.promotion.restaurantSlug,
+                restaurantName: input.promotion.restaurantName,
+                restaurantMode: input.promotion.restaurantMode ?? null,
+                lines,
+            });
+
+            return 'ok';
+        },
+        [],
+    );
+
+    const replaceWithPromotion = useCallback((input: AddPromotionToCartInput) => {
+        writeCart({
+            branchId: input.promotion.branchId,
+            restaurantSlug: input.promotion.restaurantSlug,
+            restaurantName: input.promotion.restaurantName,
+            restaurantMode: input.promotion.restaurantMode ?? null,
+            lines: [
+                {
+                    key: promotionLineKey(
+                        String(input.promotion.id),
+                        input.promotionItems,
+                        input.note,
+                    ),
+                    lineType: 'promotion',
+                    promotionId: String(input.promotion.id),
+                    branchId: input.promotion.branchId,
+                    restaurantSlug: input.promotion.restaurantSlug,
+                    restaurantName: input.promotion.restaurantName,
+                    name: input.promotion.name,
+                    unitPrice: input.promotion.price,
+                    quantity: input.quantity,
+                    composition: input.promotion.composition,
+                    promotionItems: input.promotionItems,
+                    note: input.note,
+                },
+            ],
+        });
+    }, []);
+
     const replaceWithItem = useCallback((input: AddToCartInput) => {
         writeCart({
             branchId: input.product.branchId,
@@ -287,6 +455,7 @@ export function useStorefrontCart() {
                         input.removedIngredients,
                         input.selectedOptions,
                     ),
+                    lineType: 'product',
                     productId: String(input.product.id),
                     branchId: input.product.branchId,
                     restaurantSlug: input.product.restaurantSlug,
@@ -321,10 +490,62 @@ export function useStorefrontCart() {
         });
     }, []);
 
-    const replaceLine = useCallback((oldKey: string, input: AddToCartInput) => {
-        const current = readCart();
-        const filtered = current.lines.filter((line) => line.key !== oldKey);
-        const key = lineKey(
+    const replaceLine = useCallback(
+        (oldKey: string, input: AddToCartInput | AddPromotionToCartInput) => {
+            const current = readCart();
+            const filtered = current.lines.filter((line) => line.key !== oldKey);
+
+            if ('promotionItems' in input) {
+                const key = promotionLineKey(
+                    String(input.promotion.id),
+                    input.promotionItems,
+                    input.note,
+                );
+                const existingIndex = filtered.findIndex(
+                    (line) => line.key === key,
+                );
+
+                if (existingIndex !== -1) {
+                    writeCart({
+                        ...current,
+                        lines: filtered.map((line, index) =>
+                            index === existingIndex
+                                ? {
+                                      ...line,
+                                      quantity: line.quantity + input.quantity,
+                                  }
+                                : line,
+                        ),
+                    });
+
+                    return;
+                }
+
+                writeCart({
+                    ...current,
+                    lines: [
+                        ...filtered,
+                        {
+                            key,
+                            lineType: 'promotion',
+                            promotionId: String(input.promotion.id),
+                            branchId: input.promotion.branchId,
+                            restaurantSlug: input.promotion.restaurantSlug,
+                            restaurantName: input.promotion.restaurantName,
+                            name: input.promotion.name,
+                            unitPrice: input.promotion.price,
+                            quantity: input.quantity,
+                            composition: input.promotion.composition,
+                            promotionItems: input.promotionItems,
+                            note: input.note,
+                        },
+                    ],
+                });
+
+                return;
+            }
+
+            const key = lineKey(
             String(input.product.id),
             input.extras,
             input.note,
@@ -356,6 +577,7 @@ export function useStorefrontCart() {
                 ...filtered,
                 {
                     key,
+                    lineType: 'product',
                     productId: String(input.product.id),
                     branchId: input.product.branchId,
                     restaurantSlug: input.product.restaurantSlug,
@@ -370,7 +592,9 @@ export function useStorefrontCart() {
                 },
             ],
         });
-    }, []);
+        },
+        [],
+    );
 
     return {
         cart,
@@ -380,7 +604,9 @@ export function useStorefrontCart() {
         discount,
         total,
         addItem,
+        addPromotion,
         replaceWithItem,
+        replaceWithPromotion,
         replaceLine,
         updateQuantity,
         clear,

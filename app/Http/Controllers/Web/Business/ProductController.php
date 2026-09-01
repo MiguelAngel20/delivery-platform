@@ -11,6 +11,7 @@ use App\Http\Requests\Business\Catalog\UpdateProductRequest;
 use App\Models\Business;
 use App\Models\Product;
 use App\Support\CatalogData;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -123,6 +124,17 @@ class ProductController extends Controller
         ]);
 
         return to_route('business.products.edit', $product);
+    }
+
+    public function customization(Request $request, Product $product): JsonResponse
+    {
+        $business = $this->currentBusiness($request);
+        $this->ensureProductBelongsToBusiness($business, $product);
+        $this->authorize('update', $product);
+
+        return response()->json([
+            'option_groups' => CatalogData::productOptionGroups($product),
+        ]);
     }
 
     private function ensureProductBelongsToBusiness(Business $business, Product $product): void

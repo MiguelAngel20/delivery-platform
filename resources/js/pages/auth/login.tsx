@@ -1,4 +1,6 @@
 import { Form, Head, setLayoutProps } from '@inertiajs/react';
+import { ArrowLeft } from 'lucide-react';
+import { storefrontGoBack } from '@/apps/storefront/hooks/use-storefront-shell';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -36,6 +38,22 @@ export default function Login({
     return (
         <>
             <Head title={title} />
+
+            {portal === 'customer' ? (
+                <div className="fixed inset-x-0 top-0 z-20 flex items-center px-2 py-2 md:hidden">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9"
+                        aria-label="Volver"
+                        data-test="login-back-button"
+                        onClick={storefrontGoBack}
+                    >
+                        <ArrowLeft className="size-5" />
+                    </Button>
+                </div>
+            ) : null}
 
             <Form
                 {...store.form()}

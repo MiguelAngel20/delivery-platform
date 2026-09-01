@@ -1,11 +1,11 @@
 import { Head } from '@inertiajs/react';
 import { Percent, UtensilsCrossed } from 'lucide-react';
 import { useState } from 'react';
-import type { AddToCartInput } from '@/apps/storefront/cart/use-storefront-cart';
+import type { AddToCartInput, AddPromotionToCartInput } from '@/apps/storefront/cart/use-storefront-cart';
 import { useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
 import type { StorefrontProduct } from '@/apps/storefront/components/product-dialog';
 import { ProductDialog } from '@/apps/storefront/components/product-dialog';
-import { PromotionCard } from '@/apps/storefront/components/promotion-card';
+import { PromotionDialog } from '@/apps/storefront/components/promotion-dialog';
 import {
     RestaurantMenu,
     type RestaurantMenuCategory,
@@ -50,14 +50,25 @@ export default function RestaurantShow({
     products,
     promotions,
 }: Props) {
-    const { cart, addItem, replaceWithItem } = useStorefrontCart();
+    const { cart, addItem, addPromotion, replaceWithItem, replaceWithPromotion } =
+        useStorefrontCart();
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(
         null,
     );
-    const [pendingAdd, setPendingAdd] = useState<AddToCartInput | null>(null);
+    const [selectedPromotionId, setSelectedPromotionId] = useState<
+        number | null
+    >(null);
+    const [pendingAdd, setPendingAdd] = useState<
+        AddToCartInput | AddPromotionToCartInput | null
+    >(null);
 
-    const confirmAdd = (input: AddToCartInput) => {
-        const result = addItem(input);
+    const confirmAdd = (
+        input: AddToCartInput | AddPromotionToCartInput,
+    ) => {
+        const result =
+            'promotionItems' in input
+                ? addPromotion(input)
+                : addItem(input);
 
         if (result === 'conflict') {
             setPendingAdd(input);
@@ -79,14 +90,9 @@ export default function RestaurantShow({
                             <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <Percent className="size-4" />
                             </span>
-                            <div>
-                                <h2 className="text-lg font-semibold text-navy">
-                                    Promociones
-                                </h2>
-                                <p className="text-xs text-muted-foreground">
-                                    Ofertas activas de este negocio
-                                </p>
-                            </div>
+                            <h2 className="text-lg font-semibold text-navy">
+                                Promociones
+                            </h2>
                         </div>
                         <RestaurantPromotionsCarousel
                             promotions={promotions.map(
@@ -99,23 +105,11 @@ export default function RestaurantShow({
                                     image_url: promotion.image_url,
                                 }),
                             )}
+                            canOrder={restaurant.canOrder && restaurant.open}
+                            onAdd={(promotionId) =>
+                                setSelectedPromotionId(Number(promotionId))
+                            }
                         />
-                        <div className="hidden gap-3 md:grid md:grid-cols-2">
-                            {promotions.map((promotion) => (
-                                <PromotionCard
-                                    key={promotion.id}
-                                    promotion={{
-                                        id: String(promotion.id),
-                                        name: promotion.name,
-                                        description:
-                                            promotion.description ?? '',
-                                        price: promotion.price,
-                                        composition: promotion.composition,
-                                        image_url: promotion.image_url,
-                                    }}
-                                />
-                            ))}
-                        </div>
                     </section>
                 ) : null}
 
@@ -176,6 +170,33 @@ export default function RestaurantShow({
                 }}
             />
 
+            <PromotionDialog
+                promotionId={selectedPromotionId}
+                open={selectedPromotionId !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSelectedPromotionId(null);
+                    }
+                }}
+                onConfirm={({ promotion, quantity, promotionItems }) => {
+                    confirmAdd({
+                        promotion: {
+                            id: promotion.id,
+                            branchId: branch_id,
+                            restaurantSlug: restaurant.slug,
+                            restaurantName: restaurant.name,
+                            restaurantMode: restaurant.mode,
+                            name: promotion.name,
+                            price: promotion.price,
+                            composition: promotion.composition,
+                        },
+                        quantity,
+                        promotionItems,
+                    });
+                    setSelectedPromotionId(null);
+                }}
+            />
+
             <SwitchRestaurantDialog
                 open={pendingAdd !== null}
                 currentRestaurant={cart.restaurantName ?? undefined}
@@ -183,7 +204,11 @@ export default function RestaurantShow({
                 onCancel={() => setPendingAdd(null)}
                 onConfirm={() => {
                     if (pendingAdd) {
-                        replaceWithItem(pendingAdd);
+                        if ('promotionItems' in pendingAdd) {
+                            replaceWithPromotion(pendingAdd);
+                        } else {
+                            replaceWithItem(pendingAdd);
+                        }
                     }
 
                     setPendingAdd(null);

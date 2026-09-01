@@ -119,6 +119,7 @@ final class OrderData
                     $pickup->longitude,
                 ),
             ] : null,
+            'customer_timeline' => self::customerTimeline($order),
             'timeline' => self::timeline($order),
             'financial' => self::financialSummary($order),
             'pending_quote' => self::pendingQuote($order),
@@ -488,23 +489,8 @@ final class OrderData
     /**
      * @return list<array<string, mixed>>
      */
-    public static function timeline(Order $order): array
+    public static function customerTimeline(Order $order): array
     {
-        $first = $order->isPlatformManaged()
-            ? OrderStatus::PendingPlatform
-            : OrderStatus::PendingBusiness;
-
-        $steps = [
-            $first,
-            OrderStatus::Preparing,
-            OrderStatus::ReadyForPickup,
-            OrderStatus::DriverAssigned,
-            OrderStatus::PickedUp,
-            OrderStatus::OnTheWay,
-            OrderStatus::Delivered,
-        ];
-
-        $historyStatuses = $order->statusHistory->pluck('status')->map->value->all();
         $current = $order->order_status;
 
         if (in_array($current, [OrderStatus::Rejected, OrderStatus::Cancelled, OrderStatus::PendingCustomerConfirmation], true)) {
@@ -518,36 +504,94 @@ final class OrderData
             ])->values()->all();
         }
 
-        return collect($steps)->map(function (OrderStatus $status) use ($historyStatuses, $current, $order, $first): array {
-            $done = in_array($status->value, $historyStatuses, true)
-                || ($status === $first && in_array($first->value, $historyStatuses, true))
-                || ($status === OrderStatus::Preparing && in_array(OrderStatus::Accepted->value, $historyStatuses, true))
-                || ($status === OrderStatus::DriverAssigned && $order->assigned_driver_id !== null);
+        $milestones = [
+            ['key' => 'received', 'label' => 'Pedido recibido'],
+            ['key' => 'preparing', 'label' => 'Preparando tu pedido'],
+            ['key' => 'on_the_way', 'label' => 'Tu pedido va en camino'],
+            ['key' => 'at_door', 'label' => 'Tu pedido ya está afuera de tu domicilio'],
+            ['key' => 'delivered', 'label' => 'Entregado'],
+        ];
 
-            $currentStep = $current === $status
-                || ($status === $first && $current->isAwaitingMerchantConfirmation())
-                || ($status === OrderStatus::Preparing && in_array($current, [
-                    OrderStatus::Accepted,
-                    OrderStatus::SearchingDriver,
-                ], true))
-                || ($status === OrderStatus::DriverAssigned && in_array($current, [
-                    OrderStatus::DriverAtBusiness,
-                ], true));
+        $currentIndex = self::customerTimelineIndex($current);
+        $isDelivered = $current === OrderStatus::Delivered;
 
-            $historyEntry = $order->statusHistory->last(
-                fn ($entry) => $entry->status === $status
-                    || ($status === OrderStatus::Preparing && $entry->status === OrderStatus::Accepted),
-            );
+        return collect($milestones)->map(function (array $milestone, int $index) use ($currentIndex, $isDelivered, $order): array {
+            $isCurrent = ! $isDelivered && $index === $currentIndex;
+            $isDone = $isDelivered || $index < $currentIndex;
 
             return [
-                'key' => $status->value,
-                'label' => $status->customerLabel(),
-                'done' => $done && ! $currentStep,
-                'current' => $currentStep,
-                'at' => $historyEntry?->created_at?->toIso8601String(),
-                'notes' => $historyEntry?->notes,
+                'key' => $milestone['key'],
+                'label' => $milestone['label'],
+                'done' => $isDone,
+                'current' => $isCurrent,
+                'at' => self::customerTimelineTimestamp($order, $index),
             ];
         })->values()->all();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function timeline(Order $order): array
+    {
+        $current = $order->order_status;
+
+        return $order->statusHistory->map(fn ($entry): array => [
+            'key' => $entry->status->value,
+            'label' => $entry->status->label(),
+            'done' => true,
+            'current' => $entry->status === $current,
+            'at' => $entry->created_at?->toIso8601String(),
+            'notes' => $entry->notes,
+        ])->values()->all();
+    }
+
+    private static function customerTimelineIndex(OrderStatus $status): int
+    {
+        return match ($status) {
+            OrderStatus::PendingBusiness,
+            OrderStatus::PendingPlatform => 0,
+            OrderStatus::Accepted,
+            OrderStatus::Preparing,
+            OrderStatus::SearchingDriver,
+            OrderStatus::ReadyForPickup,
+            OrderStatus::DriverAssigned,
+            OrderStatus::DriverAtBusiness => 1,
+            OrderStatus::PickedUp => 2,
+            OrderStatus::OnTheWay => 3,
+            OrderStatus::Delivered => 4,
+            default => 0,
+        };
+    }
+
+    private static function customerTimelineTimestamp(Order $order, int $milestoneIndex): ?string
+    {
+        /** @var list<OrderStatus> $statuses */
+        $statuses = match ($milestoneIndex) {
+            0 => [OrderStatus::PendingBusiness, OrderStatus::PendingPlatform],
+            1 => [
+                OrderStatus::Accepted,
+                OrderStatus::Preparing,
+                OrderStatus::SearchingDriver,
+                OrderStatus::ReadyForPickup,
+                OrderStatus::DriverAssigned,
+                OrderStatus::DriverAtBusiness,
+            ],
+            2 => [OrderStatus::PickedUp],
+            3 => [OrderStatus::OnTheWay],
+            4 => [OrderStatus::Delivered],
+            default => [],
+        };
+
+        $entry = $order->statusHistory->first(
+            fn ($historyEntry) => in_array($historyEntry->status, $statuses, true),
+        );
+
+        if ($milestoneIndex === 0 && $entry === null) {
+            return $order->created_at?->toIso8601String();
+        }
+
+        return $entry?->created_at?->toIso8601String();
     }
 
     public static function optionDisplay(string $name, string $type, ?string $action): string
