@@ -1,1 +1,0 @@
-function e(e){let t=Number(e??0);return new Intl.NumberFormat(`es-MX`,{style:`currency`,currency:`MXN`,minimumFractionDigits:2,maximumFractionDigits:2}).format(Number.isFinite(t)?t:0)}export{e as t};

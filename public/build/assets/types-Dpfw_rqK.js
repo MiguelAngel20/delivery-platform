@@ -1,1 +1,0 @@
-function e(e){switch(e){case`active`:return`success`;case`pending_approval`:return`warning`;case`rejected`:case`suspended`:return`danger`;default:return`neutral`}}function t(e){switch(e){case`active`:return`success`;case`suspended`:return`danger`;default:return`neutral`}}export{e as n,t};
