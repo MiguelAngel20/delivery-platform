@@ -5,7 +5,7 @@ import { usePrivateChannelEvents } from '@/hooks/realtime/use-private-channel-ev
 
 const SOUND_KEY = 'ride.business.new_order_sound';
 /** Fallback when WebSockets miss events (shared hosting / Pusher hiccups). */
-const REALTIME_POLL_MS = 5000;
+const REALTIME_POLL_MS = 30_000;
 
 function playNewOrderChime(): void {
     if (typeof window === 'undefined') {
@@ -169,6 +169,7 @@ export function useDriverOrderEvents(
             '.OrderStatusChanged',
             '.DriverAssigned',
             '.IncidentCreated',
+            '.DriverRated',
         ],
         enabled: Boolean(driverId),
         onEvent: () => reload(),

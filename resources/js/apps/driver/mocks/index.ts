@@ -99,7 +99,7 @@ export const driverDashboardMocks = {
 
 export const mockActiveDriverOrder: MockActiveDriverOrder = {
     id: 'mock-driver-active-1',
-    code: 'RIDE-1052',
+    code: 'CHIS-1052',
     business: 'Pizza Roma',
     status: 'Aceptado',
     pickupAddress: 'Av. Central 120, Zona 1',
@@ -111,13 +111,13 @@ export const mockActiveDriverOrder: MockActiveDriverOrder = {
 
 export const mockDriverRoute: MockRouteSummary = {
     business: 'Pizza Roma',
-    orderCodes: ['RIDE-1001', 'RIDE-1002', 'RIDE-1003'],
+    orderCodes: ['CHIS-1001', 'CHIS-1002', 'CHIS-1003'],
 };
 
 export const mockAvailableOrders: MockAvailableOrder[] = [
     {
         id: 'mock-avail-1',
-        code: 'RIDE-1060',
+        code: 'CHIS-1060',
         business: 'Burger House',
         pickupDistance: '0.8 km',
         dropoffArea: 'Zona 10',
@@ -125,7 +125,7 @@ export const mockAvailableOrders: MockAvailableOrder[] = [
     },
     {
         id: 'mock-avail-2',
-        code: 'RIDE-1061',
+        code: 'CHIS-1061',
         business: 'Sushi Go',
         pickupDistance: '1.5 km',
         dropoffArea: 'Zona 4',
@@ -133,7 +133,7 @@ export const mockAvailableOrders: MockAvailableOrder[] = [
     },
     {
         id: 'mock-avail-3',
-        code: 'RIDE-1062',
+        code: 'CHIS-1062',
         business: 'Pizza Roma',
         pickupDistance: '1.2 km',
         dropoffArea: 'Barrio Centro',
@@ -144,7 +144,7 @@ export const mockAvailableOrders: MockAvailableOrder[] = [
 
 export const mockCompatibleOrder: MockAvailableOrder = {
     id: 'mock-compat-1',
-    code: 'RIDE-1058',
+    code: 'CHIS-1058',
     business: 'Pizza Roma',
     pickupDistance: '1.1 km',
     dropoffArea: 'Barrio Centro',
@@ -187,7 +187,7 @@ export const driverEarningsMocks = {
 export const mockHistoryOrders: MockHistoryOrder[] = [
     {
         id: 'mock-hist-1',
-        code: 'RIDE-1050',
+        code: 'CHIS-1050',
         business: 'Pizza Roma',
         date: '12 Ago 2026',
         earnings: '$50',
@@ -195,7 +195,7 @@ export const mockHistoryOrders: MockHistoryOrder[] = [
     },
     {
         id: 'mock-hist-2',
-        code: 'RIDE-1048',
+        code: 'CHIS-1048',
         business: 'Burger House',
         date: '12 Ago 2026',
         earnings: '$55',
@@ -203,7 +203,7 @@ export const mockHistoryOrders: MockHistoryOrder[] = [
     },
     {
         id: 'mock-hist-3',
-        code: 'RIDE-1044',
+        code: 'CHIS-1044',
         business: 'Sushi Go',
         date: '11 Ago 2026',
         earnings: '$0',
@@ -211,7 +211,7 @@ export const mockHistoryOrders: MockHistoryOrder[] = [
     },
     {
         id: 'mock-hist-4',
-        code: 'RIDE-1040',
+        code: 'CHIS-1040',
         business: 'Pizza Roma',
         date: '11 Ago 2026',
         earnings: '$48',

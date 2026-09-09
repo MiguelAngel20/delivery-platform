@@ -1,8 +1,11 @@
 import { Head, Link, usePage } from '@inertiajs/react';
+import {
+    LoyaltyProgressCard,
+    type LoyaltyProgress,
+} from '@/apps/customer/components/loyalty-progress-card';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
-import { Button } from '@/components/ui/button';
 import { useCustomerOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
 import { show } from '@/routes/customer/orders';
@@ -25,6 +28,7 @@ type Paginated<T> = {
 type Props = {
     activeOrders: OrderRow[];
     historyOrders: Paginated<OrderRow>;
+    loyalty?: LoyaltyProgress | null;
 };
 
 function OrderListCard({ order }: { order: OrderRow }) {
@@ -65,6 +69,7 @@ function OrderListCard({ order }: { order: OrderRow }) {
 export default function CustomerOrdersIndex({
     activeOrders,
     historyOrders,
+    loyalty,
 }: Props) {
     const { auth, realtime } = usePage().props as {
         auth: Auth;
@@ -85,6 +90,8 @@ export default function CustomerOrdersIndex({
                         Mis pedidos
                     </h1>
                 </div>
+
+                {loyalty ? <LoyaltyProgressCard loyalty={loyalty} /> : null}
 
                 <section className="space-y-3">
                     <h2 className="font-semibold text-navy">Activos</h2>

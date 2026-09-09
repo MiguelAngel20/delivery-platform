@@ -57,7 +57,7 @@ final class PickupOrder
             $locked->statusHistory()->create([
                 'status' => OrderStatus::PickedUp,
                 'changed_by_user_id' => $actor->id,
-                'notes' => 'Pedido recogido',
+                'notes' => 'En camino al cliente',
                 'created_at' => now(),
             ]);
 

@@ -18,7 +18,7 @@ final class PlatformOrderPendingNotification extends RideNotification
 
     public function title(): string
     {
-        return 'Pedido RIDE pendiente';
+        return 'Pedido ChisDrive pendiente';
     }
 
     public function body(): string

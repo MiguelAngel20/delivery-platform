@@ -9,6 +9,7 @@ import {
     Percent,
     Settings,
     ShieldAlert,
+    Tags,
     Truck,
     Users,
 } from 'lucide-react';
@@ -27,6 +28,11 @@ export const adminNavItems: NavItem[] = [
         icon: Building2,
     },
     {
+        title: 'Tipos / giros',
+        href: admin.businessTypes.index(),
+        icon: Tags,
+    },
+    {
         title: 'Cobertura',
         href: admin.coverage.index(),
         icon: MapPinned,
@@ -40,6 +46,11 @@ export const adminNavItems: NavItem[] = [
         title: 'Clientes',
         href: admin.customers.index(),
         icon: Users,
+    },
+    {
+        title: 'Comandas',
+        href: admin.orders.inbox(),
+        icon: ClipboardList,
     },
     {
         title: 'Pedidos',

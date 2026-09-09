@@ -8,9 +8,23 @@ use Illuminate\Support\Facades\Storage;
 
 final class ProductImageStorage
 {
+    private const MAX_WIDTH = 1200;
+
+    private const MAX_HEIGHT = 1200;
+
+    public function __construct(
+        private readonly WebpImageConverter $converter,
+    ) {}
+
     public function store(UploadedFile $file): string
     {
-        return $file->store('products/images', 'public');
+        return $this->converter->store(
+            $file,
+            'products/images',
+            self::MAX_WIDTH,
+            self::MAX_HEIGHT,
+            attribute: 'image',
+        );
     }
 
     public function replace(Product $product, UploadedFile $file): string

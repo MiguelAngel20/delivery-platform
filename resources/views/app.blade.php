@@ -42,12 +42,15 @@
 
         <link rel="icon" href="/assets/branding/favicon.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/assets/branding/app-icon.svg">
-        <link rel="manifest" href="/manifest.webmanifest">
+        @php
+            $isDriverPortal = request()->is('driver', 'driver/*');
+        @endphp
+        <link rel="manifest" href="{{ $isDriverPortal ? '/driver/manifest.webmanifest' : '/manifest.webmanifest' }}">
         <meta name="theme-color" content="#FF7A00">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
-        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'ChisDrive') }}">
+        <meta name="apple-mobile-web-app-title" content="{{ $isDriverPortal ? 'ChisDrive Repartidor' : config('app.name', 'ChisDrive') }}">
 
         @fonts
 

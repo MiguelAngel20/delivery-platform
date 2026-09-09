@@ -84,7 +84,7 @@ export function StorefrontFooter({ className }: StorefrontFooterProps) {
                     </ul>
                     <p className="text-sm text-navy-foreground/80">
                         ¿Quieres afiliar tu negocio a{' '}
-                        <span className="font-medium text-primary">RIDE</span>?
+                        <span className="font-medium text-primary">ChisDrive</span>?
                         Escríbenos y te orientamos.
                     </p>
                 </div>

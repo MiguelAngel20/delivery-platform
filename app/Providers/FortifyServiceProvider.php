@@ -73,7 +73,7 @@ class FortifyServiceProvider extends ServiceProvider
                 'canResetPassword' => Features::enabled(Features::resetPasswords()),
                 'status' => $request->session()->get('status'),
                 'title' => 'Iniciar sesión',
-                'description' => 'Accede a tu cuenta de cliente',
+                'description' => 'Accede a tu cuenta',
                 'submitLabel' => 'Entrar',
                 'portal' => 'customer',
             ]);

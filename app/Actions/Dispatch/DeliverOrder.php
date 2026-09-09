@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Dispatch\DriverActiveOrderService;
 use App\Services\Finance\OrderFinancialService;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderStateService;
 use App\Services\Realtime\OrderRealtimePublisher;
 use App\Services\Reputation\ReputationRecalculator;
@@ -23,6 +24,7 @@ final class DeliverOrder
         private readonly OrderFinancialService $financials,
         private readonly OrderRealtimePublisher $realtime,
         private readonly ReputationRecalculator $reputation,
+        private readonly CustomerLoyaltyService $loyalty,
     ) {}
 
     public function handle(Order $order, Driver $driver, User $actor): Order
@@ -70,6 +72,8 @@ final class DeliverOrder
                 $driver,
                 $actor,
             );
+
+            $this->loyalty->handleOrderDelivered($delivered);
 
             return $delivered->fresh([
                 'items.options',

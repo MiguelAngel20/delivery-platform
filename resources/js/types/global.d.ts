@@ -15,6 +15,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             businessContext: BusinessContext | null;
             sidebarOpen: boolean;
+            loyalty?: import('@/apps/customer/components/loyalty-progress-card').LoyaltyProgress | null;
             [key: string]: unknown;
         };
     }

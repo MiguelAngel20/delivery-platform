@@ -6,13 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\User;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CheckoutController extends Controller
 {
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request, CustomerLoyaltyService $loyalty): Response
     {
         $customer = $this->currentCustomer($request);
 
@@ -32,10 +33,14 @@ class CheckoutController extends Controller
                 'isDefault' => $address->is_default,
             ]);
 
+        $progress = $loyalty->progressFor($customer);
+
         return Inertia::render('customer/checkout/index', [
             'addresses' => $addresses,
+            'loyalty' => $progress,
             'orderSettings' => [
-                'service_fee' => (float) config('business.orders.service_fee', 50),
+                'service_fee' => (float) $progress['service_fee'],
+                'service_fee_discount' => (float) $progress['next_service_fee_discount'],
                 'delivery_fee' => (float) config('business.orders.delivery_fee', 0),
             ],
         ]);

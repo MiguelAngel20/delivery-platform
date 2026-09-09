@@ -31,7 +31,7 @@ if (broadcastConnection === 'pusher') {
     });
 }
 
-const appName = import.meta.env.VITE_APP_NAME || 'RIDE';
+const appName = import.meta.env.VITE_APP_NAME || 'ChisDrive';
 
 type LayoutComponent = ComponentType<{ children: ReactNode }>;
 

@@ -20,6 +20,22 @@ return [
     ],
 
     /*
+    | Platform-funded loyalty (not restaurant promotions).
+    | Streak calculator is swappable — UnlockRange now, distance-based later.
+    */
+    'loyalty' => [
+        'launch' => [
+            'max_customers' => (int) env('LOYALTY_LAUNCH_MAX_CUSTOMERS', 25),
+            'service_fee_percent' => (float) env('LOYALTY_LAUNCH_SERVICE_FEE_PERCENT', 50),
+        ],
+        'streak' => [
+            'required_orders' => (int) env('LOYALTY_STREAK_REQUIRED_ORDERS', 5),
+            'discount_min' => (int) env('LOYALTY_STREAK_DISCOUNT_MIN', 15),
+            'discount_max' => (int) env('LOYALTY_STREAK_DISCOUNT_MAX', 20),
+        ],
+    ],
+
+    /*
     | Timezone used to evaluate business opening hours for the storefront.
     | Comitán, Chiapas uses America/Mexico_City.
     */
@@ -33,6 +49,12 @@ return [
 
     'custom_orders' => [
         'max_active_requests' => (int) env('MAX_ACTIVE_CUSTOM_REQUESTS', 2),
+    ],
+
+    'support' => [
+        // Digits only for wa.me (Mexico: 52 + 10-digit local).
+        'whatsapp' => env('SUPPORT_WHATSAPP', '529633133731'),
+        'whatsapp_label' => env('SUPPORT_WHATSAPP_LABEL', 'Escribir por WhatsApp'),
     ],
 
     'dispatch' => [

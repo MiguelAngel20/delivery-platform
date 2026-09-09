@@ -1,7 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { useMemo } from 'react';
 import { CategoryCard } from '@/apps/storefront/components/category-card';
-import { CustomOrderEntry } from '@/apps/storefront/components/custom-order-entry';
 import { RestaurantCard } from '@/apps/storefront/components/restaurant-card';
 import {
     searchStorefrontCategories,
@@ -116,8 +115,6 @@ export default function SearchIndex({
                         </div>
                     </section>
                 ) : null}
-
-                <CustomOrderEntry />
             </PageContainer>
         </>
     );

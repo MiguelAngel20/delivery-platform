@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\Dispatch\DriverActiveOrderService;
 use App\Services\Finance\OrderFinancialService;
 use App\Services\Incidents\IncidentService;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Realtime\OrderRealtimePublisher;
 use App\Services\Reputation\ReputationRecalculator;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +35,7 @@ final class OrderCancellationService
         private readonly DriverActiveOrderService $activeOrders,
         private readonly OrderRealtimePublisher $realtime,
         private readonly ReputationRecalculator $reputation,
+        private readonly CustomerLoyaltyService $loyalty,
     ) {}
 
     public function customerCanCancel(Order $order): bool
@@ -299,6 +301,7 @@ final class OrderCancellationService
 
         if ($previous instanceof OrderStatus) {
             $this->realtime->statusChanged($updated, $previous);
+            $this->loyalty->handleOrderCancelled($updated, $previous);
         }
 
         $this->reputation->forOrder($updated);
@@ -414,6 +417,7 @@ final class OrderCancellationService
 
         if ($previous instanceof OrderStatus) {
             $this->realtime->statusChanged($updated, $previous);
+            $this->loyalty->handleOrderCancelled($updated, $previous);
         }
 
         $this->reputation->forOrder($updated);

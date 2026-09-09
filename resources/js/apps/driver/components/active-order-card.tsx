@@ -1,10 +1,16 @@
 import { router } from '@inertiajs/react';
+import { MapPin } from 'lucide-react';
 import { useState } from 'react';
+import {
+    DriverOrderPaymentInfo,
+} from '@/apps/driver/components/driver-order-payment-info';
+import type { DriverOrderPayment } from '@/apps/driver/components/driver-order-payment-info';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import type { StatusTone } from '@/components/data-display/status-badge';
 import { OrderActionDialog } from '@/components/orders/order-action-dialog';
+import { notify } from '@/components/feedback/toast';
 import { Button } from '@/components/ui/button';
-import { formatMoney } from '@/lib/money';
+import { useClipboard } from '@/hooks/use-clipboard';
 import { cn } from '@/lib/utils';
 import {
     arrive,
@@ -22,7 +28,9 @@ export type DriverActiveOrder = {
     order_number: string;
     order_status: string;
     business_status_label: string;
+    driver_status_label?: string;
     service_fee: string;
+    payment: DriverOrderPayment;
     restaurant: {
         name?: string | null;
         branch_name?: string | null;
@@ -30,6 +38,7 @@ export type DriverActiveOrder = {
     is_custom?: boolean;
     customer: {
         name?: string | null;
+        phone?: string | null;
         public_label?: string | null;
         verified?: boolean;
         completed_orders?: number;
@@ -72,10 +81,68 @@ type ActiveOrderCardProps = {
     className?: string;
 };
 
+function LocationButton({
+    href,
+    label,
+}: {
+    href: string | null;
+    label: string;
+}) {
+    if (!href) {
+        return null;
+    }
+
+    return (
+        <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-10 shrink-0"
+            asChild
+        >
+            <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={label}
+            >
+                <MapPin className="size-4" />
+            </a>
+        </Button>
+    );
+}
+
+function CopyablePhone({ phone }: { phone: string }) {
+    const [, copy] = useClipboard();
+
+    return (
+        <button
+            type="button"
+            className="mt-1 text-sm font-medium text-primary hover:underline"
+            onClick={() => {
+                void copy(phone).then((copied) => {
+                    if (copied) {
+                        notify.success('Número copiado');
+                    } else {
+                        notify.error('No se pudo copiar el número');
+                    }
+                });
+            }}
+        >
+            {phone}
+        </button>
+    );
+}
+
 export function ActiveOrderCard({ order, className }: ActiveOrderCardProps) {
     const [dialog, setDialog] = useState<'cannot' | 'report' | null>(null);
     const pickupUrl = order.pickup_address?.google_maps_url ?? null;
     const deliveryUrl = order.delivery_address?.google_maps_url ?? null;
+    const businessLabel = [order.restaurant.name, order.restaurant.branch_name]
+        .filter(Boolean)
+        .join(' · ');
+    const statusLabel =
+        order.driver_status_label ?? order.business_status_label;
 
     const primaryAction = order.actions.arrive
         ? {
@@ -84,13 +151,14 @@ export function ActiveOrderCard({ order, className }: ActiveOrderCardProps) {
           }
         : order.actions.pickup
           ? {
-                label: 'Pedido recogido',
+                label: 'En camino',
                 run: () => router.post(pickup.url(order.order_number)),
             }
           : order.actions.start_delivery
             ? {
-                  label: 'Iniciar entrega',
-                  run: () => router.post(startDelivery.url(order.order_number)),
+                  label: 'Ya estoy afuera de su domicilio',
+                  run: () =>
+                      router.post(startDelivery.url(order.order_number)),
               }
             : order.actions.deliver
               ? {
@@ -107,14 +175,9 @@ export function ActiveOrderCard({ order, className }: ActiveOrderCardProps) {
             )}
         >
             <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Pedido activo
-                    </p>
-                    <h3 className="text-lg font-semibold text-navy">
-                        #{order.order_number}
-                    </h3>
-                </div>
+                <h3 className="text-lg font-semibold text-navy">
+                    #{order.order_number}
+                </h3>
                 <div className="flex flex-wrap justify-end gap-2">
                     {order.is_custom ? (
                         <StatusBadge tone="neutral">Pedido personalizado</StatusBadge>
@@ -122,84 +185,78 @@ export function ActiveOrderCard({ order, className }: ActiveOrderCardProps) {
                     <StatusBadge
                         tone={statusTone[order.order_status] ?? 'neutral'}
                     >
-                        {order.business_status_label}
+                        {statusLabel}
                     </StatusBadge>
                 </div>
             </div>
 
-            <dl className="mt-4 space-y-3 text-sm">
-                <div>
-                    <dt className="text-muted-foreground">Empresa</dt>
-                    <dd className="font-medium text-navy">
-                        {order.restaurant.name}
-                        {order.restaurant.branch_name
-                            ? ` · ${order.restaurant.branch_name}`
-                            : ''}
-                    </dd>
+            <div className="mt-4 space-y-4 text-sm">
+                <section className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Datos del negocio
+                    </p>
+                    <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                            <p className="font-medium text-navy">
+                                {businessLabel || '—'}
+                            </p>
+                            <p className="mt-1 text-muted-foreground">
+                                {order.pickup_address?.address_text ?? '—'}
+                            </p>
+                        </div>
+                        <LocationButton
+                            href={pickupUrl}
+                            label="Abrir ubicación del negocio"
+                        />
+                    </div>
+                </section>
+
+                <div className="space-y-1" aria-hidden="true">
+                    <div className="h-px bg-muted-foreground/20" />
+                    <div className="h-px bg-muted-foreground/20" />
                 </div>
-                <div>
-                    <dt className="text-muted-foreground">Cliente</dt>
-                    <dd className="font-medium text-navy">
-                        {order.customer.name ?? 'Cliente'}
-                    </dd>
-                    <dd className="mt-1 text-xs text-muted-foreground">
-                        {order.customer.public_label ??
-                            (order.customer.verified
-                                ? 'Cuenta verificada'
-                                : 'Cuenta nueva')}
-                        {' · '}
-                        {order.customer.completed_orders ?? 0} pedidos
-                        completados
-                        {order.customer.is_frequent
-                            ? ' · Cliente frecuente'
-                            : ''}
-                    </dd>
+
+                <section className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Datos del cliente
+                    </p>
+                    <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                            <p className="font-medium text-navy">
+                                {order.customer.name ?? 'Cliente'}
+                            </p>
+                            {order.customer.phone ? (
+                                <CopyablePhone phone={order.customer.phone} />
+                            ) : null}
+                            <p className="mt-1 text-muted-foreground">
+                                {order.delivery_address?.address_text ?? '—'}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {order.customer.public_label ??
+                                    (order.customer.verified
+                                        ? 'Cuenta verificada'
+                                        : 'Cuenta nueva')}
+                                {' · '}
+                                {order.customer.completed_orders ?? 0} pedidos
+                                completados
+                                {order.customer.is_frequent
+                                    ? ' · Cliente frecuente'
+                                    : ''}
+                            </p>
+                        </div>
+                        <LocationButton
+                            href={deliveryUrl}
+                            label="Abrir ubicación de entrega"
+                        />
+                    </div>
+                </section>
+
+                <div className="border-t border-border pt-3">
+                    <DriverOrderPaymentInfo payment={order.payment} />
                 </div>
-                <div>
-                    <dt className="text-muted-foreground">Recogida</dt>
-                    <dd className="font-medium text-navy">
-                        {order.pickup_address?.address_text ?? '—'}
-                    </dd>
-                </div>
-                <div>
-                    <dt className="text-muted-foreground">Entrega</dt>
-                    <dd className="font-medium text-navy">
-                        {order.delivery_address?.address_text ?? '—'}
-                    </dd>
-                </div>
-                <div className="flex items-center justify-between border-t border-border pt-3">
-                    <dt className="text-muted-foreground">Tarifa de servicio</dt>
-                    <dd className="text-base font-semibold text-primary">
-                        {formatMoney(order.service_fee)}
-                    </dd>
-                </div>
-            </dl>
+            </div>
 
             <div className="mt-4 flex flex-col gap-2">
-                {pickupUrl ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="min-h-12"
-                        asChild
-                    >
-                        <a href={pickupUrl} target="_blank" rel="noreferrer">
-                            Abrir recogida
-                        </a>
-                    </Button>
-                ) : null}
-                {deliveryUrl ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="min-h-12"
-                        asChild
-                    >
-                        <a href={deliveryUrl} target="_blank" rel="noreferrer">
-                            Abrir entrega
-                        </a>
-                    </Button>
-                ) : null}
                 {primaryAction ? (
                     <Button
                         type="button"

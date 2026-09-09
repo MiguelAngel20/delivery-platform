@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import { Percent } from 'lucide-react';
 import { PromotionCard } from '@/apps/storefront/components/promotion-card';
 import type { MockPromotion } from '@/apps/storefront/mocks';
 import { EmptyState } from '@/components/feedback/empty-state';
@@ -22,7 +23,11 @@ export default function PromotionsIndex({ promotions = [] }: Props) {
                     </p>
                 </div>
                 {promotions.length === 0 ? (
-                    <EmptyState title="No hay promociones" />
+                    <EmptyState
+                        title="No hay promociones activas"
+                        description="Cuando los negocios publiquen ofertas, las verás aquí."
+                        icon={<Percent />}
+                    />
                 ) : (
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {promotions.map((promotion) => (

@@ -58,7 +58,7 @@ class CustomerEmailVerificationCode extends Notification implements ShouldBeUniq
         $minutes = (int) config('business.customers.email_verification_ttl_minutes', 15);
 
         return (new MailMessage)
-            ->subject('Tu código de verificación RIDE')
+            ->subject('Tu código de verificación ChisDrive')
             ->greeting('Hola '.$notifiable->first_name)
             ->line('Usa este código para verificar tu cuenta y continuar con tu pedido:')
             ->line('**'.$this->code.'**')

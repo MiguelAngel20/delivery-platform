@@ -14,7 +14,7 @@ class LoginPageController extends Controller
     {
         return $this->render($request, [
             'title' => 'Iniciar sesión',
-            'description' => 'Accede a tu cuenta de cliente',
+            'description' => 'Accede a tu cuenta',
             'submitLabel' => 'Entrar',
             'portal' => 'customer',
             'loginRouteName' => 'login',
@@ -25,7 +25,7 @@ class LoginPageController extends Controller
     {
         return $this->render($request, [
             'title' => 'Acceso administración',
-            'description' => 'Ingresa con tu cuenta de sistema',
+            'description' => 'Accede a tu cuenta',
             'submitLabel' => 'Entrar',
             'portal' => 'admin',
             'loginRouteName' => 'admin.login',
@@ -36,7 +36,7 @@ class LoginPageController extends Controller
     {
         return $this->render($request, [
             'title' => 'Acceso negocio',
-            'description' => 'Ingresa con tu cuenta de empresa',
+            'description' => 'Accede a tu cuenta',
             'submitLabel' => 'Entrar',
             'portal' => 'business',
             'loginRouteName' => 'business.login',
@@ -47,7 +47,7 @@ class LoginPageController extends Controller
     {
         return $this->render($request, [
             'title' => 'Acceso repartidor',
-            'description' => 'Ingresa con tu cuenta de repartidor',
+            'description' => 'Accede a tu cuenta',
             'submitLabel' => 'Entrar',
             'portal' => 'driver',
             'loginRouteName' => 'driver.login',

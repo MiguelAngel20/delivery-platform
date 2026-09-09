@@ -21,7 +21,7 @@ test('home filters restaurants by business type category', function () {
     $cafe = Business::factory()->create([
         'name' => 'Café Central',
         'slug' => 'cafe-central',
-        'business_type' => 'Cafetería',
+        'business_type' => 'Restaurante',
         'status' => BusinessStatus::Active,
     ]);
     BusinessBranch::factory()->for($cafe)->create();

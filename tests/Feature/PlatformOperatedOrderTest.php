@@ -148,6 +148,14 @@ test('platform-operated order goes to system admin not business queue', function
     $admin = User::factory()->systemAdmin()->create();
 
     $this->actingAs($admin)
+        ->get(route('admin.orders.inbox'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/orders/inbox')
+            ->where('newCount', 1)
+            ->has('orders.data', 1));
+
+    $this->actingAs($admin)
         ->get(route('admin.orders.index', ['filter' => 'pending']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('orders.data', 1));

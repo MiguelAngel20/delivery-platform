@@ -1,5 +1,9 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { LogOut } from 'lucide-react';
+import {
+    LoyaltyProgressCard,
+    type LoyaltyProgress,
+} from '@/apps/customer/components/loyalty-progress-card';
 import { ContentCard, PageContainer } from '@/components/layout/page';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -23,10 +27,15 @@ type Props = {
         is_frequent: boolean;
         completed_orders: number;
     };
+    loyalty?: LoyaltyProgress | null;
     phone?: string | null;
 };
 
-export default function CustomerProfileIndex({ reputation, phone }: Props) {
+export default function CustomerProfileIndex({
+    reputation,
+    loyalty,
+    phone,
+}: Props) {
     const { auth } = usePage().props as { auth: Auth };
     const user = auth.user;
 
@@ -82,6 +91,7 @@ export default function CustomerProfileIndex({ reputation, phone }: Props) {
                     </dl>
                 </ContentCard>
 
+                {loyalty ? <LoyaltyProgressCard loyalty={loyalty} /> : null}
                 <Button asChild variant="outline" className="min-h-12 w-full">
                     <Link href="/customer/profile/notifications">
                         Notificaciones

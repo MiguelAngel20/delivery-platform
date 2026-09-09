@@ -5,6 +5,7 @@ type OrderSummaryProps = {
     subtotal: number;
     service: number;
     discount: number;
+    serviceFeeDiscount?: number;
     className?: string;
 };
 
@@ -12,6 +13,7 @@ export function OrderSummary({
     subtotal,
     service,
     discount,
+    serviceFeeDiscount = 0,
     className,
 }: OrderSummaryProps) {
     return (
@@ -33,6 +35,16 @@ export function OrderSummary({
                     {formatMoney(service)}
                 </dd>
             </div>
+            {serviceFeeDiscount > 0 ? (
+                <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">
+                        Descuento de servicio
+                    </dt>
+                    <dd className="font-medium text-success">
+                        -{formatMoney(serviceFeeDiscount)}
+                    </dd>
+                </div>
+            ) : null}
             {discount > 0 ? (
                 <div className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">Descuento</dt>

@@ -57,7 +57,7 @@ export type MockActiveOrder = {
 export const mockActiveOrders: MockActiveOrder[] = [
     {
         id: 'mock-active-1',
-        code: 'RIDE-1052',
+        code: 'CHIS-1052',
         customer: 'Juan Pérez',
         items: [
             { qty: 2, name: 'Hamburguesa clásica' },
@@ -71,7 +71,7 @@ export const mockActiveOrders: MockActiveOrder[] = [
     },
     {
         id: 'mock-active-2',
-        code: 'RIDE-1053',
+        code: 'CHIS-1053',
         customer: 'María López',
         items: [
             { qty: 1, name: 'Tacos al pastor' },
@@ -83,7 +83,7 @@ export const mockActiveOrders: MockActiveOrder[] = [
     },
     {
         id: 'mock-active-3',
-        code: 'RIDE-1049',
+        code: 'CHIS-1049',
         customer: 'Carlos Ruiz',
         items: [
             { qty: 1, name: 'Pizza pepperoni' },
@@ -96,7 +96,7 @@ export const mockActiveOrders: MockActiveOrder[] = [
     },
     {
         id: 'mock-active-4',
-        code: 'RIDE-1047',
+        code: 'CHIS-1047',
         customer: 'Ana Torres',
         items: [{ qty: 3, name: 'Burrito de res' }],
         total: '$240',
@@ -123,7 +123,7 @@ export type MockBusinessOrder = {
 export const mockBusinessOrders: MockBusinessOrder[] = [
     {
         id: 'mock-bord-1',
-        code: 'RIDE-1052',
+        code: 'CHIS-1052',
         customer: 'Juan Pérez',
         status: 'Nuevo',
         total: '$285',
@@ -132,7 +132,7 @@ export const mockBusinessOrders: MockBusinessOrder[] = [
     },
     {
         id: 'mock-bord-2',
-        code: 'RIDE-1053',
+        code: 'CHIS-1053',
         customer: 'María López',
         status: 'Preparando',
         total: '$160',
@@ -141,7 +141,7 @@ export const mockBusinessOrders: MockBusinessOrder[] = [
     },
     {
         id: 'mock-bord-3',
-        code: 'RIDE-1049',
+        code: 'CHIS-1049',
         customer: 'Carlos Ruiz',
         status: 'Listo',
         total: '$320',
@@ -150,7 +150,7 @@ export const mockBusinessOrders: MockBusinessOrder[] = [
     },
     {
         id: 'mock-bord-4',
-        code: 'RIDE-1041',
+        code: 'CHIS-1041',
         customer: 'Ana Torres',
         status: 'Completado',
         total: '$240',
@@ -159,7 +159,7 @@ export const mockBusinessOrders: MockBusinessOrder[] = [
     },
     {
         id: 'mock-bord-5',
-        code: 'RIDE-1038',
+        code: 'CHIS-1038',
         customer: 'Pedro Díaz',
         status: 'Cancelado',
         total: '$95',

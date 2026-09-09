@@ -27,7 +27,8 @@ final class OrderStatusChangedNotification extends RideNotification
         if ($this->audience === UserRole::Customer) {
             return match ($this->status) {
                 OrderStatus::Accepted, OrderStatus::Preparing => 'Tu pedido fue aceptado',
-                OrderStatus::PickedUp, OrderStatus::OnTheWay => 'Tu pedido va en camino',
+                OrderStatus::PickedUp => 'Tu pedido va en camino',
+                OrderStatus::OnTheWay => 'Tu pedido ya está afuera',
                 OrderStatus::Delivered => 'Pedido entregado',
                 default => 'Actualización de pedido',
             };
@@ -49,9 +50,10 @@ final class OrderStatusChangedNotification extends RideNotification
         if ($this->audience === UserRole::Customer) {
             return match ($this->status) {
                 OrderStatus::Accepted, OrderStatus::Preparing => $minutes !== null && $minutes > 0
-                    ? "Tiempo estimado: {$minutes} minutos."
-                    : 'El establecimiento ya está preparando tu pedido.',
-                OrderStatus::PickedUp, OrderStatus::OnTheWay => 'Tu pedido fue recolectado y ya va en camino.',
+                    ? "Recibimos tu pedido. Tiempo estimado: {$minutes} minutos."
+                    : 'Recibimos tu pedido.',
+                OrderStatus::PickedUp => 'Tu pedido va en camino hacia ti.',
+                OrderStatus::OnTheWay => 'Tu repartidor ya está afuera de tu domicilio.',
                 OrderStatus::Delivered => 'Tu pedido fue entregado.',
                 default => "Tu pedido #{$number} cambió de estado.",
             };
@@ -103,7 +105,8 @@ final class OrderStatusChangedNotification extends RideNotification
         if ($this->audience === UserRole::Customer) {
             return match ($this->status) {
                 OrderStatus::Accepted, OrderStatus::Preparing => 'order:'.$this->order->id.':accepted',
-                OrderStatus::PickedUp, OrderStatus::OnTheWay => 'order:'.$this->order->id.':en-camino',
+                OrderStatus::PickedUp => 'order:'.$this->order->id.':en-camino',
+                OrderStatus::OnTheWay => 'order:'.$this->order->id.':afuera',
                 OrderStatus::Delivered => 'order:'.$this->order->id.':delivered',
                 default => sprintf('order:%d:status:%s:customer', $this->order->id, $this->status->value),
             };

@@ -11,6 +11,7 @@ export type DeliveryLocation = {
     formatted_address?: string | null;
     place_id?: string | null;
     reference?: string | null;
+    address_id?: string | null;
 };
 
 const emptyLocation: DeliveryLocation = {
@@ -18,6 +19,7 @@ const emptyLocation: DeliveryLocation = {
     detail: 'Elige una ubicación para explorar',
     latitude: null,
     longitude: null,
+    address_id: null,
 };
 
 let cachedRaw: string | null = null;

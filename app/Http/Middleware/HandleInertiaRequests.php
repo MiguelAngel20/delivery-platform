@@ -8,6 +8,9 @@ use App\Enums\BusinessStatus;
 use App\Enums\UserRole;
 use App\Models\Business;
 use App\Models\BusinessUser;
+use App\Models\Driver;
+use App\Services\Dispatch\DriverActiveOrderService;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Support\BusinessAccess;
 use App\Support\BusinessTypes;
 use Illuminate\Http\Request;
@@ -54,11 +57,14 @@ class HandleInertiaRequests extends Middleware
             ],
             'businessContext' => $this->businessContext($request),
             'realtime' => $this->realtimeContext($request),
+            'loyalty' => $this->loyaltyProgress($request),
+            'customerAddresses' => $this->customerAddresses($request),
             'orderSettings' => [
                 'service_fee' => (float) config('business.orders.service_fee', 50),
                 'delivery_fee' => (float) config('business.orders.delivery_fee', 0),
                 'max_customer_addresses' => (int) config('business.orders.max_customer_addresses', 4),
             ],
+            'support' => $this->supportLinks(),
             'maps' => [
                 'browser_api_key' => (string) config('maps.browser_api_key', ''),
                 'default_center' => config('maps.default_center'),
@@ -74,6 +80,7 @@ class HandleInertiaRequests extends Middleware
             'notifications' => [
                 'unread_count' => $user?->todaysUnreadNotificationCount() ?? 0,
             ],
+            'driver' => $this->driverContext($request),
             'push' => [
                 'enabled' => (bool) config('push.enabled', false),
                 'vapid_key' => (string) config('push.web.vapid_key', ''),
@@ -88,6 +95,99 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * @return array{whatsapp_url: string|null, whatsapp_label: string|null}
+     */
+    private function supportLinks(): array
+    {
+        $digits = preg_replace('/\D+/', '', (string) config('business.support.whatsapp', '')) ?? '';
+
+        return [
+            'whatsapp_url' => $digits !== ''
+                ? 'https://wa.me/'.$digits.'?text='.rawurlencode(
+                    'Hola, quiero hacer un pedido personalizado.',
+                )
+                : null,
+            'whatsapp_label' => (string) config(
+                'business.support.whatsapp_label',
+                'Escribir por WhatsApp',
+            ),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function loyaltyProgress(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if ($user === null || ! $user->hasRole(UserRole::Customer)) {
+            return null;
+        }
+
+        $user->loadMissing('customer');
+
+        if ($user->customer === null) {
+            return null;
+        }
+
+        return app(CustomerLoyaltyService::class)->progressFor($user->customer);
+    }
+
+    /**
+     * @return list<array{
+     *     id: string,
+     *     label: string,
+     *     line: string,
+     *     address_text: string,
+     *     reference: string|null,
+     *     latitude: string,
+     *     longitude: string,
+     *     formatted_address: string|null,
+     *     place_id: string|null,
+     *     isDefault: bool
+     * }>
+     */
+    private function customerAddresses(Request $request): array
+    {
+        $user = $request->user();
+
+        if ($user === null || ! $user->hasRole(UserRole::Customer)) {
+            return [];
+        }
+
+        if ($request->is(['admin', 'admin/*', 'business', 'business/*', 'driver', 'driver/*'])) {
+            return [];
+        }
+
+        $user->loadMissing('customer');
+
+        if ($user->customer === null) {
+            return [];
+        }
+
+        return $user->customer->addresses()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('label')
+            ->get()
+            ->map(fn ($address): array => [
+                'id' => (string) $address->id,
+                'label' => $address->label,
+                'line' => $address->address_text,
+                'address_text' => $address->address_text,
+                'reference' => $address->reference,
+                'latitude' => (string) $address->latitude,
+                'longitude' => (string) $address->longitude,
+                'formatted_address' => $address->formatted_address,
+                'place_id' => $address->place_id,
+                'isDefault' => (bool) $address->is_default,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -219,6 +319,37 @@ class HandleInertiaRequests extends Middleware
             'driver_id' => $user->driver?->id,
             'business_id' => $businessId,
             'branch_ids' => $branchIds,
+        ];
+    }
+
+    /**
+     * @return array{availabilityStatus: string, hasActiveOrders: bool}|null
+     */
+    private function driverContext(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if ($user === null || ! $user->canAccessDriver()) {
+            return null;
+        }
+
+        $user->loadMissing('driver');
+
+        if ($user->driver === null) {
+            return null;
+        }
+
+        $driver = Driver::query()->find($user->driver->id);
+
+        if ($driver === null) {
+            return null;
+        }
+
+        $activeOrders = app(DriverActiveOrderService::class);
+
+        return [
+            'availabilityStatus' => $driver->availability_status->value,
+            'hasActiveOrders' => $activeOrders->activeCount($driver) > 0,
         ];
     }
 }

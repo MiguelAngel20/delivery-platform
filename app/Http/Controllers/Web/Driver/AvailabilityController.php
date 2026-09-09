@@ -49,8 +49,15 @@ class AvailabilityController extends Controller
                 $status === DriverAvailabilityStatus::Available
                 && $activeOrders->activeCount($locked) > 0
             ) {
+                $status = DriverAvailabilityStatus::Busy;
+            }
+
+            if (
+                $status === DriverAvailabilityStatus::Offline
+                && $activeOrders->activeCount($locked) > 0
+            ) {
                 throw ValidationException::withMessages([
-                    'availability_status' => 'No puedes marcar Available mientras tienes pedidos activos.',
+                    'availability_status' => 'No puedes desconectarte mientras tengas pedidos asignados.',
                 ]);
             }
 

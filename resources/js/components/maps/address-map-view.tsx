@@ -166,22 +166,16 @@ export const AddressMapView = forwardRef<AddressMapHandle, AddressMapViewProps>(
                 center === undefined
                 || Math.abs(center.lat() - initialCenter.lat) > 1e-6
                 || Math.abs(center.lng() - initialCenter.lng) > 1e-6;
-            const needsZoom = map.getZoom() !== initialZoom;
 
-            if (!needsCenter && !needsZoom) {
+            // Never re-apply initialZoom here: trackpad/pinch zoom must stick after idle.
+            // Programmatic zoom goes through panTo/recenter instead.
+            if (!needsCenter) {
                 return;
             }
 
             skipIdleRef.current = true;
-
-            if (needsCenter) {
-                map.setCenter(initialCenter);
-            }
-
-            if (needsZoom) {
-                map.setZoom(initialZoom);
-            }
-        }, [initialCenter.lat, initialCenter.lng, initialZoom]);
+            map.setCenter(initialCenter);
+        }, [initialCenter.lat, initialCenter.lng]);
 
         return (
             <div className={cn('relative', className)}>

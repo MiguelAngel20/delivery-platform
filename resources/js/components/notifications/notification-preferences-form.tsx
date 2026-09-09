@@ -79,7 +79,7 @@ export function NotificationPreferencesForm({
             <PageContainer className="gap-4 px-4 py-4 md:px-6">
                 <PageHeader
                     title="Notificaciones"
-                    description="Preferencias transaccionales de RIDE"
+                    description="Preferencias transaccionales de ChisDrive"
                     actions={
                         back_href ? (
                             <BackButton href={back_href} />

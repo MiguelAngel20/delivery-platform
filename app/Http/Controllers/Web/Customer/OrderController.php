@@ -13,6 +13,7 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Incidents\IncidentService;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderCancellationService;
 use App\Services\Orders\OrderQuoteService;
 use App\Support\OrderData;
@@ -23,7 +24,7 @@ use Inertia\Response;
 
 class OrderController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, CustomerLoyaltyService $loyalty): Response
     {
         $customer = $this->currentCustomer($request);
         $this->authorize('viewAny', Order::class);
@@ -48,6 +49,7 @@ class OrderController extends Controller
         return Inertia::render('customer/orders/index', [
             'activeOrders' => $active,
             'historyOrders' => $history,
+            'loyalty' => $loyalty->progressFor($customer),
         ]);
     }
 

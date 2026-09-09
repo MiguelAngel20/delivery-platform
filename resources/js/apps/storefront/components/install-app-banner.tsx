@@ -15,7 +15,7 @@ import {
 import { useInstallPrompt } from '@/lib/pwa/use-install-prompt';
 import { cn } from '@/lib/utils';
 
-const appName = import.meta.env.VITE_APP_NAME || 'ChisDrive';
+const appName = 'ChisDrive';
 
 type InstallCopy = {
     title: string;

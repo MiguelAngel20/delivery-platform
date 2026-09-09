@@ -5,6 +5,7 @@ namespace App\Services\Finance;
 use App\Enums\CollectionParty;
 use App\Enums\PaymentMethod;
 use App\Models\Order;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use InvalidArgumentException;
 
 final class RevenueAllocationService
@@ -26,7 +27,10 @@ final class RevenueAllocationService
             throw new InvalidArgumentException('Las participaciones del service fee deben sumar 1.');
         }
 
-        $serviceFee = (string) $order->service_fee;
+        $serviceFee = app(CustomerLoyaltyService::class)->netServiceFee(
+            (string) $order->service_fee,
+            (string) ($order->service_fee_discount ?? '0.00'),
+        );
         $deliveryFee = (string) $order->delivery_fee;
 
         $driverFromService = bcmul($serviceFee, $driverShare, 2);

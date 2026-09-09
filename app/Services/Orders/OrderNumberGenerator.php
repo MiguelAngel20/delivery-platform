@@ -6,22 +6,28 @@ use App\Models\Order;
 
 final class OrderNumberGenerator
 {
+    private const PREFIX = 'CHIS';
+
     public function next(): string
     {
         $year = now()->format('Y');
 
-        $latest = Order::query()
-            ->where('order_number', 'like', "RIDE-{$year}-%")
+        $latestSequence = Order::query()
+            ->where(function ($query) use ($year): void {
+                $query->where('order_number', 'like', self::PREFIX."-{$year}-%")
+                    ->orWhere('order_number', 'like', "RIDE-{$year}-%");
+            })
             ->lockForUpdate()
-            ->orderByDesc('order_number')
-            ->value('order_number');
+            ->pluck('order_number')
+            ->map(function (string $orderNumber): int {
+                if (preg_match('/(?:CHIS|RIDE)-\d{4}-(\d+)$/', $orderNumber, $matches) !== 1) {
+                    return 0;
+                }
 
-        $sequence = 1;
+                return (int) $matches[1];
+            })
+            ->max() ?? 0;
 
-        if (is_string($latest) && preg_match('/RIDE-\d{4}-(\d+)$/', $latest, $matches) === 1) {
-            $sequence = ((int) $matches[1]) + 1;
-        }
-
-        return sprintf('RIDE-%s-%06d', $year, $sequence);
+        return sprintf('%s-%s-%06d', self::PREFIX, $year, $latestSequence + 1);
     }
 }

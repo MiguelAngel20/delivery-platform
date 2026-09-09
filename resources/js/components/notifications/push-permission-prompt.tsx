@@ -37,7 +37,7 @@ const copy: Record<
     },
     admin: {
         title: 'Activa alertas operativas',
-        body: 'Pedidos RIDE, custom orders e incidencias importantes.',
+        body: 'Pedidos ChisDrive, personalizados e incidencias importantes.',
         storageKey: 'ride_push_prompt_admin',
     },
 };

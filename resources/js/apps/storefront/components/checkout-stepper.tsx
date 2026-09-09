@@ -8,22 +8,38 @@ export const CHECKOUT_STEPS = [
     { step: 4, label: 'Confirmar' },
 ] as const;
 
+export const CUSTOM_ORDER_STEPS = [
+    { step: 1, label: 'Pedido' },
+    { step: 2, label: 'Entrega' },
+    { step: 3, label: 'Confirmar' },
+] as const;
+
+type StepDefinition = {
+    step: number;
+    label: string;
+};
+
 type CheckoutStepperProps = {
-    currentStep: 1 | 2 | 3 | 4;
+    currentStep: number;
+    steps?: readonly StepDefinition[];
     className?: string;
 };
 
 export function CheckoutStepper({
     currentStep,
+    steps = CHECKOUT_STEPS,
     className,
 }: CheckoutStepperProps) {
+    const activeLabel =
+        steps.find((entry) => entry.step === currentStep)?.label ?? '';
+
     return (
         <nav
             aria-label="Progreso del pedido"
             className={cn('w-full', className)}
         >
             <ol className="flex items-center justify-between gap-1">
-                {CHECKOUT_STEPS.map(({ step, label }, index) => {
+                {steps.map(({ step, label }, index) => {
                     const completed = step < currentStep;
                     const active = step === currentStep;
 
@@ -63,7 +79,7 @@ export function CheckoutStepper({
                                     {label}
                                 </span>
                             </div>
-                            {index < CHECKOUT_STEPS.length - 1 ? (
+                            {index < steps.length - 1 ? (
                                 <div
                                     className={cn(
                                         'mx-1 mb-5 h-0.5 flex-1 rounded-full sm:mb-6',
@@ -79,8 +95,7 @@ export function CheckoutStepper({
                 })}
             </ol>
             <p className="mt-3 text-center text-sm font-medium text-navy sm:hidden">
-                Paso {currentStep} de {CHECKOUT_STEPS.length}:{' '}
-                {CHECKOUT_STEPS[currentStep - 1]?.label}
+                Paso {currentStep} de {steps.length}: {activeLabel}
             </p>
         </nav>
     );

@@ -123,7 +123,7 @@ export default function CartIndex() {
     return (
         <>
             <Head title="Carrito" />
-            <PageContainer className="gap-5 px-4 py-4 pb-32 md:px-6 md:pb-36">
+            <PageContainer className="gap-5 px-4 py-4 pb-32 md:px-6 md:pb-6">
                 <CheckoutStepper currentStep={1} />
 
                 {cart.lines.length === 0 ? (

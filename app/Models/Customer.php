@@ -60,6 +60,11 @@ class Customer extends Model
         return $this->hasOne(CustomerMetric::class);
     }
 
+    public function loyaltyAccount(): HasOne
+    {
+        return $this->hasOne(CustomerLoyaltyAccount::class);
+    }
+
     public function isRestricted(): bool
     {
         return $this->trust_level->isRestricted();

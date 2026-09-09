@@ -15,7 +15,7 @@ export default function AdminSettingsIndex() {
                 <PageHeader title="Configuración" />
                 <ContentCard
                     title="Notificaciones"
-                    description="Alertas operativas RIDE"
+                    description="Alertas operativas ChisDrive"
                     actions={
                         <Button asChild variant="outline" size="sm">
                             <Link href="/admin/settings/notifications">

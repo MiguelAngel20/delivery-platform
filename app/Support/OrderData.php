@@ -10,6 +10,7 @@ use App\Enums\OrderAddressType;
 use App\Enums\OrderQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Services\Finance\RevenueAllocationService;
 use App\Services\Orders\OrderCancellationService;
 
 final class OrderData
@@ -57,6 +58,9 @@ final class OrderData
             'discount_total' => (string) $order->discount_total,
             'subtotal_after_discount' => (string) $order->subtotal_after_discount,
             'service_fee' => (string) $order->service_fee,
+            'service_fee_discount' => (string) ($order->service_fee_discount ?? '0.00'),
+            'loyalty_reward_type' => $order->loyalty_reward_type?->value,
+            'loyalty_reward_label' => $order->loyalty_reward_type?->label(),
             'delivery_fee' => (string) $order->delivery_fee,
             'total' => (string) $order->total,
             'estimated_preparation_minutes' => $order->estimated_preparation_minutes,
@@ -301,6 +305,33 @@ final class OrderData
     }
 
     /**
+     * @return array{
+     *     payment_method: string,
+     *     payment_method_label: string,
+     *     business_payment: string,
+     *     total: string,
+     * }
+     */
+    public static function driverPaymentSummary(Order $order): array
+    {
+        $order->loadMissing('financial');
+
+        $businessPayment = $order->financial?->business_amount;
+
+        if ($businessPayment === null) {
+            $businessPayment = app(RevenueAllocationService::class)
+                ->allocate($order)['business_amount'];
+        }
+
+        return [
+            'payment_method' => $order->payment_method->value,
+            'payment_method_label' => $order->payment_method->label(),
+            'business_payment' => (string) $businessPayment,
+            'total' => (string) ($order->financial?->customer_total ?? $order->total),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public static function driverAvailableCard(Order $order, ?int $distanceToPickupMeters = null): array
@@ -314,11 +345,61 @@ final class OrderData
             'business_status_label' => $data['business_status_label'],
             'estimated_preparation_minutes' => $data['estimated_preparation_minutes'],
             'service_fee' => $data['service_fee'],
+            'payment' => self::driverPaymentSummary($order),
             'is_custom' => $data['is_custom'],
             'restaurant' => $data['restaurant'],
             'delivery_address' => $data['delivery_address'],
             'pickup_address' => $data['pickup_address'],
             'distance_to_pickup_meters' => $distanceToPickupMeters,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function driverCompletedCard(Order $order): array
+    {
+        $order->loadMissing(['branch.business', 'financial', 'driverRating']);
+
+        return [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'business_name' => $order->branch?->business?->name ?? '—',
+            'branch_name' => $order->branch?->name,
+            'delivered_at' => $order->delivered_at?->toIso8601String(),
+            'driver_earning' => (string) ($order->financial?->driver_earning ?? '0.00'),
+            'status_label' => $order->order_status->label(),
+            'has_rating' => $order->driverRating !== null,
+            'overall_rating' => $order->driverRating?->overall_rating,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function forDriverCompleted(Order $order): array
+    {
+        $data = self::transform($order);
+
+        return [
+            'id' => $data['id'],
+            'order_number' => $data['order_number'],
+            'order_status' => $data['order_status'],
+            'business_status_label' => $data['business_status_label'],
+            'is_custom' => $data['is_custom'],
+            'delivered_at' => $data['delivered_at'],
+            'restaurant' => $data['restaurant'],
+            'customer' => [
+                'name' => $data['customer']['public_name'] ?? $data['customer']['name'],
+                'public_label' => $data['customer']['public_label'] ?? null,
+            ],
+            'pickup_address' => $data['pickup_address'],
+            'delivery_address' => $data['delivery_address'],
+            'items' => $data['items'],
+            'notes' => $data['notes'],
+            'driver_earning' => (string) ($order->financial?->driver_earning ?? '0.00'),
+            'service_fee' => $data['service_fee'],
+            'rating' => self::driverRatingSummary($order),
         ];
     }
 
@@ -333,13 +414,16 @@ final class OrderData
             'id' => $data['id'],
             'order_number' => $data['order_number'],
             'order_status' => $data['order_status'],
-            'business_status_label' => $data['business_status_label'],
+            'driver_status_label' => $order->order_status->driverLabel(),
+            'business_status_label' => $order->order_status->driverLabel(),
             'service_fee' => $data['service_fee'],
+            'payment' => self::driverPaymentSummary($order),
             'ready_at' => $data['ready_at'],
             'is_custom' => $data['is_custom'],
             'restaurant' => $data['restaurant'],
             'customer' => [
                 'name' => $data['customer']['public_name'] ?? $data['customer']['name'],
+                'phone' => $data['customer']['phone'] ?? null,
                 'completed_orders' => $data['customer']['completed_orders'] ?? 0,
                 'verified' => $data['customer']['verified'] ?? true,
                 'is_frequent' => $data['customer']['is_frequent'] ?? false,
@@ -354,7 +438,7 @@ final class OrderData
     }
 
     /**
-     * @return array{arrive: bool, pickup: bool, start_delivery: bool, deliver: bool}
+     * @return array{arrive: bool, pickup: bool, start_delivery: bool, deliver: bool, cannot_continue: bool, report_problem: bool}
      */
     public static function driverActions(Order $order): array
     {
@@ -506,7 +590,6 @@ final class OrderData
 
         $milestones = [
             ['key' => 'received', 'label' => 'Pedido recibido'],
-            ['key' => 'preparing', 'label' => 'Preparando tu pedido'],
             ['key' => 'on_the_way', 'label' => 'Tu pedido va en camino'],
             ['key' => 'at_door', 'label' => 'Tu pedido ya está afuera de tu domicilio'],
             ['key' => 'delivered', 'label' => 'Entregado'],
@@ -550,16 +633,16 @@ final class OrderData
     {
         return match ($status) {
             OrderStatus::PendingBusiness,
-            OrderStatus::PendingPlatform => 0,
+            OrderStatus::PendingPlatform,
             OrderStatus::Accepted,
             OrderStatus::Preparing,
             OrderStatus::SearchingDriver,
             OrderStatus::ReadyForPickup,
             OrderStatus::DriverAssigned,
-            OrderStatus::DriverAtBusiness => 1,
-            OrderStatus::PickedUp => 2,
-            OrderStatus::OnTheWay => 3,
-            OrderStatus::Delivered => 4,
+            OrderStatus::DriverAtBusiness => 0,
+            OrderStatus::PickedUp => 1,
+            OrderStatus::OnTheWay => 2,
+            OrderStatus::Delivered => 3,
             default => 0,
         };
     }
@@ -568,8 +651,9 @@ final class OrderData
     {
         /** @var list<OrderStatus> $statuses */
         $statuses = match ($milestoneIndex) {
-            0 => [OrderStatus::PendingBusiness, OrderStatus::PendingPlatform],
-            1 => [
+            0 => [
+                OrderStatus::PendingBusiness,
+                OrderStatus::PendingPlatform,
                 OrderStatus::Accepted,
                 OrderStatus::Preparing,
                 OrderStatus::SearchingDriver,
@@ -577,9 +661,9 @@ final class OrderData
                 OrderStatus::DriverAssigned,
                 OrderStatus::DriverAtBusiness,
             ],
-            2 => [OrderStatus::PickedUp],
-            3 => [OrderStatus::OnTheWay],
-            4 => [OrderStatus::Delivered],
+            1 => [OrderStatus::PickedUp],
+            2 => [OrderStatus::OnTheWay],
+            3 => [OrderStatus::Delivered],
             default => [],
         };
 

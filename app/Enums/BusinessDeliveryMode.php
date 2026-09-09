@@ -13,7 +13,7 @@ enum BusinessDeliveryMode: string
     {
         return match ($this) {
             self::OwnDrivers => 'Repartidores propios',
-            self::PlatformDrivers => 'Repartidores RIDE',
+            self::PlatformDrivers => 'Repartidores ChisDrive',
             self::Hybrid => 'Híbrido',
             self::None => 'Sin reparto',
         };

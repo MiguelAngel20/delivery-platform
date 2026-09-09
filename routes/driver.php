@@ -7,7 +7,15 @@ use App\Http\Controllers\Web\Driver\HomeController;
 use App\Http\Controllers\Web\Driver\LocationController;
 use App\Http\Controllers\Web\Driver\OrderController;
 use App\Http\Controllers\Web\Driver\ProfileController;
+use App\Http\Controllers\Web\Notifications\NotificationPreferencesController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('driver/manifest.webmanifest', function () {
+    return response()->file(
+        public_path('driver-manifest.webmanifest'),
+        ['Content-Type' => 'application/manifest+json; charset=utf-8'],
+    );
+})->name('driver.manifest');
 
 Route::middleware([
     'auth',
@@ -19,6 +27,7 @@ Route::middleware([
         Route::get('/', HomeController::class)->name('home');
 
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::get('orders/{order}', [OrderController::class, 'show'])->name('orders.show');
         Route::post('orders/{order}/accept', [OrderController::class, 'accept'])->name('orders.accept');
         Route::post('orders/{order}/reject', [OrderController::class, 'reject'])->name('orders.reject');
         Route::post('orders/{order}/arrive', [OrderController::class, 'arrive'])->name('orders.arrive');
@@ -34,8 +43,8 @@ Route::middleware([
         Route::get('earnings', [EarningsController::class, 'index'])->name('earnings.index');
         Route::inertia('history', 'driver/history/index')->name('history.index');
         Route::get('profile', ProfileController::class)->name('profile.index');
-        Route::get('profile/notifications', [\App\Http\Controllers\Web\Notifications\NotificationPreferencesController::class, 'edit'])
+        Route::get('profile/notifications', [NotificationPreferencesController::class, 'edit'])
             ->name('profile.notifications.edit');
-        Route::put('profile/notifications', [\App\Http\Controllers\Web\Notifications\NotificationPreferencesController::class, 'update'])
+        Route::put('profile/notifications', [NotificationPreferencesController::class, 'update'])
             ->name('profile.notifications.update');
     });

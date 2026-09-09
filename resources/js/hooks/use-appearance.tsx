@@ -77,7 +77,7 @@ const handleSystemThemeChange = (): void => {
 };
 
 /**
- * RIDE is a light-first product. Legacy "system" values followed the OS and
+ * ChisDrive is a light-first product. Legacy "system" values followed the OS and
  * broke light brand surfaces (white cards + dark:text). Migrate once to light.
  */
 export function initializeTheme(): void {

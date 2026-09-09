@@ -16,6 +16,7 @@ use App\Enums\DriverAssignmentStatus;
 use App\Enums\DriverAvailabilityStatus;
 use App\Enums\DriverScope;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Models\Customer;
@@ -158,6 +159,28 @@ test('driver can accept second order from same branch', function () {
         ->and($driver->fresh()->availability_status)->toBe(DriverAvailabilityStatus::Busy);
 });
 
+test('driver orders index includes payment details on available offers', function () {
+    ['branch' => $branch] = seedDispatchBusiness();
+    ['user' => $user] = seedPlatformDriver();
+    $order = seedDispatchOrder($branch);
+    $order->update([
+        'payment_method' => PaymentMethod::Cash,
+        'subtotal_after_discount' => 200,
+        'service_fee' => 50,
+        'total' => 250,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('driver.orders.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('availableOrders', 1)
+            ->where('availableOrders.0.payment.payment_method', 'cash')
+            ->where('availableOrders.0.payment.payment_method_label', 'Efectivo')
+            ->where('availableOrders.0.payment.business_payment', '200.00')
+            ->where('availableOrders.0.payment.total', '250.00'));
+});
+
 test('driver cannot accept order from different branch while busy', function () {
     ['business' => $business, 'branch' => $branchA] = seedDispatchBusiness();
     $branchB = BusinessBranch::factory()->for($business)->create();
@@ -290,8 +313,9 @@ test('driver http accept assigns order safely', function () {
     $order = seedDispatchOrder($branch);
 
     $this->actingAs($user)
+        ->from(route('driver.orders.index'))
         ->post(route('driver.orders.accept', $order))
-        ->assertRedirect(route('driver.home'));
+        ->assertRedirect(route('driver.orders.index'));
 
     expect($order->fresh()->assigned_driver_id)->toBe($driver->id)
         ->and($order->fresh()->order_status)->toBe(OrderStatus::DriverAssigned);

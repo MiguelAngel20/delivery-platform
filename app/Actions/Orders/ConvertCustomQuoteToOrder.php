@@ -10,6 +10,7 @@ use App\Enums\OrderType;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Models\BusinessBranch;
+use App\Models\Customer;
 use App\Models\CustomOrderRequest;
 use App\Models\Order;
 use App\Models\OrderAddress;
@@ -19,6 +20,7 @@ use App\Models\OrderStatusHistory;
 use App\Models\User;
 use App\Services\Finance\OrderFinancialService;
 use App\Services\Geo\OrderLogisticsService;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderNumberGenerator;
 use App\Services\Realtime\OrderRealtimePublisher;
 use App\Support\GeoPoint;
@@ -32,6 +34,7 @@ final class ConvertCustomQuoteToOrder
         private readonly OrderFinancialService $financials,
         private readonly OrderRealtimePublisher $realtime,
         private readonly OrderLogisticsService $logistics,
+        private readonly CustomerLoyaltyService $loyalty,
     ) {}
 
     public function handle(CustomOrderRequest $request, OrderQuote $quote, User $actor): Order
@@ -101,6 +104,8 @@ final class ConvertCustomQuoteToOrder
             'discount_total' => $discount,
             'subtotal_after_discount' => $afterDiscount,
             'service_fee' => $serviceFee,
+            'service_fee_discount' => '0.00',
+            'loyalty_reward_type' => null,
             'delivery_fee' => $deliveryFee,
             'total' => $total,
             'notes' => $this->composeNotes($request),
@@ -108,6 +113,20 @@ final class ConvertCustomQuoteToOrder
             'merchant_address_snapshot' => $merchantAddress,
             'merchant_phone_snapshot' => $request->merchant_phone,
         ]);
+
+        $customer = Customer::query()->findOrFail($request->customer_id);
+        $loyalty = $this->loyalty->applyToNewOrder($customer, $order, $serviceFee);
+
+        if (bccomp($loyalty['service_fee_discount'], '0', 2) === 1) {
+            $netServiceFee = $this->loyalty->netServiceFee($serviceFee, $loyalty['service_fee_discount']);
+            $total = bcadd(bcadd($afterDiscount, $netServiceFee, 2), $deliveryFee, 2);
+
+            $order->forceFill([
+                'service_fee_discount' => $loyalty['service_fee_discount'],
+                'loyalty_reward_type' => $loyalty['loyalty_reward_type'],
+                'total' => $total,
+            ])->save();
+        }
 
         foreach ($quote->items as $line) {
             OrderItem::query()->create([

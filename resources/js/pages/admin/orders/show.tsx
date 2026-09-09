@@ -96,7 +96,7 @@ export default function AdminOrderShow({ order, preparationOptions }: Props) {
                         <StatusBadge tone="neutral">Personalizado</StatusBadge>
                     ) : null}
                     {order.is_platform_managed ? (
-                        <StatusBadge tone="info">Administrada por RIDE</StatusBadge>
+                        <StatusBadge tone="info">Administrada por ChisDrive</StatusBadge>
                     ) : null}
                 </div>
 

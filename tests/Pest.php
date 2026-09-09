@@ -1,5 +1,6 @@
 <?php
 
+use Database\Seeders\BusinessTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,6 +18,14 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+/*
+| Feature suites assert money without launch loyalty unless a test opts in.
+*/
+pest()->beforeEach(function (): void {
+    config(['business.loyalty.launch.max_customers' => 0]);
+    $this->seed(BusinessTypeSeeder::class);
+})->in('Feature');
 
 /*
 |--------------------------------------------------------------------------

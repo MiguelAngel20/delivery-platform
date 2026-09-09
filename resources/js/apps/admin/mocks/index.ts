@@ -48,7 +48,7 @@ export const adminDashboardMocks = {
     recentOrders: [
         {
             id: 'mock-dash-ord-1',
-            code: '#RIDE-1250',
+            code: '#CHIS-1250',
             customer: 'María López',
             business: 'Pizza Roma',
             status: 'En camino' as const,
@@ -57,7 +57,7 @@ export const adminDashboardMocks = {
         },
         {
             id: 'mock-dash-ord-2',
-            code: '#RIDE-1249',
+            code: '#CHIS-1249',
             customer: 'Carlos Ruiz',
             business: 'Sushi Bar',
             status: 'En preparación' as const,
@@ -66,7 +66,7 @@ export const adminDashboardMocks = {
         },
         {
             id: 'mock-dash-ord-3',
-            code: '#RIDE-1248',
+            code: '#CHIS-1248',
             customer: 'Ana Gómez',
             business: 'Burger House',
             status: 'Completado' as const,
@@ -75,7 +75,7 @@ export const adminDashboardMocks = {
         },
         {
             id: 'mock-dash-ord-4',
-            code: '#RIDE-1247',
+            code: '#CHIS-1247',
             customer: 'Luis Pérez',
             business: 'Café Central',
             status: 'Cancelado' as const,
@@ -84,7 +84,7 @@ export const adminDashboardMocks = {
         },
         {
             id: 'mock-dash-ord-5',
-            code: '#RIDE-1246',
+            code: '#CHIS-1246',
             customer: 'Sofía Díaz',
             business: 'Pizza Roma',
             status: 'Completado' as const,

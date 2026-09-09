@@ -5,7 +5,8 @@ test('customer login screen can be rendered', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('auth/login')
-            ->where('portal', 'customer'));
+            ->where('portal', 'customer')
+            ->where('description', 'Accede a tu cuenta'));
 });
 
 test('admin login screen can be rendered', function () {

@@ -2,16 +2,12 @@
 
 namespace App\Services\Realtime;
 
-use App\Enums\DriverApprovalStatus;
-use App\Enums\DriverAvailabilityStatus;
 use App\Enums\OrderStatus;
 use App\Events\Orders\DriverAssigned;
-use App\Events\Orders\OrderAvailableToDriver;
 use App\Events\Orders\OrderCreated;
 use App\Events\Orders\OrderStatusChanged;
-use App\Models\Driver;
+use App\Jobs\Dispatch\NotifyEligibleDriversJob;
 use App\Models\Order;
-use App\Services\Dispatch\DriverEligibilityService;
 use App\Services\Notifications\RideNotificationDispatcher;
 use App\Support\OrderBroadcastPayload;
 use App\Support\SafeBroadcast;
@@ -20,7 +16,6 @@ use Illuminate\Support\Facades\DB;
 final class OrderRealtimePublisher
 {
     public function __construct(
-        private readonly DriverEligibilityService $eligibility,
         private readonly RideNotificationDispatcher $notifications,
     ) {}
 
@@ -61,11 +56,11 @@ final class OrderRealtimePublisher
             if ($status === OrderStatus::Preparing
                 || ($status === OrderStatus::SearchingDriver && $previous !== OrderStatus::Preparing)
             ) {
-                $this->notifyEligibleDrivers($order, $payload, 'offer');
+                NotifyEligibleDriversJob::dispatchAfterResponse($order->id, 'offer');
             }
 
             if ($status === OrderStatus::ReadyForPickup) {
-                $this->notifyEligibleDrivers($order, $payload, 'ready');
+                NotifyEligibleDriversJob::dispatchAfterResponse($order->id, 'ready');
             }
         });
     }
@@ -94,39 +89,6 @@ final class OrderRealtimePublisher
 
             $this->notifications->driverAssigned($order);
         });
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @param  'offer'|'ready'  $kind
-     */
-    private function notifyEligibleDrivers(Order $order, array $payload, string $kind): void
-    {
-        $drivers = Driver::query()
-            ->with(['user', 'businesses', 'branches'])
-            ->where('approval_status', DriverApprovalStatus::Approved)
-            ->whereIn('availability_status', [
-                DriverAvailabilityStatus::Available->value,
-                DriverAvailabilityStatus::Busy->value,
-            ])
-            ->limit(100)
-            ->get();
-
-        foreach ($drivers as $driver) {
-            if (! $this->eligibility->isDriverEligibleForOrder($driver, $order)) {
-                continue;
-            }
-
-            SafeBroadcast::event(new OrderAvailableToDriver($payload, $driver->id));
-
-            if ($kind === 'ready') {
-                $this->notifications->driverReady($order, $driver);
-
-                continue;
-            }
-
-            $this->notifications->driverOffer($order, $driver);
-        }
     }
 
     /**

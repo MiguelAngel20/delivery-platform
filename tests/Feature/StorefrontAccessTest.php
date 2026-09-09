@@ -28,7 +28,9 @@ test('public home and restaurants render without requiring a query', function ()
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('public/home')
-            ->where('maps.default_place_label', 'Comitán de Domínguez, Chiapas'));
+            ->where('maps.default_place_label', 'Comitán de Domínguez, Chiapas')
+            ->where('support.whatsapp_url', fn ($url) => is_string($url) && str_contains($url, 'wa.me/529633133731'))
+            ->where('support.whatsapp_label', 'Escribir por WhatsApp'));
 
     $this->get(route('restaurants.index'))
         ->assertOk()

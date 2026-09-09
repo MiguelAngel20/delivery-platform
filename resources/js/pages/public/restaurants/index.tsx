@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { CustomOrderEntry } from '@/apps/storefront/components/custom-order-entry';
+import { Store } from 'lucide-react';
 import { RestaurantCard } from '@/apps/storefront/components/restaurant-card';
 import type { MockRestaurant } from '@/apps/storefront/mocks';
 import { EmptyState } from '@/components/feedback/empty-state';
@@ -18,16 +18,13 @@ export default function RestaurantsIndex({ restaurants }: Props) {
         <>
             <Head title="Negocios" />
             <PageContainer className="gap-4 px-4 py-4 md:px-6">
-                <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold text-navy">
-                        Negocios
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Todas las empresas registradas · primero las afiliadas
-                    </p>
-                </div>
+                <h1 className="text-2xl font-semibold text-navy">Negocios</h1>
                 {restaurants.data.length === 0 ? (
-                    <EmptyState title="No hay negocios" />
+                    <EmptyState
+                        title="Aún no hay negocios"
+                        description="Pronto podrás explorar restaurantes y tiendas en ChisDrive."
+                        icon={<Store />}
+                    />
                 ) : (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                         {restaurants.data.map((restaurant) => (
@@ -39,7 +36,6 @@ export default function RestaurantsIndex({ restaurants }: Props) {
                         ))}
                     </div>
                 )}
-                <CustomOrderEntry />
             </PageContainer>
         </>
     );

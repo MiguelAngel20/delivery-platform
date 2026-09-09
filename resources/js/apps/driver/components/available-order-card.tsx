@@ -1,11 +1,13 @@
 import { router } from '@inertiajs/react';
+import {
+    DriverOrderPaymentInfo,
+} from '@/apps/driver/components/driver-order-payment-info';
+import type { DriverOrderPayment } from '@/apps/driver/components/driver-order-payment-info';
 import { Button } from '@/components/ui/button';
-import { formatMoney } from '@/lib/money';
 import { formatDistanceKm } from '@/lib/maps/google-maps-url';
 import { cn } from '@/lib/utils';
 import {
     accept,
-    reject,
 } from '@/routes/driver/orders';
 
 export type DriverAvailableOrder = {
@@ -14,6 +16,7 @@ export type DriverAvailableOrder = {
     business_status_label: string;
     estimated_preparation_minutes?: number | null;
     service_fee: string;
+    payment: DriverOrderPayment;
     restaurant: {
         name?: string | null;
         branch_name?: string | null;
@@ -54,9 +57,6 @@ export function AvailableOrderCard({
                         {order.is_custom ? ' · Personalizado' : ''}
                     </p>
                 </div>
-                <p className="text-base font-semibold text-primary">
-                    {formatMoney(order.service_fee)}
-                </p>
             </div>
 
             <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -91,20 +91,14 @@ export function AvailableOrderCard({
                 ) : null}
             </dl>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-4 border-t border-border pt-4">
+                <DriverOrderPaymentInfo payment={order.payment} />
+            </div>
+
+            <div className="mt-4">
                 <Button
                     type="button"
-                    variant="outline"
-                    className="min-h-12 flex-1"
-                    onClick={() =>
-                        router.post(reject.url(order.order_number))
-                    }
-                >
-                    Rechazar
-                </Button>
-                <Button
-                    type="button"
-                    className="min-h-12 flex-1"
+                    className="min-h-12 w-full"
                     onClick={() =>
                         router.post(accept.url(order.order_number))
                     }

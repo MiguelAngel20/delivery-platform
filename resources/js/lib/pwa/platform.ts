@@ -1,6 +1,11 @@
 export type InstallPlatform = 'android' | 'ios' | 'desktop' | 'unsupported';
 
-const DISMISS_STORAGE_KEY = 'ride.pwa.install-banner.dismissed-at';
+export type InstallBannerScope = 'storefront' | 'driver';
+
+const DISMISS_STORAGE_KEYS: Record<InstallBannerScope, string> = {
+    storefront: 'ride.pwa.install-banner.dismissed-at',
+    driver: 'ride.driver.pwa.install-banner.dismissed-at',
+};
 
 /** Tiempo antes de volver a mostrar el banner tras cerrarlo sin instalar. */
 export const INSTALL_BANNER_REMINDER_MS = 3 * 60 * 1000;
@@ -67,13 +72,17 @@ export function detectInstallPlatform(): InstallPlatform {
     return 'unsupported';
 }
 
-export function isInstallBannerDismissed(): boolean {
-    return getInstallBannerReminderRemainingMs() > 0;
+export function isInstallBannerDismissed(
+    scope: InstallBannerScope = 'storefront',
+): boolean {
+    return getInstallBannerReminderRemainingMs(scope) > 0;
 }
 
-export function getInstallBannerReminderRemainingMs(): number {
+export function getInstallBannerReminderRemainingMs(
+    scope: InstallBannerScope = 'storefront',
+): number {
     try {
-        const raw = localStorage.getItem(DISMISS_STORAGE_KEY);
+        const raw = localStorage.getItem(DISMISS_STORAGE_KEYS[scope]);
 
         if (!raw) {
             return 0;
@@ -94,9 +103,14 @@ export function getInstallBannerReminderRemainingMs(): number {
     }
 }
 
-export function dismissInstallBanner(): void {
+export function dismissInstallBanner(
+    scope: InstallBannerScope = 'storefront',
+): void {
     try {
-        localStorage.setItem(DISMISS_STORAGE_KEY, String(Date.now()));
+        localStorage.setItem(
+            DISMISS_STORAGE_KEYS[scope],
+            String(Date.now()),
+        );
     } catch {
         // ignore
     }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 
@@ -20,6 +21,40 @@ test('users can authenticate using the login screen', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('customer.home', absolute: false));
+});
+
+test('users can authenticate with remember me enabled', function () {
+    $user = User::factory()->create([
+        'remember_token' => null,
+    ]);
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+        'remember' => '1',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('customer.home', absolute: false));
+
+    expect($user->fresh()->remember_token)->not->toBeNull();
+
+    $response->assertCookie(Auth::guard()->getRecallerName());
+});
+
+test('login without remember does not queue a recaller cookie', function () {
+    $user = User::factory()->create([
+        'remember_token' => null,
+    ]);
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertCookieMissing(Auth::guard()->getRecallerName());
+    expect($user->fresh()->remember_token)->toBeNull();
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {

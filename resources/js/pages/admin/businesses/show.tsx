@@ -295,7 +295,7 @@ export default function AdminBusinessesShow({
 
                 {business.operation_mode === 'platform_operated' ? (
                     <ContentCard
-                        title="Catálogo RIDE"
+                        title="Catálogo ChisDrive"
                         actions={
                             <Button size="sm" asChild>
                                 <Link
@@ -308,7 +308,7 @@ export default function AdminBusinessesShow({
                     >
                         <p className="text-sm text-muted-foreground">
                             Categorías, productos y promociones de esta empresa
-                            operada por RIDE.
+                            operada por ChisDrive.
                         </p>
                     </ContentCard>
                 ) : null}

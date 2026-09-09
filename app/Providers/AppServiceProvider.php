@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Contracts\MapsClient;
 use App\Contracts\PushProvider;
 use App\Services\Geo\GoogleMapsClient;
+use App\Services\Loyalty\LoyaltyDiscountCalculator;
+use App\Services\Loyalty\UnlockRangeLoyaltyDiscountCalculator;
 use App\Services\Push\FcmHttpV1PushProvider;
 use App\Services\Push\LogPushProvider;
 use App\Services\Push\NullPushProvider;
@@ -26,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(MapsClient::class, GoogleMapsClient::class);
+        $this->app->bind(LoyaltyDiscountCalculator::class, UnlockRangeLoyaltyDiscountCalculator::class);
         $this->app->bind(PushProvider::class, function (): PushProvider {
             if (! (bool) config('push.enabled', false)) {
                 return config('push.driver') === 'log'

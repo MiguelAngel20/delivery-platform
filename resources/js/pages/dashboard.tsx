@@ -14,7 +14,7 @@ export default function Dashboard() {
             <PageContainer>
                 <PageHeader
                     title="Dashboard"
-                    description="Punto de entrada autenticado del starter kit. Las interfaces de RIDE están separadas por canal."
+                    description="Punto de entrada autenticado del starter kit. Las interfaces de ChisDrive están separadas por canal."
                 />
                 <div className="grid gap-4 md:grid-cols-3">
                     <StatCard

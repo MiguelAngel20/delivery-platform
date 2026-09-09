@@ -121,7 +121,7 @@ test('customer can create valid order', function () {
     );
 
     expect($order->order_status)->toBe(OrderStatus::PendingBusiness)
-        ->and($order->order_number)->toStartWith('RIDE-')
+        ->and($order->order_number)->toStartWith('CHIS-')
         ->and($order->payment_method->value)->toBe('cash')
         ->and($order->items)->toHaveCount(1);
 });

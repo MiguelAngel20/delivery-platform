@@ -249,7 +249,10 @@ export type AddToCartInput = {
 
 export function useStorefrontCart() {
     const page = usePage<{
-        orderSettings?: { service_fee?: number };
+        orderSettings?: {
+            service_fee?: number;
+            service_fee_discount?: number;
+        };
     }>();
     const cart = useSyncExternalStore(subscribe, readCart, () => emptyCart);
 
@@ -279,7 +282,14 @@ export function useStorefrontCart() {
         cart.restaurantMode === 'platform_operated' && subtotal > 0 ? 5 : 0;
     const service =
         cart.lines.length > 0 ? (page.props.orderSettings?.service_fee ?? 50) : 0;
-    const total = Math.max(subtotal + service - discount, 0);
+    const serviceFeeDiscount =
+        cart.lines.length > 0
+            ? Math.min(
+                  service,
+                  Math.max(0, page.props.orderSettings?.service_fee_discount ?? 0),
+              )
+            : 0;
+    const total = Math.max(subtotal + service - serviceFeeDiscount - discount, 0);
 
     const clear = useCallback(() => {
         clearStorefrontCart();
@@ -601,6 +611,7 @@ export function useStorefrontCart() {
         itemCount,
         subtotal,
         service,
+        serviceFeeDiscount,
         discount,
         total,
         addItem,

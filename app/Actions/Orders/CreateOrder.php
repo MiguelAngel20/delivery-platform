@@ -28,6 +28,7 @@ use App\Models\User;
 use App\Services\BusinessBranchContext;
 use App\Services\Finance\OrderFinancialService;
 use App\Services\Geo\OrderLogisticsService;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderNumberGenerator;
 use App\Services\PricingEngine;
 use App\Services\Realtime\OrderRealtimePublisher;
@@ -45,6 +46,7 @@ final class CreateOrder
         private readonly OrderFinancialService $financials,
         private readonly OrderRealtimePublisher $realtime,
         private readonly OrderLogisticsService $logistics,
+        private readonly CustomerLoyaltyService $loyalty,
     ) {}
 
     /**
@@ -142,10 +144,25 @@ final class CreateOrder
                 'discount_total' => $discountTotal,
                 'subtotal_after_discount' => $subtotalAfterDiscount,
                 'service_fee' => $serviceFee,
+                'service_fee_discount' => '0.00',
+                'loyalty_reward_type' => null,
                 'delivery_fee' => $deliveryFee,
                 'total' => $total,
                 'notes' => $payload['notes'] ?? null,
             ]);
+
+            $loyalty = $this->loyalty->applyToNewOrder($customer, $order, $serviceFee);
+
+            if (bccomp($loyalty['service_fee_discount'], '0', 2) === 1) {
+                $netServiceFee = $this->loyalty->netServiceFee($serviceFee, $loyalty['service_fee_discount']);
+                $total = bcadd(bcadd($subtotalAfterDiscount, $netServiceFee, 2), $deliveryFee, 2);
+
+                $order->forceFill([
+                    'service_fee_discount' => $loyalty['service_fee_discount'],
+                    'loyalty_reward_type' => $loyalty['loyalty_reward_type'],
+                    'total' => $total,
+                ])->save();
+            }
 
             foreach ($builtItems as $built) {
                 $orderItem = OrderItem::query()->create([

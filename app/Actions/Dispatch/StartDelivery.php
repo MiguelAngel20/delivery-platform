@@ -43,7 +43,7 @@ final class StartDelivery
                 $locked,
                 OrderStatus::OnTheWay,
                 $actor,
-                'En camino al cliente',
+                'Repartidor afuera del domicilio del cliente',
             );
         });
 

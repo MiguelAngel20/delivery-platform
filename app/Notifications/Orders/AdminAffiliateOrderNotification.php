@@ -25,7 +25,7 @@ final class AdminAffiliateOrderNotification extends RideNotification
     {
         $name = $this->order->merchantDisplayName() ?: 'un afiliado';
 
-        return "Nuevo pedido #{$this->order->order_number} en {$name} con repartidores RIDE.";
+        return "Nuevo pedido #{$this->order->order_number} en {$name} con repartidores ChisDrive.";
     }
 
     public function priority(): NotificationPriority

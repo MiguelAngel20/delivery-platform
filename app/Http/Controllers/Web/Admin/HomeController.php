@@ -9,12 +9,13 @@ use App\Http\Controllers\Controller;
 use App\Models\CustomOrderRequest;
 use App\Models\Incident;
 use App\Models\Order;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class HomeController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(CustomerLoyaltyService $loyalty): Response
     {
         return Inertia::render('admin/home', [
             'operation' => [
@@ -40,6 +41,7 @@ class HomeController extends Controller
                     ])
                     ->count(),
             ],
+            'loyaltyLaunch' => $loyalty->adminLaunchOverview(),
         ]);
     }
 }

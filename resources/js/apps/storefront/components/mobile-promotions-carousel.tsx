@@ -32,11 +32,7 @@ export function MobilePromotionsCarousel({
     );
 
     if (promotions.length === 0) {
-        return (
-            <p className="text-sm text-muted-foreground">
-                No hay promociones activas por ahora.
-            </p>
-        );
+        return null;
     }
 
     return (

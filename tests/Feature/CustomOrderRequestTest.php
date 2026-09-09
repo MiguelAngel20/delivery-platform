@@ -78,6 +78,36 @@ test('customer can create custom request', function () {
         ->and($request?->establishment_name)->toBe('Cafetería Central');
 });
 
+test('customer can create custom request with temporary map address', function () {
+    ['user' => $user] = seedCustomCustomer();
+
+    $this->actingAs($user)
+        ->post(route('customer.custom-orders.store'), [
+            'establishment_name' => 'Farmacia del Centro',
+            'description' => 'Un kit de primeros auxilios',
+            'customer_notes' => null,
+            'delivery' => [
+                'source' => 'temporary',
+                'address_text' => 'Calle Central 10',
+                'formatted_address' => 'Calle Central 10, Comitán de Domínguez',
+                'reference' => 'Casa azul, portón negro',
+                'latitude' => 16.2514,
+                'longitude' => -92.1342,
+                'place_id' => 'ChIJ_custom_temp',
+                'google_maps_url' => 'https://maps.google.com/?q=16.2514,-92.1342',
+            ],
+        ])
+        ->assertRedirect();
+
+    $request = CustomOrderRequest::query()->latest('id')->first();
+
+    expect($request)->not->toBeNull()
+        ->and($request?->delivery_address_id)->toBeNull()
+        ->and($request?->temporary_delivery_address['address_text'] ?? null)->toBe('Calle Central 10')
+        ->and($request?->temporary_delivery_address['reference'] ?? null)->toBe('Casa azul, portón negro')
+        ->and($request?->temporary_delivery_address['place_id'] ?? null)->toBe('ChIJ_custom_temp');
+});
+
 test('customer cannot access another customers request', function () {
     ['user' => $owner, 'address' => $address] = seedCustomCustomer();
     $other = User::factory()->customer()->create();

@@ -217,11 +217,7 @@ export function PromotionsCarousel({
         promotions[0]?.id;
 
     if (promotions.length === 0) {
-        return (
-            <p className="hidden text-sm text-muted-foreground md:block">
-                No hay promociones activas por ahora.
-            </p>
-        );
+        return null;
     }
 
     return (

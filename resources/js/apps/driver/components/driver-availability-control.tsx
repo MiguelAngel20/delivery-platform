@@ -1,6 +1,6 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import { StatusBadge } from '@/components/data-display/status-badge';
-import type { StatusTone } from '@/components/data-display/status-badge';
 import { Button } from '@/components/ui/button';
 import { useBrowserGeolocation } from '@/hooks/use-browser-geolocation';
 import { cn } from '@/lib/utils';
@@ -12,25 +12,11 @@ export type DriverAvailability =
     | 'paused'
     | 'busy';
 
-const labels: Record<DriverAvailability, string> = {
-    offline: 'Desconectado',
-    available: 'Disponible',
-    paused: 'En pausa',
-    busy: 'En servicio',
-};
-
-const cycle: DriverAvailability[] = [
-    'available',
-    'paused',
-    'busy',
-    'offline',
-];
-
-const availabilityTone: Record<DriverAvailability, StatusTone> = {
-    offline: 'neutral',
-    available: 'success',
-    paused: 'warning',
-    busy: 'primary',
+const detailLabels: Record<DriverAvailability, string> = {
+    offline: 'desconectado',
+    available: 'disponible',
+    paused: 'en pausa',
+    busy: 'en servicio',
 };
 
 type DriverAvailabilityControlProps = {
@@ -39,23 +25,56 @@ type DriverAvailabilityControlProps = {
     compact?: boolean;
 };
 
+type DriverPageProps = {
+    driver?: {
+        availabilityStatus?: DriverAvailability;
+        hasActiveOrders?: boolean;
+    };
+    errors?: Record<string, string>;
+};
+
+function resolveAvailabilityStatus(
+    sharedStatus: DriverAvailability | undefined,
+    propStatus: DriverAvailability | undefined,
+): DriverAvailability {
+    return sharedStatus ?? propStatus ?? 'offline';
+}
+
+function isConnected(status: DriverAvailability): boolean {
+    return status !== 'offline';
+}
+
 export function DriverAvailabilityControl({
-    availabilityStatus = 'available',
+    availabilityStatus: availabilityStatusProp,
     className,
     compact = false,
 }: DriverAvailabilityControlProps) {
-    const label = labels[availabilityStatus];
+    const { driver, errors } = usePage<DriverPageProps>().props;
+    const availabilityStatus = resolveAvailabilityStatus(
+        driver?.availabilityStatus,
+        availabilityStatusProp,
+    );
+    const connected = isConnected(availabilityStatus);
+    const hasActiveOrders = driver?.hasActiveOrders ?? false;
+    const canDisconnect = connected && !hasActiveOrders;
+    const detailLabel = detailLabels[availabilityStatus];
     const { loading, error, requestCurrentPosition } = useBrowserGeolocation();
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
-    const cycleAvailability = async () => {
-        const currentIndex = cycle.indexOf(availabilityStatus);
-        const next = cycle[(currentIndex + 1) % cycle.length] ?? 'available';
+    const toggleConnection = async () => {
+        setSubmitError(null);
+
+        if (connected && hasActiveOrders) {
+            return;
+        }
+
+        const next: DriverAvailability = connected ? 'offline' : 'available';
 
         const payload: Record<string, string | number> = {
             availability_status: next,
         };
 
-        if (next === 'available' || next === 'busy') {
+        if (next === 'available') {
             const point = await requestCurrentPosition();
 
             if (point) {
@@ -64,13 +83,26 @@ export function DriverAvailabilityControl({
             }
         }
 
-        router.patch(updateAvailability.url(), payload);
+        router.patch(updateAvailability.url(), payload, {
+            preserveScroll: true,
+            onError: (pageErrors) => {
+                const message =
+                    pageErrors.availability_status ??
+                    pageErrors.location ??
+                    'No se pudo actualizar tu disponibilidad.';
+
+                setSubmitError(message);
+            },
+        });
     };
+
+    const feedbackError =
+        submitError ?? errors?.availability_status ?? errors?.location ?? error;
 
     if (compact) {
         return (
-            <StatusBadge tone={availabilityTone[availabilityStatus]}>
-                {label}
+            <StatusBadge tone={connected ? 'success' : 'neutral'}>
+                {connected ? 'Conectado' : 'Desconectado'}
             </StatusBadge>
         );
     }
@@ -84,24 +116,37 @@ export function DriverAvailabilityControl({
         >
             <p className="text-sm text-muted-foreground">Estado actual</p>
             <p className="mt-1 text-xl font-semibold text-navy">
-                Estás {label.toLowerCase()}
+                Estás {detailLabel}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
                 La ubicación se usa para asignación y operación del servicio.
             </p>
-            {error ? (
-                <p className="mt-2 text-sm text-destructive">{error}</p>
+            {feedbackError ? (
+                <p className="mt-2 text-sm text-destructive">{feedbackError}</p>
+            ) : null}
+            {connected && hasActiveOrders ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                    Completa tus pedidos activos antes de desconectarte.
+                </p>
             ) : null}
             <Button
                 type="button"
-                variant="outline"
-                className="mt-4 min-h-12 w-full"
-                disabled={loading}
+                variant={connected ? 'default' : 'outline'}
+                className={cn(
+                    'mt-4 min-h-12 w-full',
+                    canDisconnect &&
+                        'border-success bg-success text-white hover:bg-success/90',
+                )}
+                disabled={loading || (connected && hasActiveOrders)}
                 onClick={() => {
-                    void cycleAvailability();
+                    void toggleConnection();
                 }}
             >
-                {loading ? 'Obteniendo ubicación…' : 'Cambiar disponibilidad'}
+                {loading
+                    ? 'Obteniendo ubicación…'
+                    : connected
+                      ? 'Desconectar'
+                      : 'Conectarse'}
             </Button>
         </div>
     );

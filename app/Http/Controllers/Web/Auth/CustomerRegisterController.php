@@ -9,13 +9,21 @@ use App\Services\Auth\EmailVerificationCodeService;
 use App\Support\ApplicationPassword;
 use App\Support\PhoneDialCodes;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CustomerRegisterController extends Controller
 {
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        if ($request->string('continue')->toString() === 'custom-order') {
+            $request->session()->put(
+                'register.continue',
+                route('customer.custom-orders.create'),
+            );
+        }
+
         return Inertia::render('public/register/index', [
             'dialCodes' => PhoneDialCodes::options(),
             'defaultDialCode' => PhoneDialCodes::defaultDial(),
@@ -33,7 +41,10 @@ class CustomerRegisterController extends Controller
         $codes->issue($user);
 
         $request->session()->put('pending_customer_user_id', $user->id);
-        $request->session()->put('register.continue', route('customer.checkout'));
+
+        if (! $request->session()->has('register.continue')) {
+            $request->session()->put('register.continue', route('customer.checkout'));
+        }
 
         return redirect()->route('register.verify-email');
     }

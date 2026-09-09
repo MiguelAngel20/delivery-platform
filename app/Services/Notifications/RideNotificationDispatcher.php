@@ -233,7 +233,7 @@ final class RideNotificationDispatcher
 
         $shouldNotify = in_array($status, self::CUSTOMER_ACCEPTED_STATUSES, true)
             || $status === OrderStatus::PickedUp
-            || ($status === OrderStatus::OnTheWay && $previous !== OrderStatus::PickedUp)
+            || $status === OrderStatus::OnTheWay
             || $status === OrderStatus::Delivered;
 
         if (! $shouldNotify) {

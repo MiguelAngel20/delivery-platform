@@ -54,11 +54,11 @@ class LegalPageController extends Controller
         return [
             'terminos' => [
                 'title' => 'Términos y condiciones',
-                'summary' => 'Condiciones de uso de la plataforma RIDE para pedidos y entregas.',
+                'summary' => 'Condiciones de uso de la plataforma ChisDrive para pedidos y entregas.',
                 'sections' => [
                     [
                         'heading' => 'Uso del servicio',
-                        'body' => "Al usar RIDE aceptas utilizar la plataforma de forma responsable para solicitar pedidos, dar seguimiento a entregas y gestionar tu cuenta.\n\nNos reservamos el derecho de actualizar estos términos para mejorar el servicio o cumplir con la normativa aplicable.",
+                        'body' => "Al usar ChisDrive aceptas utilizar la plataforma de forma responsable para solicitar pedidos, dar seguimiento a entregas y gestionar tu cuenta.\n\nNos reservamos el derecho de actualizar estos términos para mejorar el servicio o cumplir con la normativa aplicable.",
                     ],
                     [
                         'heading' => 'Pedidos y pagos',
@@ -72,7 +72,7 @@ class LegalPageController extends Controller
             ],
             'aviso-de-privacidad' => [
                 'title' => 'Aviso de privacidad',
-                'summary' => 'Cómo tratamos tus datos personales al usar RIDE.',
+                'summary' => 'Cómo tratamos tus datos personales al usar ChisDrive.',
                 'sections' => [
                     [
                         'heading' => 'Datos que recopilamos',
@@ -90,7 +90,7 @@ class LegalPageController extends Controller
             ],
             'quejas-y-sugerencias' => [
                 'title' => 'Quejas y sugerencias',
-                'summary' => 'Queremos mejorar. Cuéntanos tu experiencia con RIDE.',
+                'summary' => 'Queremos mejorar. Cuéntanos tu experiencia con ChisDrive.',
                 'sections' => [
                     [
                         'heading' => 'Cómo contactarnos',
@@ -104,7 +104,7 @@ class LegalPageController extends Controller
             ],
             'afiliacion' => [
                 'title' => 'Contacto para afiliación',
-                'summary' => 'Únete a RIDE como negocio afiliado y llega a más clientes en Comitán.',
+                'summary' => 'Únete a ChisDrive como negocio afiliado y llega a más clientes en Comitán.',
                 'sections' => [
                     [
                         'heading' => 'Beneficios de afiliarte',

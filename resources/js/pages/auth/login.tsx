@@ -1,6 +1,6 @@
-import { Form, Head, setLayoutProps } from '@inertiajs/react';
+import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
-import { storefrontGoBack } from '@/apps/storefront/hooks/use-storefront-shell';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { create as register } from '@/actions/App/Http/Controllers/Web/Auth/CustomerRegisterController';
+import { home } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
 
@@ -30,6 +31,8 @@ export default function Login({
     submitLabel = 'Entrar',
     portal,
 }: Props) {
+    const [remember, setRemember] = useState(true);
+
     setLayoutProps({
         title,
         description,
@@ -42,15 +45,18 @@ export default function Login({
             {portal === 'customer' ? (
                 <div className="fixed inset-x-0 top-0 z-20 flex items-center px-2 py-2 md:hidden">
                     <Button
-                        type="button"
                         variant="ghost"
                         size="icon"
                         className="size-9"
-                        aria-label="Volver"
-                        data-test="login-back-button"
-                        onClick={storefrontGoBack}
+                        asChild
                     >
-                        <ArrowLeft className="size-5" />
+                        <Link
+                            href={home()}
+                            aria-label="Volver a inicio"
+                            data-test="login-back-button"
+                        >
+                            <ArrowLeft className="size-5" />
+                        </Link>
                     </Button>
                 </div>
             ) : null}
@@ -106,7 +112,12 @@ export default function Login({
                                 <Checkbox
                                     id="remember"
                                     name="remember"
+                                    value="1"
+                                    checked={remember}
                                     tabIndex={3}
+                                    onCheckedChange={(checked) =>
+                                        setRemember(checked === true)
+                                    }
                                 />
                                 <Label htmlFor="remember">Recordarme</Label>
                             </div>

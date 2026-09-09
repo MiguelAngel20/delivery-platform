@@ -10,6 +10,10 @@ import { CartLineCard } from '@/apps/storefront/components/cart-line-card';
 import { CheckoutFooter } from '@/apps/storefront/components/checkout-footer';
 import { CheckoutStepper } from '@/apps/storefront/components/checkout-stepper';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
+import {
+    LoyaltyProgressCard,
+    type LoyaltyProgress,
+} from '@/apps/customer/components/loyalty-progress-card';
 import { notify } from '@/components/feedback/toast';
 import { ProcessingOverlay } from '@/components/feedback/processing-overlay';
 import { EmptyState } from '@/components/feedback/empty-state';
@@ -35,8 +39,10 @@ type Address = {
 
 type Props = {
     addresses: Address[];
+    loyalty?: LoyaltyProgress | null;
     orderSettings: {
         service_fee: number;
+        service_fee_discount?: number;
         delivery_fee: number;
     };
 };
@@ -60,8 +66,8 @@ function isAddressValid(
     );
 }
 
-export default function CustomerCheckout({ addresses }: Props) {
-    const { cart: bag, subtotal, service, discount, total, clear } =
+export default function CustomerCheckout({ addresses, loyalty }: Props) {
+    const { cart: bag, subtotal, service, serviceFeeDiscount, discount, total, clear } =
         useStorefrontCart();
     const pageErrors = usePage().props.errors ?? {};
     const [step, setStep] = useState<CheckoutWizardStep>(2);
@@ -252,7 +258,7 @@ export default function CustomerCheckout({ addresses }: Props) {
     return (
         <>
             <Head title="Checkout" />
-            <PageContainer className="gap-5 px-4 py-4 pb-32 md:px-6 md:pb-36">
+            <PageContainer className="gap-5 px-4 py-4 pb-32 md:px-6 md:pb-6">
                 <CheckoutStepper currentStep={step} />
 
                 <div className="space-y-1">
@@ -446,9 +452,14 @@ export default function CustomerCheckout({ addresses }: Props) {
                             </ul>
                         </div>
 
+                        {loyalty ? (
+                            <LoyaltyProgressCard loyalty={loyalty} />
+                        ) : null}
+
                         <OrderSummary
                             subtotal={subtotal}
                             service={service}
+                            serviceFeeDiscount={serviceFeeDiscount}
                             discount={discount}
                         />
                     </section>

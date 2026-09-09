@@ -25,7 +25,7 @@ class OrderFactory extends Factory
     public function definition(): array
     {
         return [
-            'order_number' => 'RIDE-'.now()->format('Y').'-'.fake()->unique()->numerify('######'),
+            'order_number' => 'CHIS-'.now()->format('Y').'-'.fake()->unique()->numerify('######'),
             'customer_id' => Customer::factory(),
             'branch_id' => BusinessBranch::factory(),
             'created_by_user_id' => null,
@@ -38,6 +38,8 @@ class OrderFactory extends Factory
             'discount_total' => 0,
             'subtotal_after_discount' => 100,
             'service_fee' => 50,
+            'service_fee_discount' => 0,
+            'loyalty_reward_type' => null,
             'delivery_fee' => 0,
             'total' => 150,
             'estimated_preparation_minutes' => null,

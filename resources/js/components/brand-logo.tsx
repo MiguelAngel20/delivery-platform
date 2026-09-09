@@ -11,7 +11,7 @@ type BrandLogoProps = {
 export function BrandLogo({
     variant = 'horizontal',
     className,
-    alt = 'RIDE',
+    alt = 'ChisDrive',
 }: BrandLogoProps) {
     if (variant === 'responsive') {
         return (

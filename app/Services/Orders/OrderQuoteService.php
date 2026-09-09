@@ -219,7 +219,7 @@ final class OrderQuoteService
 
             if (! $locked->isPlatformManaged() || $locked->order_status !== OrderStatus::PendingPlatform) {
                 throw ValidationException::withMessages([
-                    'order' => 'Solo se puede ajustar el precio de un pedido pendiente de RIDE.',
+                    'order' => 'Solo se puede ajustar el precio de un pedido pendiente de ChisDrive.',
                 ]);
             }
 

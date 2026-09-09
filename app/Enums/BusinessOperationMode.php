@@ -12,7 +12,7 @@ enum BusinessOperationMode: string
     {
         return match ($this) {
             self::Partner => 'Empresa afiliada',
-            self::PlatformOperated => 'Administrada por RIDE',
+            self::PlatformOperated => 'Administrada por ChisDrive',
             self::Directory => 'Directorio',
         };
     }

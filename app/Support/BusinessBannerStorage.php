@@ -8,9 +8,24 @@ use Illuminate\Support\Facades\Storage;
 
 final class BusinessBannerStorage
 {
+    private const MAX_WIDTH = 1600;
+
+    private const MAX_HEIGHT = 900;
+
+    public function __construct(
+        private readonly WebpImageConverter $converter,
+    ) {}
+
     public function store(UploadedFile $file): string
     {
-        return $file->store('businesses/banners', 'public');
+        return $this->converter->store(
+            $file,
+            'businesses/banners',
+            self::MAX_WIDTH,
+            self::MAX_HEIGHT,
+            80,
+            'banner',
+        );
     }
 
     public function replace(Business $business, UploadedFile $file): string

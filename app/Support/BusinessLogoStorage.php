@@ -8,9 +8,24 @@ use Illuminate\Support\Facades\Storage;
 
 final class BusinessLogoStorage
 {
+    private const MAX_WIDTH = 512;
+
+    private const MAX_HEIGHT = 512;
+
+    public function __construct(
+        private readonly WebpImageConverter $converter,
+    ) {}
+
     public function store(UploadedFile $file): string
     {
-        return $file->store('businesses/logos', 'public');
+        return $this->converter->store(
+            $file,
+            'businesses/logos',
+            self::MAX_WIDTH,
+            self::MAX_HEIGHT,
+            85,
+            'logo',
+        );
     }
 
     public function replace(Business $business, UploadedFile $file): string

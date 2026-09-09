@@ -28,7 +28,10 @@ export function DeliveryLocationCue({ className }: DeliveryLocationCueProps) {
         maps?.default_place_label ?? 'Comitán de Domínguez, Chiapas';
 
     const place = hasCoordinates
-        ? location.detail || location.formatted_address || location.label
+        ? location.label ||
+          location.detail ||
+          location.formatted_address ||
+          'Entrega'
         : authenticated
           ? location.label
           : defaultPlace;

@@ -10,6 +10,7 @@ use App\Actions\Dispatch\RejectDeliveryOffer;
 use App\Actions\Dispatch\StartDelivery;
 use App\Enums\CancellationReasonCode;
 use App\Enums\IncidentType;
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Driver\CannotContinueRequest;
 use App\Http\Requests\Driver\ReportIncidentRequest;
@@ -29,6 +30,25 @@ use Inertia\Response;
 
 class OrderController extends Controller
 {
+    public function show(Request $request, Order $order): Response
+    {
+        $this->authorize('view', $order);
+
+        $driver = $this->currentDriver($request);
+
+        abort_unless(
+            (int) $order->assigned_driver_id === (int) $driver->id
+            && $order->order_status === OrderStatus::Delivered,
+            404,
+        );
+
+        $order->loadMissing(['branch.business', 'financial', 'driverRating']);
+
+        return Inertia::render('driver/orders/show', [
+            'order' => OrderData::forDriverCompleted($order),
+        ]);
+    }
+
     public function index(
         Request $request,
         AvailableOrdersQuery $availableOrders,
@@ -68,7 +88,7 @@ class OrderController extends Controller
             'message' => 'Pedido aceptado.',
         ]);
 
-        return redirect()->route('driver.home');
+        return back();
     }
 
     public function reject(
@@ -116,7 +136,7 @@ class OrderController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Pedido recogido.',
+            'message' => 'En camino al cliente.',
         ]);
 
         return back();
@@ -133,7 +153,7 @@ class OrderController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Entrega iniciada.',
+            'message' => 'Cliente notificado: estás afuera de su domicilio.',
         ]);
 
         return back();

@@ -344,17 +344,19 @@ export function AddressPicker({
         const timer = window.setTimeout(() => {
             fullscreenMapRef.current?.triggerResize();
 
-            if (value?.latitude != null && value?.longitude != null) {
+            const current = valueRef.current;
+
+            if (current?.latitude != null && current?.longitude != null) {
                 fullscreenMapRef.current?.recenter(
-                    Number(value.latitude),
-                    Number(value.longitude),
+                    Number(current.latitude),
+                    Number(current.longitude),
                     SELECTED_PLACE_ZOOM,
                 );
             }
         }, 250);
 
         return () => window.clearTimeout(timer);
-    }, [fullscreenOpen, value?.latitude, value?.longitude]);
+    }, [fullscreenOpen]);
 
     const wasFullscreenOpenRef = useRef(false);
 
@@ -369,17 +371,19 @@ export function AddressPicker({
         const timer = window.setTimeout(() => {
             inlineMapRef.current?.triggerResize();
 
-            if (value?.latitude != null && value?.longitude != null) {
+            const current = valueRef.current;
+
+            if (current?.latitude != null && current?.longitude != null) {
+                // Keep the zoom the user had; only re-sync center after layout resize.
                 inlineMapRef.current?.recenter(
-                    Number(value.latitude),
-                    Number(value.longitude),
-                    SELECTED_PLACE_ZOOM,
+                    Number(current.latitude),
+                    Number(current.longitude),
                 );
             }
         }, 250);
 
         return () => window.clearTimeout(timer);
-    }, [fullscreenOpen, value?.latitude, value?.longitude]);
+    }, [fullscreenOpen]);
 
     const mapBlockInteraction = suggestions.length > 0;
 

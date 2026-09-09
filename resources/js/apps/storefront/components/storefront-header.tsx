@@ -11,6 +11,10 @@ import {
     UserRound,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import {
+    LoyaltyProgressCard,
+    type LoyaltyProgress,
+} from '@/apps/customer/components/loyalty-progress-card';
 import { useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
 import { applyStorefrontCategoryFilter } from '@/apps/storefront/components/category-card';
 import { DeliveryLocationCue } from '@/apps/storefront/components/delivery-location-cue';
@@ -42,10 +46,11 @@ import type { Auth } from '@/types';
 
 export function StorefrontHeader() {
     const page = usePage();
-    const { auth, q: searchQuery = '', storefront } = page.props as {
+    const { auth, q: searchQuery = '', storefront, loyalty } = page.props as {
         auth: Auth;
         q?: string;
         storefront?: { categories?: MockCategory[] };
+        loyalty?: LoyaltyProgress | null;
     };
     const categories = storefront?.categories ?? [];
     const { itemCount } = useStorefrontCart();
@@ -145,13 +150,13 @@ export function StorefrontHeader() {
     return (
         <header className="sticky top-0 z-30 border-b border-border bg-surface">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-2 md:gap-3 md:px-6 md:py-3">
-                <div className="relative flex items-center gap-2 md:gap-3">
+                <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
                     {!onHomePage ? (
                         <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="relative z-10 size-8 shrink-0 md:hidden"
+                            className="size-8 shrink-0 md:hidden"
                             aria-label="Volver"
                             onClick={storefrontGoBack}
                         >
@@ -161,7 +166,7 @@ export function StorefrontHeader() {
                     <Link
                         href={home()}
                         className={cn(
-                            'relative z-10 shrink-0',
+                            'shrink-0',
                             !onHomePage && 'hidden md:inline-flex',
                         )}
                     >
@@ -169,9 +174,8 @@ export function StorefrontHeader() {
                     </Link>
                     <DeliveryLocationCue
                         className={cn(
-                            'absolute left-1/2 max-w-[min(13rem,calc(100%-7.5rem))] -translate-x-1/2 justify-center md:static md:ml-8 md:max-w-72 md:translate-x-0 md:justify-start',
-                            !onHomePage &&
-                                'hidden md:flex md:max-w-72 md:translate-x-0',
+                            'min-w-0 flex-1 justify-start md:ml-8 md:max-w-72 md:flex-none',
+                            !onHomePage && 'hidden md:flex',
                         )}
                     />
 
@@ -239,7 +243,7 @@ export function StorefrontHeader() {
                         ) : null}
                     </nav>
 
-                    <div className="relative z-10 ml-auto flex shrink-0 items-center gap-2.5 md:ml-0 md:gap-1.5">
+                    <div className="ml-auto flex shrink-0 items-center gap-0.5 md:gap-1.5">
                         {authenticated ? <NotificationBell compact /> : null}
                         <Button
                             asChild
@@ -275,7 +279,7 @@ export function StorefrontHeader() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
                                     align="end"
-                                    className="min-w-52"
+                                    className="min-w-64"
                                 >
                                     <DropdownMenuLabel className="font-normal">
                                         <p className="truncate text-sm font-medium text-navy">
@@ -285,6 +289,15 @@ export function StorefrontHeader() {
                                             {auth.user?.email}
                                         </p>
                                     </DropdownMenuLabel>
+                                    {loyalty ? (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <LoyaltyProgressCard
+                                                loyalty={loyalty}
+                                                variant="menu"
+                                            />
+                                        </>
+                                    ) : null}
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem asChild>
                                         <Link href={customer.orders.index()}>
@@ -373,21 +386,6 @@ export function StorefrontHeader() {
                         categories={categories}
                         selectedSlug={selectedCategory || null}
                     />
-                ) : null}
-
-                {authenticated ? (
-                    <div className="hidden gap-2 md:flex">
-                        <Button asChild variant="outline" size="sm">
-                            <Link href={customer.orders.index()}>
-                                Mis pedidos
-                            </Link>
-                        </Button>
-                        <Button asChild variant="outline" size="sm">
-                            <Link href={customer.addresses.index()}>
-                                Direcciones
-                            </Link>
-                        </Button>
-                    </div>
                 ) : null}
             </div>
         </header>

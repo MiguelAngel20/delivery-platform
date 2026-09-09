@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('customer timeline exposes five simplified milestones', function () {
+test('customer timeline exposes four simplified milestones', function () {
     $order = Order::factory()->create([
         'order_status' => OrderStatus::PendingBusiness,
     ]);
@@ -20,10 +20,9 @@ test('customer timeline exposes five simplified milestones', function () {
 
     $timeline = OrderData::customerTimeline($order->fresh(['statusHistory']));
 
-    expect($timeline)->toHaveCount(5)
+    expect($timeline)->toHaveCount(4)
         ->and(collect($timeline)->pluck('label')->all())->toBe([
             'Pedido recibido',
-            'Preparando tu pedido',
             'Tu pedido va en camino',
             'Tu pedido ya está afuera de tu domicilio',
             'Entregado',
@@ -52,10 +51,9 @@ test('customer timeline marks completed steps when order is on the way to custom
 
     expect($timeline[0]['done'])->toBeTrue()
         ->and($timeline[1]['done'])->toBeTrue()
-        ->and($timeline[2]['done'])->toBeTrue()
-        ->and($timeline[3]['current'])->toBeTrue()
-        ->and($timeline[3]['done'])->toBeFalse()
-        ->and($timeline[4]['done'])->toBeFalse();
+        ->and($timeline[2]['current'])->toBeTrue()
+        ->and($timeline[2]['done'])->toBeFalse()
+        ->and($timeline[3]['done'])->toBeFalse();
 });
 
 test('customer timeline marks all steps done when delivered', function () {
@@ -139,7 +137,7 @@ test('customer order detail includes simplified customer timeline', function () 
     ]));
 
     expect($payload)->toHaveKey('customer_timeline')
-        ->and($payload['customer_timeline'])->toHaveCount(5)
-        ->and($payload['customer_timeline'][1]['current'])->toBeTrue()
+        ->and($payload['customer_timeline'])->toHaveCount(4)
+        ->and($payload['customer_timeline'][0]['current'])->toBeTrue()
         ->and($payload['timeline'])->toHaveCount(2);
 });

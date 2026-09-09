@@ -25,7 +25,7 @@ enum OrderStatus: string
     {
         return match ($this) {
             self::PendingBusiness => 'Nuevo',
-            self::PendingPlatform => 'Pendiente RIDE',
+            self::PendingPlatform => 'Pendiente ChisDrive',
             self::PendingCustomerConfirmation => 'Esperando cliente',
             self::Accepted => 'Aceptado',
             self::Preparing => 'Preparando',
@@ -41,17 +41,31 @@ enum OrderStatus: string
         };
     }
 
+    public function driverLabel(): string
+    {
+        return match ($this) {
+            self::DriverAssigned, self::ReadyForPickup => 'Ve al establecimiento',
+            self::DriverAtBusiness => 'En el establecimiento',
+            self::PickedUp => 'En camino al cliente',
+            self::OnTheWay => 'Afuera del domicilio',
+            self::Delivered => 'Entregado',
+            default => $this->label(),
+        };
+    }
+
     public function customerLabel(): string
     {
         return match ($this) {
             self::PendingBusiness, self::PendingPlatform => 'Pedido recibido',
             self::PendingCustomerConfirmation => 'Confirma el nuevo total',
-            self::Accepted, self::Preparing, self::SearchingDriver => 'Preparando tu pedido',
-            self::ReadyForPickup => 'Listo para recoger',
-            self::DriverAssigned => 'Repartidor asignado',
-            self::DriverAtBusiness => 'Repartidor en el establecimiento',
-            self::PickedUp => 'Pedido recogido',
-            self::OnTheWay => 'En camino',
+            self::Accepted,
+            self::Preparing,
+            self::SearchingDriver,
+            self::ReadyForPickup,
+            self::DriverAssigned,
+            self::DriverAtBusiness => 'Pedido recibido',
+            self::PickedUp => 'Tu pedido va en camino',
+            self::OnTheWay => 'Tu pedido ya está afuera de tu domicilio',
             self::Delivered => 'Entregado',
             self::Rejected => 'Rechazado por el negocio',
             self::Cancelled => 'Cancelado',

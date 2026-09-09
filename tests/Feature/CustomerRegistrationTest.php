@@ -120,6 +120,37 @@ test('a customer can verify the email code and continue to checkout', function (
     expect($user->fresh()->email_verified_at)->not->toBeNull();
 });
 
+test('registration from custom order continues to the custom order form after verify', function () {
+    Notification::fake();
+
+    $this->get(route('register', ['continue' => 'custom-order']))
+        ->assertOk()
+        ->assertSessionHas('register.continue', route('customer.custom-orders.create'));
+
+    $this->post(route('register.store'), customerRegistrationPayload([
+        'email' => 'pedido.custom@example.com',
+        'phone_national' => '9617654321',
+    ]))->assertRedirect(route('register.verify-email'));
+
+    $user = User::query()->where('email', 'pedido.custom@example.com')->firstOrFail();
+    $code = '';
+
+    Notification::assertSentTo(
+        $user,
+        CustomerEmailVerificationCode::class,
+        function (CustomerEmailVerificationCode $notification) use (&$code): bool {
+            $code = $notification->code;
+
+            return true;
+        },
+    );
+
+    $this->post(route('register.verify-email.store'), ['code' => $code])
+        ->assertRedirect(route('customer.custom-orders.create'));
+
+    $this->assertAuthenticatedAs($user);
+});
+
 test('an invalid verification code is rejected', function () {
     Notification::fake();
 

@@ -75,7 +75,9 @@ test('system admin can create business', function () {
     expect($business)->not->toBeNull()
         ->and($business?->slug)->toStartWith('pollo-guero')
         ->and($business?->logo_path)->not->toBeNull()
-        ->and($business?->banner_path)->not->toBeNull();
+        ->and($business?->logo_path)->toEndWith('.webp')
+        ->and($business?->banner_path)->not->toBeNull()
+        ->and($business?->banner_path)->toEndWith('.webp');
 
     $response->assertRedirect(route('admin.businesses.show', $business));
 });
@@ -90,7 +92,7 @@ test('system admin can update business', function () {
         ->put(route('admin.businesses.update', $business), [
             'name' => 'Empresa Actualizada',
             'description' => 'Nueva descripción',
-            'business_type' => 'Cafetería',
+            'business_type' => 'Comida rápida',
             'operation_mode' => BusinessOperationMode::Directory->value,
             'delivery_mode' => BusinessDeliveryMode::None->value,
             'phone' => '+50255559999',
@@ -102,7 +104,7 @@ test('system admin can update business', function () {
     $business->refresh();
 
     expect($business->name)->toBe('Empresa Actualizada')
-        ->and($business->business_type)->toBe('Cafetería');
+        ->and($business->business_type)->toBe('Comida rápida');
 });
 
 test('system admin can update business via multipart form post spoofing put', function () {

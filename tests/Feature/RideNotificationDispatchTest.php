@@ -294,7 +294,7 @@ test('picked up notifies customer that the order is on the way', function () {
     );
 });
 
-test('on the way after pickup does not notify customer again', function () {
+test('on the way notifies customer that the driver is outside', function () {
     Notification::fake();
 
     $customerUser = User::factory()->customer()->create();
@@ -306,7 +306,12 @@ test('on the way after pickup does not notify customer again', function () {
 
     app(RideNotificationDispatcher::class)->statusChanged($order, OrderStatus::PickedUp);
 
-    Notification::assertNotSentTo($customerUser, OrderStatusChangedNotification::class);
+    Notification::assertSentTo(
+        $customerUser,
+        OrderStatusChangedNotification::class,
+        fn (OrderStatusChangedNotification $n): bool => $n->status === OrderStatus::OnTheWay
+            && $n->title() === 'Tu pedido ya está afuera',
+    );
 });
 
 test('employee of the same branch is notified of a new order', function () {

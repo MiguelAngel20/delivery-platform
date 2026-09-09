@@ -1,10 +1,32 @@
-import { Link } from '@inertiajs/react';
-import { ShoppingBag } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { MessageCircle, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { create } from '@/routes/customer/custom-orders';
+import { create as register } from '@/actions/App/Http/Controllers/Web/Auth/CustomerRegisterController';
+import { create as createCustomOrder } from '@/routes/customer/custom-orders';
+import type { Auth } from '@/types';
+
+type SupportProps = {
+    whatsapp_url?: string | null;
+    whatsapp_label?: string | null;
+};
 
 export function CustomOrderEntry({ className = '' }: { className?: string }) {
+    const { auth, support } = usePage().props as {
+        auth: Auth;
+        support?: SupportProps;
+    };
+
+    const isCustomer = auth.user?.role === 'customer';
+    const requestHref = isCustomer
+        ? createCustomOrder()
+        : register({ query: { continue: 'custom-order' } });
+
+    const whatsappUrl =
+        support?.whatsapp_url ?? 'https://wa.me/529633133731';
+    const whatsappLabel =
+        support?.whatsapp_label ?? 'Escribir por WhatsApp';
+
     return (
         <div
             className={cn(
@@ -33,12 +55,23 @@ export function CustomOrderEntry({ className = '' }: { className?: string }) {
                     size="lg"
                     className="relative min-h-11 bg-primary px-6 text-primary-foreground shadow-md hover:bg-primary-hover"
                 >
-                    <Link href={create()}>
+                    <Link href={requestHref}>
                         <ShoppingBag className="size-4" />
                         Solicitar pedido personalizado
                     </Link>
                 </Button>
             </div>
+
+            <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-navy underline-offset-4 hover:underline"
+                data-test="custom-order-whatsapp-link"
+            >
+                <MessageCircle className="size-4 text-primary" />
+                {whatsappLabel}
+            </a>
         </div>
     );
 }

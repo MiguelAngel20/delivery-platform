@@ -1,6 +1,8 @@
 import { Link } from '@inertiajs/react';
+import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { RestaurantCard } from '@/apps/storefront/components/restaurant-card';
+import { StorefrontEmptyNotice } from '@/apps/storefront/components/storefront-empty-notice';
 import type { MockRestaurant } from '@/apps/storefront/mocks';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,6 +12,10 @@ type RestaurantsGridProps = {
     restaurants: MockRestaurant[];
     title: string;
     className?: string;
+    emptyTitle?: string;
+    emptyDescription?: string;
+    emptyIcon?: ReactNode;
+    showViewAll?: boolean;
 };
 
 const INITIAL_DESKTOP = 25;
@@ -19,6 +25,10 @@ export function RestaurantsGrid({
     restaurants,
     title,
     className,
+    emptyTitle = 'No hay negocios por ahora',
+    emptyDescription = 'Cuando haya negocios disponibles, los verás listados aquí.',
+    emptyIcon,
+    showViewAll = true,
 }: RestaurantsGridProps) {
     const [visibleCount, setVisibleCount] = useState(INITIAL_DESKTOP);
 
@@ -33,15 +43,19 @@ export function RestaurantsGrid({
         <section className={cn('space-y-3', className)}>
             <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-navy">{title}</h2>
-                <Button asChild variant="ghost" size="sm">
-                    <Link href={restaurantsRoute.index()}>Ver todos</Link>
-                </Button>
+                {showViewAll && restaurants.length > 0 ? (
+                    <Button asChild variant="ghost" size="sm">
+                        <Link href={restaurantsRoute.index()}>Ver todos</Link>
+                    </Button>
+                ) : null}
             </div>
 
             {restaurants.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No hay negocios en esta categoría por ahora.
-                </p>
+                <StorefrontEmptyNotice
+                    title={emptyTitle}
+                    description={emptyDescription}
+                    icon={emptyIcon}
+                />
             ) : (
                 <>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

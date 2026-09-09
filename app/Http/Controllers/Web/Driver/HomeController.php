@@ -2,85 +2,92 @@
 
 namespace App\Http\Controllers\Web\Driver;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
+use App\Models\DriverRating;
 use App\Models\Order;
 use App\Models\User;
-use App\Services\Dispatch\AvailableOrdersQuery;
-use App\Services\Dispatch\DriverActiveOrderService;
-use App\Services\Dispatch\DriverRankingService;
 use App\Support\OrderData;
+use App\Support\ReputationPresenter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class HomeController extends Controller
 {
-    public function __invoke(
-        Request $request,
-        DriverActiveOrderService $activeOrders,
-        AvailableOrdersQuery $availableOrders,
-        DriverRankingService $ranking,
-    ): Response {
+    public function __invoke(Request $request): Response
+    {
         $driver = $this->currentDriver($request);
-        $active = $activeOrders->activeOrdersFor($driver);
+        [$from, $to] = $this->resolveDateRange($request);
 
-        $grouped = $active
-            ->groupBy(fn (Order $order): string => (string) $order->branch_id)
-            ->map(function ($orders) {
-                /** @var Order $first */
-                $first = $orders->first();
+        $completedOrders = Order::query()
+            ->where('assigned_driver_id', $driver->id)
+            ->where('order_status', OrderStatus::Delivered)
+            ->whereNotNull('delivered_at')
+            ->whereBetween('delivered_at', [$from, $to])
+            ->with(['branch.business', 'financial', 'driverRating'])
+            ->latest('delivered_at')
+            ->limit(30)
+            ->get()
+            ->map(fn (Order $order): array => OrderData::driverCompletedCard($order))
+            ->values()
+            ->all();
+
+        $ratings = DriverRating::query()
+            ->where('driver_id', $driver->id)
+            ->whereBetween('created_at', [$from, $to])
+            ->with(['order', 'customer.user'])
+            ->latest('created_at')
+            ->limit(30)
+            ->get()
+            ->map(function (DriverRating $rating): array {
+                $customer = $rating->customer;
 
                 return [
-                    'branch_id' => $first->branch_id,
-                    'business' => $first->branch?->business?->name,
-                    'branch_name' => $first->branch?->name,
-                    'order_numbers' => $orders->pluck('order_number')->values()->all(),
-                    'orders' => $orders
-                        ->map(fn (Order $order): array => OrderData::driverActiveCard($order))
-                        ->values()
-                        ->all(),
+                    'id' => $rating->id,
+                    'order_id' => $rating->order_id,
+                    'order_number' => $rating->order?->order_number,
+                    'overall_rating' => $rating->overall_rating,
+                    'speed_rating' => $rating->speed_rating,
+                    'service_rating' => $rating->service_rating,
+                    'care_rating' => $rating->care_rating,
+                    'respect_rating' => $rating->respect_rating,
+                    'communication_rating' => $rating->communication_rating,
+                    'comment' => $rating->comment,
+                    'created_at' => $rating->created_at?->toIso8601String(),
+                    'customer_name' => $customer !== null
+                        ? ReputationPresenter::customerForDriver($customer)['name']
+                        : 'Cliente',
                 ];
             })
             ->values()
             ->all();
 
-        $offersCollection = $availableOrders->forDriver($driver);
-
-        $compatible = $offersCollection
-            ->filter(function (Order $order) use ($active): bool {
-                if ($active->isEmpty()) {
-                    return false;
-                }
-
-                return (int) $order->branch_id === (int) $active->first()?->branch_id;
-            })
-            ->take(3)
-            ->map(fn (Order $order): array => OrderData::driverAvailableCard(
-                $order,
-                $ranking->distanceToPickupMeters($driver, $order),
-            ))
-            ->values()
-            ->all();
-
-        $offers = $offersCollection
-            ->take(10)
-            ->map(fn (Order $order): array => OrderData::driverAvailableCard(
-                $order,
-                $ranking->distanceToPickupMeters($driver, $order),
-            ))
-            ->values()
-            ->all();
-
         return Inertia::render('driver/home', [
-            'availabilityStatus' => $driver->availability_status->value,
-            'stats' => [
-                'active_orders' => $active->count(),
+            'completedOrders' => $completedOrders,
+            'ratings' => $ratings,
+            'filters' => [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
             ],
-            'activeGroups' => $grouped,
-            'compatibleOrders' => $compatible,
-            'availableOrders' => $offers,
         ]);
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function resolveDateRange(Request $request): array
+    {
+        $from = $request->date('from') ?? Carbon::today();
+        $to = $request->date('to') ?? Carbon::today();
+
+        if ($from->greaterThan($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return [$from->copy()->startOfDay(), $to->copy()->endOfDay()];
     }
 
     private function currentDriver(Request $request): Driver

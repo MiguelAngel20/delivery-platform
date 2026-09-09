@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BusinessOperationMode;
+use App\Enums\LoyaltyRewardType;
 use App\Enums\OrderAddressType;
 use App\Enums\OrderStatus;
 use App\Enums\OrderType;
@@ -34,6 +35,8 @@ use Illuminate\Support\Carbon;
  * @property string $discount_total
  * @property string $subtotal_after_discount
  * @property string $service_fee
+ * @property string $service_fee_discount
+ * @property string|null $loyalty_reward_type
  * @property string $delivery_fee
  * @property string $total
  * @property int|null $estimated_preparation_minutes
@@ -65,6 +68,8 @@ use Illuminate\Support\Carbon;
     'discount_total',
     'subtotal_after_discount',
     'service_fee',
+    'service_fee_discount',
+    'loyalty_reward_type',
     'delivery_fee',
     'total',
     'estimated_preparation_minutes',
@@ -99,6 +104,8 @@ class Order extends Model
             'discount_total' => 'decimal:2',
             'subtotal_after_discount' => 'decimal:2',
             'service_fee' => 'decimal:2',
+            'service_fee_discount' => 'decimal:2',
+            'loyalty_reward_type' => LoyaltyRewardType::class,
             'delivery_fee' => 'decimal:2',
             'total' => 'decimal:2',
             'estimated_preparation_minutes' => 'integer',

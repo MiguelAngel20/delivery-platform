@@ -30,6 +30,7 @@ test('guests are redirected from admin pages', function (string $routeName) {
     $this->get(route($routeName))->assertRedirect(route('login'));
 })->with([
     'businesses' => 'admin.businesses.index',
+    'business-types' => 'admin.business-types.index',
     'drivers' => 'admin.drivers.index',
     'customers' => 'admin.customers.index',
     'orders' => 'admin.orders.index',

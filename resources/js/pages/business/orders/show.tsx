@@ -202,7 +202,7 @@ export default function BusinessOrderShow({
                                 </span>
                             </span>
                             <span className="mt-1 flex justify-between gap-3">
-                                <span>Servicio RIDE</span>
+                                <span>Servicio ChisDrive</span>
                                 <span>
                                     {formatMoney(
                                         order.financial?.service_fee ??

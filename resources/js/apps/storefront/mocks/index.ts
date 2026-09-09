@@ -271,7 +271,7 @@ export const mockAddresses: MockAddress[] = [
 export const mockCustomerOrders: MockCustomerOrder[] = [
     {
         id: 'ord-1',
-        code: 'RIDE-1052',
+        code: 'CHIS-1052',
         restaurant: 'Pizza Roma',
         status: 'preparing',
         statusLabel: 'Preparando',
@@ -295,7 +295,7 @@ export const mockCustomerOrders: MockCustomerOrder[] = [
     },
     {
         id: 'ord-2',
-        code: 'RIDE-1040',
+        code: 'CHIS-1040',
         restaurant: 'Pollo Güero',
         status: 'managing',
         statusLabel: 'Estamos gestionando tu pedido',
@@ -322,7 +322,7 @@ export const mockCustomerOrders: MockCustomerOrder[] = [
     },
     {
         id: 'ord-3',
-        code: 'RIDE-1030',
+        code: 'CHIS-1030',
         restaurant: 'Pizza Roma',
         status: 'delivered',
         statusLabel: 'Entregado',

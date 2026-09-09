@@ -1,8 +1,16 @@
 import { Head, useForm } from '@inertiajs/react';
+import { Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { AddressPicker } from '@/components/maps/address-picker';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import type { AddressValue } from '@/lib/maps/types';
 import { destroy, store } from '@/routes/customer/addresses';
@@ -22,21 +30,37 @@ type Props = {
     maxAddresses: number;
 };
 
+const emptyForm = {
+    label: '',
+    address_text: '',
+    formatted_address: '',
+    reference: '',
+    latitude: '',
+    longitude: '',
+    place_id: '',
+    google_maps_url: '',
+    is_default: false,
+};
+
 export default function CustomerAddressesIndex({
     addresses,
     maxAddresses,
 }: Props) {
+    const [open, setOpen] = useState(false);
+    const canAdd = addresses.length < maxAddresses;
     const form = useForm({
-        label: '',
-        address_text: '',
-        formatted_address: '',
-        reference: '',
-        latitude: '',
-        longitude: '',
-        place_id: '',
-        google_maps_url: '',
+        ...emptyForm,
         is_default: addresses.length === 0,
     });
+
+    const openCreate = () => {
+        form.clearErrors();
+        form.setData({
+            ...emptyForm,
+            is_default: addresses.length === 0,
+        });
+        setOpen(true);
+    };
 
     const onAddressChange = (value: AddressValue) => {
         form.setData((data) => ({
@@ -58,50 +82,94 @@ export default function CustomerAddressesIndex({
                 <PageHeader
                     title="Mis direcciones"
                     description={`Máximo ${maxAddresses} activas`}
+                    actions={
+                        canAdd ? (
+                            <Button
+                                type="button"
+                                className="gap-1.5"
+                                onClick={openCreate}
+                            >
+                                <Plus className="size-4" aria-hidden />
+                                Agregar dirección
+                            </Button>
+                        ) : null
+                    }
                 />
 
                 <div className="space-y-3">
-                    {addresses.map((address) => (
-                        <div
-                            key={address.id}
-                            className="rounded-xl border border-border bg-surface p-4"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <p className="font-semibold text-navy">
-                                        {address.label}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        {address.address_text}
-                                    </p>
+                    {addresses.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-border bg-surface px-4 py-8 text-center text-sm text-muted-foreground">
+                            Aún no tienes direcciones guardadas.
+                        </p>
+                    ) : (
+                        addresses.map((address) => (
+                            <div
+                                key={address.id}
+                                className="rounded-xl border border-border bg-surface p-4"
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-navy">
+                                            {address.label}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {address.address_text}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                        aria-label={`Eliminar ${address.label}`}
+                                        onClick={() =>
+                                            form.delete(destroy.url(address.id))
+                                        }
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
                                 </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                        form.delete(destroy.url(address.id))
-                                    }
-                                >
-                                    Eliminar
-                                </Button>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
+            </PageContainer>
 
-                {addresses.length < maxAddresses ? (
+            <Dialog
+                open={open}
+                onOpenChange={(next) => {
+                    setOpen(next);
+                    if (!next) {
+                        form.clearErrors();
+                    }
+                }}
+            >
+                <DialogContent className="flex max-h-[95dvh] flex-col gap-3 overflow-y-auto sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Nueva dirección</DialogTitle>
+                    </DialogHeader>
                     <form
-                        className="space-y-3 rounded-xl border border-border bg-surface p-4"
+                        className="space-y-3"
                         onSubmit={(event) => {
                             event.preventDefault();
-                            form.post(store.url(), { preserveScroll: true });
+                            form.post(store.url(), {
+                                preserveScroll: true,
+                                onSuccess: () => {
+                                    setOpen(false);
+                                    form.reset();
+                                    form.setData(
+                                        'is_default',
+                                        addresses.length === 0,
+                                    );
+                                },
+                            });
                         }}
                     >
-                        <h2 className="font-semibold text-navy">
-                            Nueva dirección
-                        </h2>
-                        <FormField label="Etiqueta" required error={form.errors.label}>
+                        <FormField
+                            label="Etiqueta"
+                            required
+                            error={form.errors.label}
+                        >
                             <Input
                                 value={form.data.label}
                                 onChange={(event) =>
@@ -124,19 +192,25 @@ export default function CustomerAddressesIndex({
                                 place_id: form.data.place_id,
                             }}
                             showCurrentLocation
+                            mapHeightClassName="h-[min(45vh,20rem)] sm:h-80"
                             onChange={onAddressChange}
                         />
                         {form.errors.address_text || form.errors.latitude ? (
                             <p className="text-sm text-destructive">
-                                {form.errors.address_text ?? form.errors.latitude}
+                                {form.errors.address_text ??
+                                    form.errors.latitude}
                             </p>
                         ) : null}
-                        <Button type="submit" disabled={form.processing}>
+                        <Button
+                            type="submit"
+                            className="min-h-12 w-full"
+                            disabled={form.processing}
+                        >
                             Guardar dirección
                         </Button>
                     </form>
-                ) : null}
-            </PageContainer>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

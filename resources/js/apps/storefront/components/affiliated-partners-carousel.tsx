@@ -46,7 +46,7 @@ export function AffiliatedPartnersCarousel({
 
     return (
         <section
-            aria-label="Empresas afiliadas a RIDE"
+            aria-label="Empresas afiliadas a ChisDrive"
             aria-roledescription="carrusel"
             className={cn(
                 'relative min-w-0 w-full overflow-hidden rounded-2xl bg-secondary',

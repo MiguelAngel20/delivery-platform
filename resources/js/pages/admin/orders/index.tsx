@@ -89,7 +89,7 @@ const columns: DataTableColumn<OrderRow>[] = [
                 {row.is_custom ? (
                     <StatusBadge tone="neutral">Personalizado</StatusBadge>
                 ) : row.is_platform_managed ? (
-                    <StatusBadge tone="info">RIDE</StatusBadge>
+                    <StatusBadge tone="info">ChisDrive</StatusBadge>
                 ) : null}
             </div>
         ),
@@ -163,7 +163,7 @@ export default function AdminOrdersIndex({
             <PageContainer>
                 <PageHeader
                     title="Pedidos"
-                    description={`${queue.pending_platform} pendientes RIDE · ${queue.pending_customer_confirmation} esperando cliente · ${queue.open_incidents} incidencias`}
+                    description={`${queue.pending_platform} pendientes ChisDrive · ${queue.pending_customer_confirmation} esperando cliente · ${queue.open_incidents} incidencias`}
                 />
                 <DataTable
                     columns={columns}

@@ -124,12 +124,13 @@ test('driver average recalculates correctly', function () {
         ->and((float) $metrics->average_rating)->toBe(4.0);
 });
 
-test('driver active card hides sensitive customer data', function () {
-    ['order' => $order] = driverRatingMakeDeliveredOrder();
+test('driver active card includes customer phone for delivery contact', function () {
+    ['order' => $order, 'customerUser' => $customerUser] = driverRatingMakeDeliveredOrder();
+    $customerUser->update(['phone' => '9611234567']);
 
     $card = OrderData::driverActiveCard($order->fresh(['customer.user', 'customer.metrics']));
 
-    expect($card['customer'])->not->toHaveKey('phone')
+    expect($card['customer']['phone'])->toBe('9611234567')
         ->and($card['customer'])->not->toHaveKey('email')
         ->and($card['customer']['name'])->not->toContain('@');
 });

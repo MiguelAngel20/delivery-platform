@@ -5,6 +5,7 @@ use App\Http\Controllers\Web\Admin\BusinessBranchController;
 use App\Http\Controllers\Web\Admin\BusinessController;
 use App\Http\Controllers\Web\Admin\BusinessDriverController;
 use App\Http\Controllers\Web\Admin\BusinessLimitController;
+use App\Http\Controllers\Web\Admin\BusinessTypeController;
 use App\Http\Controllers\Web\Admin\BusinessUpgradeRequestController;
 use App\Http\Controllers\Web\Admin\BusinessUserController;
 use App\Http\Controllers\Web\Admin\Catalog\CatalogController;
@@ -30,6 +31,9 @@ Route::middleware([
 
         Route::resource('businesses', BusinessController::class)
             ->except(['destroy']);
+
+        Route::resource('business-types', BusinessTypeController::class)
+            ->only(['index', 'store', 'update', 'destroy']);
 
         Route::post('businesses/{business}/approve', [BusinessController::class, 'approve'])
             ->name('businesses.approve');
@@ -116,6 +120,7 @@ Route::middleware([
         Route::post('customers/{customer}/block-trust', [CustomerController::class, 'blockTrust'])->name('customers.block-trust');
         Route::post('customers/{customer}/unblock-trust', [CustomerController::class, 'unblockTrust'])->name('customers.unblock-trust');
 
+        Route::get('orders/inbox', [OrderController::class, 'inbox'])->name('orders.inbox');
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('orders/{order}', [OrderController::class, 'show'])->name('orders.show');
         Route::post('orders/{order}/confirm', [OrderController::class, 'confirm'])->name('orders.confirm');

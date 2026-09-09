@@ -5,6 +5,7 @@ namespace App\Actions\Orders;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderStateService;
 use App\Services\Realtime\OrderRealtimePublisher;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ final class RejectBusinessOrder
     public function __construct(
         private readonly OrderStateService $stateService,
         private readonly OrderRealtimePublisher $realtime,
+        private readonly CustomerLoyaltyService $loyalty,
     ) {}
 
     public function handle(Order $order, User $actor, string $reason): Order
@@ -27,9 +29,10 @@ final class RejectBusinessOrder
 
         $previous = $order->order_status;
 
-        $updated = DB::transaction(function () use ($order, $actor, $reason): Order {
+        $updated = DB::transaction(function () use ($order, $actor, $reason, &$previous): Order {
             /** @var Order $locked */
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $previous = $locked->order_status;
 
             if (! $locked->order_status->isAwaitingMerchantConfirmation()) {
                 throw ValidationException::withMessages([
@@ -46,6 +49,7 @@ final class RejectBusinessOrder
         });
 
         $this->realtime->statusChanged($updated, $previous);
+        $this->loyalty->handleOrderCancelled($updated, $previous);
 
         return $updated;
     }

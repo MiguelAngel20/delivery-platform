@@ -8,9 +8,23 @@ use Illuminate\Support\Facades\Storage;
 
 final class PromotionImageStorage
 {
+    private const MAX_WIDTH = 1200;
+
+    private const MAX_HEIGHT = 1200;
+
+    public function __construct(
+        private readonly WebpImageConverter $converter,
+    ) {}
+
     public function store(UploadedFile $file): string
     {
-        return $file->store('promotions/images', 'public');
+        return $this->converter->store(
+            $file,
+            'promotions/images',
+            self::MAX_WIDTH,
+            self::MAX_HEIGHT,
+            attribute: 'image',
+        );
     }
 
     public function replace(Promotion $promotion, UploadedFile $file): string

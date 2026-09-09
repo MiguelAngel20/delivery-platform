@@ -288,7 +288,7 @@ class CatalogController extends Controller
         abort_unless(
             $business->operation_mode === BusinessOperationMode::PlatformOperated,
             403,
-            'El catálogo Admin aplica a empresas operadas por RIDE.',
+            'El catálogo Admin aplica a empresas operadas por ChisDrive.',
         );
     }
 
