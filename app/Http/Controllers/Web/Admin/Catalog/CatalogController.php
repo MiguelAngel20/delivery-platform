@@ -183,7 +183,7 @@ class CatalogController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Producto creado.']);
 
-        return to_route('admin.businesses.catalog.products.edit', [$business, $product]);
+        return to_route('admin.businesses.catalog.products.index', $business);
     }
 
     public function productsEdit(Business $business, Product $product): Response

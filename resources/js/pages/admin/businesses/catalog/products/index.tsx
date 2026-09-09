@@ -62,7 +62,7 @@ export default function AdminCatalogProductsIndex({
                             <BackButton href={base} />
                             <Button asChild>
                                 <Link href={`${base}/products/create`}>
-                                    Nuevo
+                                    Agregar producto
                                 </Link>
                             </Button>
                         </>

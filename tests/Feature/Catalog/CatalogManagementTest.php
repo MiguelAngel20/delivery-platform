@@ -316,6 +316,29 @@ test('system admin can manage platform operated catalog', function () {
     expect(ProductCategory::query()->where('name', 'Admin categoría')->exists())->toBeTrue();
 });
 
+test('system admin is redirected to products index after creating a product', function () {
+    $systemAdmin = User::factory()->systemAdmin()->create();
+    $business = Business::factory()->create([
+        'operation_mode' => BusinessOperationMode::PlatformOperated,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+    $category = ProductCategory::factory()->create(['branch_id' => $branch->id]);
+
+    $this->actingAs($systemAdmin)
+        ->post(route('admin.businesses.catalog.products.store', $business), [
+            'branch_id' => $branch->id,
+            'product_category_id' => $category->id,
+            'name' => 'Producto admin',
+            'description' => 'Creado desde admin',
+            'list_price' => 80,
+            'is_available' => true,
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('admin.businesses.catalog.products.index', $business));
+
+    expect(Product::query()->where('name', 'Producto admin')->exists())->toBeTrue();
+});
+
 test('business admin can manage platform operated catalog', function () {
     $admin = User::factory()->businessAdmin()->create();
     $business = Business::factory()->create([
