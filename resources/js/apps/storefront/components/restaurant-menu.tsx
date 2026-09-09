@@ -153,7 +153,7 @@ function SectionBlock({
                             {subsection.name}
                         </h4>
                     ) : null}
-                    <div className="grid gap-2 md:gap-3">
+                    <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
                         {subsection.products.map((product) => (
                             <ProductCard
                                 key={product.id}
@@ -221,8 +221,11 @@ export function RestaurantMenu({
 
     return (
         <div className="space-y-4">
-            <nav aria-label="Categorías del menú" className="-mx-1 md:hidden">
-                <div className="flex gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <nav
+                aria-label="Categorías del menú"
+                className="sticky top-[4.25rem] z-20 -mx-1 border-b border-border/60 bg-background/95 px-1 pb-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:top-[5.25rem]"
+            >
+                <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:gap-2.5">
                     {sections.map((section) => {
                         const id = String(section.id);
                         const selected = String(activeSection.id) === id;
@@ -234,7 +237,7 @@ export function RestaurantMenu({
                                 onClick={() => setActiveSectionId(id)}
                                 aria-pressed={selected}
                                 className={cn(
-                                    'shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
+                                    'shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors md:px-4 md:py-2 md:text-sm',
                                     selected
                                         ? 'border-navy bg-navy text-white'
                                         : 'border-border bg-secondary/70 text-navy hover:border-primary/40',
@@ -247,26 +250,11 @@ export function RestaurantMenu({
                 </div>
             </nav>
 
-            {/* Mobile: only the selected category */}
-            <div className="md:hidden">
-                <SectionBlock
-                    section={activeSection}
-                    canOrder={canOrder}
-                    onAdd={onAdd}
-                />
-            </div>
-
-            {/* Desktop: full menu */}
-            <div className="hidden space-y-8 md:block">
-                {sections.map((section) => (
-                    <SectionBlock
-                        key={String(section.id)}
-                        section={section}
-                        canOrder={canOrder}
-                        onAdd={onAdd}
-                    />
-                ))}
-            </div>
+            <SectionBlock
+                section={activeSection}
+                canOrder={canOrder}
+                onAdd={onAdd}
+            />
         </div>
     );
 }
