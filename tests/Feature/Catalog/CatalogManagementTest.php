@@ -17,6 +17,7 @@ use App\Models\ProductPrice;
 use App\Models\Promotion;
 use App\Models\PromotionItem;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 
 function seedCatalogBusinessAdmin(): array
 {
@@ -361,4 +362,154 @@ test('business admin can manage platform operated catalog', function () {
         ->assertRedirect();
 
     expect(ProductCategory::query()->where('name', 'Categoría afiliación')->exists())->toBeTrue();
+});
+
+test('products can reuse an existing image path from the same business', function () {
+    Storage::fake('public');
+
+    $systemAdmin = User::factory()->systemAdmin()->create();
+    $business = Business::factory()->create([
+        'operation_mode' => BusinessOperationMode::PlatformOperated,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+    $category = ProductCategory::factory()->create(['branch_id' => $branch->id]);
+
+    $sharedPath = 'products/images/shared-tacos.webp';
+    Storage::disk('public')->put($sharedPath, 'fake-image');
+
+    Product::factory()->create([
+        'branch_id' => $branch->id,
+        'product_category_id' => $category->id,
+        'name' => 'Taco asada',
+        'image_path' => $sharedPath,
+    ]);
+
+    $this->actingAs($systemAdmin)
+        ->post(route('admin.businesses.catalog.products.store', $business), [
+            'branch_id' => $branch->id,
+            'product_category_id' => $category->id,
+            'name' => 'Taco pastor',
+            'list_price' => 45,
+            'existing_image_path' => $sharedPath,
+            'is_available' => true,
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('admin.businesses.catalog.products.index', $business));
+
+    $pastor = Product::query()->where('name', 'Taco pastor')->first();
+
+    expect($pastor)->not->toBeNull()
+        ->and($pastor?->image_path)->toBe($sharedPath)
+        ->and(Storage::disk('public')->exists($sharedPath))->toBeTrue();
+});
+
+test('product cannot reuse an image path from another business', function () {
+    Storage::fake('public');
+
+    $systemAdmin = User::factory()->systemAdmin()->create();
+    $business = Business::factory()->create([
+        'operation_mode' => BusinessOperationMode::PlatformOperated,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+    $category = ProductCategory::factory()->create(['branch_id' => $branch->id]);
+
+    $foreignPath = 'products/images/foreign.webp';
+    Storage::disk('public')->put($foreignPath, 'fake-image');
+
+    $otherBusiness = Business::factory()->create();
+    $otherBranch = BusinessBranch::factory()->for($otherBusiness)->create();
+    Product::factory()->create([
+        'branch_id' => $otherBranch->id,
+        'image_path' => $foreignPath,
+    ]);
+
+    $this->actingAs($systemAdmin)
+        ->from(route('admin.businesses.catalog.products.create', $business))
+        ->post(route('admin.businesses.catalog.products.store', $business), [
+            'branch_id' => $branch->id,
+            'product_category_id' => $category->id,
+            'name' => 'Producto inválido',
+            'list_price' => 30,
+            'existing_image_path' => $foreignPath,
+        ])
+        ->assertSessionHasErrors('existing_image_path');
+
+    expect(Product::query()->where('name', 'Producto inválido')->exists())->toBeFalse();
+});
+
+test('replacing a shared product image keeps the file while another product uses it', function () {
+    Storage::fake('public');
+
+    $systemAdmin = User::factory()->systemAdmin()->create();
+    $business = Business::factory()->create([
+        'operation_mode' => BusinessOperationMode::PlatformOperated,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+    $category = ProductCategory::factory()->create(['branch_id' => $branch->id]);
+
+    $sharedPath = 'products/images/keep-shared.webp';
+    $nextPath = 'products/images/other.webp';
+    Storage::disk('public')->put($sharedPath, 'shared');
+    Storage::disk('public')->put($nextPath, 'other');
+
+    $shared = Product::factory()->create([
+        'branch_id' => $branch->id,
+        'product_category_id' => $category->id,
+        'name' => 'Comparte imagen',
+        'image_path' => $sharedPath,
+    ]);
+    Product::factory()->create([
+        'branch_id' => $branch->id,
+        'product_category_id' => $category->id,
+        'name' => 'Ya usa other',
+        'image_path' => $nextPath,
+    ]);
+    $changing = Product::factory()->create([
+        'branch_id' => $branch->id,
+        'product_category_id' => $category->id,
+        'name' => 'Cambia imagen',
+        'image_path' => $sharedPath,
+    ]);
+
+    $this->actingAs($systemAdmin)
+        ->post(route('admin.businesses.catalog.products.update', [$business, $changing]), [
+            'product_category_id' => $category->id,
+            'name' => 'Cambia imagen',
+            'list_price' => 55,
+            'existing_image_path' => $nextPath,
+            'is_available' => true,
+            'is_active' => true,
+        ])
+        ->assertRedirect();
+
+    expect($changing->fresh()->image_path)->toBe($nextPath)
+        ->and($shared->fresh()->image_path)->toBe($sharedPath)
+        ->and(Storage::disk('public')->exists($sharedPath))->toBeTrue()
+        ->and(Storage::disk('public')->exists($nextPath))->toBeTrue();
+});
+
+test('catalog form options expose distinct product images for the business', function () {
+    Storage::fake('public');
+
+    $systemAdmin = User::factory()->systemAdmin()->create();
+    $business = Business::factory()->create([
+        'operation_mode' => BusinessOperationMode::PlatformOperated,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+
+    $path = 'products/images/menu.webp';
+    Storage::disk('public')->put($path, 'menu');
+
+    Product::factory()->count(2)->create([
+        'branch_id' => $branch->id,
+        'image_path' => $path,
+    ]);
+
+    $this->actingAs($systemAdmin)
+        ->get(route('admin.businesses.catalog.products.create', $business))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/businesses/catalog/products/create')
+            ->has('options.product_images', 1)
+            ->where('options.product_images.0.path', $path));
 });

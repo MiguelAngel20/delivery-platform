@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Business;
 use App\Models\Product;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -63,5 +64,17 @@ final class ProductImageStorage
         }
 
         return Storage::disk('public')->url($path);
+    }
+
+    public function isReusablePathForBusiness(Business $business, string $path): bool
+    {
+        if ($path === '' || ! str_starts_with($path, 'products/images/')) {
+            return false;
+        }
+
+        return Product::query()
+            ->whereIn('branch_id', $business->branches()->select('id'))
+            ->where('image_path', $path)
+            ->exists();
     }
 }

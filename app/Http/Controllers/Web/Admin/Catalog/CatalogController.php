@@ -15,9 +15,12 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\Promotion;
 use App\Support\CatalogData;
+use App\Support\ProductImageStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -332,6 +335,10 @@ class CatalogController extends Controller
             $request->merge(['option_groups' => is_array($decoded) ? $decoded : []]);
         }
 
+        if ($request->input('existing_image_path') === '') {
+            $request->merge(['existing_image_path' => null]);
+        }
+
         $branchRule = $updating
             ? ['sometimes']
             : [
@@ -342,12 +349,13 @@ class CatalogController extends Controller
                     ->whereNull('deleted_at'),
             ];
 
-        return $request->validate([
+        $data = $request->validate([
             'branch_id' => $branchRule,
             'product_category_id' => ['nullable', 'integer'],
             'name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'existing_image_path' => ['nullable', 'string', 'max:255'],
             'list_price' => ['required', 'numeric', 'min:0'],
             'acquisition_cost' => ['nullable', 'numeric', 'min:0'],
             'is_available' => ['sometimes', 'boolean'],
@@ -355,6 +363,20 @@ class CatalogController extends Controller
             'allow_special_instructions' => ['sometimes', 'boolean'],
             'option_groups' => ['nullable', 'array'],
         ]);
+
+        $existingPath = $data['existing_image_path'] ?? null;
+
+        if (
+            filled($existingPath)
+            && ! ($data['image'] ?? null) instanceof UploadedFile
+            && ! app(ProductImageStorage::class)->isReusablePathForBusiness($business, (string) $existingPath)
+        ) {
+            throw ValidationException::withMessages([
+                'existing_image_path' => 'La imagen seleccionada no pertenece a este negocio.',
+            ]);
+        }
+
+        return $data;
     }
 
     /**

@@ -26,6 +26,7 @@ export type CatalogFormOptions = {
         branch_id: number;
     }>;
     products: Array<{ value: string; label: string; branch_id: number }>;
+    product_images?: Array<{ path: string; url: string }>;
     option_group_types: Array<{ value: string; label: string }>;
     promotion_statuses: Array<{ value: string; label: string }>;
 };

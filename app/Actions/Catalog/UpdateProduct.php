@@ -24,6 +24,19 @@ final class UpdateProduct
         return DB::transaction(function () use ($product, $data, $actor): Product {
             if (($data['image'] ?? null) instanceof UploadedFile) {
                 $this->imageStorage->replace($product, $data['image']);
+            } elseif (
+                array_key_exists('existing_image_path', $data)
+                && filled($data['existing_image_path'])
+                && $data['existing_image_path'] !== $product->image_path
+            ) {
+                $previousPath = $product->image_path;
+                $product->forceFill([
+                    'image_path' => (string) $data['existing_image_path'],
+                ])->save();
+
+                if (is_string($previousPath) && $previousPath !== '') {
+                    $this->imageStorage->deleteIfUnused($previousPath);
+                }
             }
 
             $product->update([

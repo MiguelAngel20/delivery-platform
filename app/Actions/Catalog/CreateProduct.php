@@ -30,6 +30,8 @@ final class CreateProduct
 
             if (($data['image'] ?? null) instanceof UploadedFile) {
                 $imagePath = $this->imageStorage->store($data['image']);
+            } elseif (filled($data['existing_image_path'] ?? null)) {
+                $imagePath = (string) $data['existing_image_path'];
             }
 
             $product = Product::query()->create([

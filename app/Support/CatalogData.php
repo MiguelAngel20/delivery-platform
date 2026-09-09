@@ -58,6 +58,7 @@ final class CatalogData
             'category_name' => $product->category?->displayPath(),
             'name' => $product->name,
             'description' => $product->description,
+            'image_path' => $product->image_path,
             'image_url' => $product->imageUrl(),
             'is_available' => $product->is_available,
             'is_active' => $product->is_active,
@@ -225,11 +226,29 @@ final class CatalogData
             ->values()
             ->all();
 
+        $imageStorage = app(ProductImageStorage::class);
+        $productImages = Product::query()
+            ->whereIn('branch_id', $business->branches()->select('id'))
+            ->whereNotNull('image_path')
+            ->where('image_path', '!=', '')
+            ->orderByDesc('updated_at')
+            ->pluck('image_path')
+            ->unique()
+            ->values()
+            ->map(fn (string $path): array => [
+                'path' => $path,
+                'url' => $imageStorage->url($path),
+            ])
+            ->filter(fn (array $image): bool => filled($image['url']))
+            ->values()
+            ->all();
+
         return [
             'branches' => $branches,
             'categories' => $categories,
             'parent_categories' => $parentCategories,
             'products' => $products,
+            'product_images' => $productImages,
             'option_group_types' => collect(ProductOptionGroupType::cases())
                 ->map(fn (ProductOptionGroupType $type): array => [
                     'value' => $type->value,

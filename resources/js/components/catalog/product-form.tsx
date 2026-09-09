@@ -31,6 +31,7 @@ export type ProductFormValues = {
     is_available?: boolean;
     is_active?: boolean;
     allow_special_instructions?: boolean;
+    image_path?: string | null;
     image_url?: string | null;
     option_groups?: ProductOptionGroupDraft[];
 };
@@ -52,6 +53,7 @@ export function ProductForm({
     cancelSlot,
     showAcquisitionCost = false,
 }: ProductFormProps) {
+    const productImages = options.product_images ?? [];
     const [branchId, setBranchId] = useState(product?.branch_id ?? '');
     const [groups, setGroups] = useState<ProductOptionGroupDraft[]>(
         product?.option_groups?.length ? product.option_groups : [],
@@ -59,6 +61,14 @@ export function ProductForm({
     const [clientErrors, setClientErrors] = useState<ProductFormClientErrors>(
         {},
     );
+    const [selectedImagePath, setSelectedImagePath] = useState<string>(
+        product?.image_path ?? '',
+    );
+    const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(
+        product?.image_url ?? null,
+    );
+    const [hasNewFile, setHasNewFile] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const optionGroupsInputRef = useRef<HTMLInputElement>(null);
     const formRef = useRef<{ getData: () => Record<string, unknown> } | null>(
         null,
@@ -66,7 +76,10 @@ export function ProductForm({
 
     useEffect(() => {
         setClientErrors({});
-    }, [product?.id]);
+        setSelectedImagePath(product?.image_path ?? '');
+        setImagePreviewUrl(product?.image_url ?? null);
+        setHasNewFile(false);
+    }, [product?.id, product?.image_path, product?.image_url]);
 
     function validateBeforeSubmit(): boolean {
         const data = formRef.current?.getData() ?? {};
@@ -409,19 +422,112 @@ export function ProductForm({
                         <FormField
                             label="Imagen"
                             htmlFor="image"
-                            error={resolveFieldError('image', clientErrors, errors)}
-                            hint={
-                                product?.image_url
-                                    ? 'Sube una nueva imagen para reemplazar la actual.'
-                                    : undefined
+                            error={
+                                resolveFieldError(
+                                    'image',
+                                    clientErrors,
+                                    errors,
+                                ) ??
+                                resolveFieldError(
+                                    'existing_image_path',
+                                    clientErrors,
+                                    errors,
+                                )
                             }
+                            hint="Puedes reutilizar una imagen del catálogo o subir una nueva."
                         >
-                            <Input
-                                id="image"
-                                name="image"
-                                type="file"
-                                accept="image/*"
-                            />
+                            <div className="space-y-3">
+                                {imagePreviewUrl ? (
+                                    <div className="overflow-hidden rounded-lg border border-border bg-secondary">
+                                        <img
+                                            src={imagePreviewUrl}
+                                            alt="Vista previa del producto"
+                                            className="h-40 w-full object-cover"
+                                        />
+                                    </div>
+                                ) : null}
+
+                                {productImages.length > 0 ? (
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-medium text-muted-foreground">
+                                            Imágenes del negocio
+                                        </p>
+                                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                                            {productImages.map((image) => {
+                                                const selected =
+                                                    !hasNewFile &&
+                                                    selectedImagePath ===
+                                                        image.path;
+
+                                                return (
+                                                    <button
+                                                        key={image.path}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (
+                                                                fileInputRef.current
+                                                            ) {
+                                                                fileInputRef.current.value =
+                                                                    '';
+                                                            }
+                                                            setHasNewFile(
+                                                                false,
+                                                            );
+                                                            setSelectedImagePath(
+                                                                image.path,
+                                                            );
+                                                            setImagePreviewUrl(
+                                                                image.url,
+                                                            );
+                                                        }}
+                                                        className={
+                                                            selected
+                                                                ? 'overflow-hidden rounded-md border-2 border-primary ring-2 ring-primary/20'
+                                                                : 'overflow-hidden rounded-md border border-border hover:border-primary/50'
+                                                        }
+                                                        aria-pressed={selected}
+                                                        aria-label="Usar esta imagen"
+                                                    >
+                                                        <img
+                                                            src={image.url}
+                                                            alt=""
+                                                            className="aspect-square w-full object-cover"
+                                                        />
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                <input
+                                    type="hidden"
+                                    name="existing_image_path"
+                                    value={selectedImagePath}
+                                />
+
+                                <Input
+                                    ref={fileInputRef}
+                                    id="image"
+                                    name="image"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(event) => {
+                                        const file =
+                                            event.target.files?.[0] ?? null;
+
+                                        if (!file) {
+                                            return;
+                                        }
+
+                                        setHasNewFile(true);
+                                        setSelectedImagePath('');
+                                        setImagePreviewUrl(
+                                            URL.createObjectURL(file),
+                                        );
+                                    }}
+                                />
+                            </div>
                         </FormField>
 
                         <label className="flex items-center gap-2 text-sm text-foreground">

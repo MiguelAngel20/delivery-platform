@@ -6,8 +6,10 @@ use App\Enums\ProductOptionGroupType;
 use App\Models\Product;
 use App\Support\Catalog\ProductFormValidation;
 use App\Support\CatalogAccess;
+use App\Support\ProductImageStorage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreProductRequest extends FormRequest
 {
@@ -55,6 +57,10 @@ class StoreProductRequest extends FormRequest
             }
         }
 
+        if ($this->input('existing_image_path') === '') {
+            $this->merge(['existing_image_path' => null]);
+        }
+
         $this->sanitizeProductOptionGroups();
     }
 
@@ -84,6 +90,7 @@ class StoreProductRequest extends FormRequest
             'name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'existing_image_path' => ['nullable', 'string', 'max:255'],
             'list_price' => ['required', 'numeric', 'min:0'],
             'is_available' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
@@ -104,5 +111,25 @@ class StoreProductRequest extends FormRequest
             'option_groups.*.options.*.is_available' => ['sometimes', 'boolean'],
             'option_groups.*.options.*.sort_order' => ['nullable', 'integer', 'min:0'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $path = $this->input('existing_image_path');
+
+            if (! filled($path) || $this->file('image') !== null) {
+                return;
+            }
+
+            $business = $this->user()?->activeBusinessMembership()?->business;
+
+            if ($business === null || ! app(ProductImageStorage::class)->isReusablePathForBusiness($business, (string) $path)) {
+                $validator->errors()->add(
+                    'existing_image_path',
+                    'La imagen seleccionada no pertenece a este negocio.',
+                );
+            }
+        });
     }
 }
