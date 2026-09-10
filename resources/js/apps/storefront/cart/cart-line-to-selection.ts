@@ -28,7 +28,7 @@ export function buildInitialSelectionFromCartLine(
             continue;
         }
 
-        if (group.type === 'choice') {
+        if (group.type === 'choice' || group.type === 'size') {
             initial[group.id] = selections
                 .filter(
                     (option) =>

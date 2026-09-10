@@ -5,12 +5,19 @@ import type {
 } from '@/apps/storefront/components/product-dialog';
 
 export function isSingleChoiceGroup(group: StorefrontOptionGroup): boolean {
-    return group.type === 'choice' && group.max_selection === 1;
+    return (
+        (group.type === 'choice' || group.type === 'size') &&
+        group.max_selection === 1
+    );
 }
 
 export function selectionHint(group: StorefrontOptionGroup): string | null {
     if (group.type === 'removable') {
         return null;
+    }
+
+    if (group.type === 'size') {
+        return 'Elige 1 tamaño';
     }
 
     const { min_selection: min, max_selection: max } = group;
@@ -36,7 +43,11 @@ export function isGroupSelectionValid(
         return true;
     }
 
-    if (group.type === 'choice' || group.is_required) {
+    if (
+        group.type === 'choice' ||
+        group.type === 'size' ||
+        group.is_required
+    ) {
         return (
             selectedCount >= group.min_selection &&
             selectedCount <= group.max_selection
@@ -56,7 +67,7 @@ export function buildInitialOptionSelection(
             initial[group.id] = group.options
                 .filter((option) => option.is_default)
                 .map((option) => option.id);
-        } else if (group.type === 'choice') {
+        } else if (group.type === 'choice' || group.type === 'size') {
             const defaults = group.options.filter((option) => option.is_default);
 
             if (defaults.length > 0) {

@@ -7,6 +7,7 @@ enum ProductOptionGroupType: string
     case Removable = 'removable';
     case Addon = 'addon';
     case Choice = 'choice';
+    case Size = 'size';
 
     public function label(): string
     {
@@ -14,6 +15,7 @@ enum ProductOptionGroupType: string
             self::Removable => 'Quitar ingredientes',
             self::Addon => 'Extras',
             self::Choice => 'Variantes',
+            self::Size => 'Tamaños / porciones',
         };
     }
 
@@ -23,6 +25,7 @@ enum ProductOptionGroupType: string
             self::Removable => 'Quitar ingredientes',
             self::Addon => 'Extras',
             self::Choice => 'Variantes',
+            self::Size => 'Tamaños / porciones',
         };
     }
 }

@@ -16,7 +16,7 @@ export type ProductOptionGroupDraft = {
     options: ProductOptionDraft[];
 };
 
-export type SectionType = 'choice' | 'addon' | 'removable';
+export type SectionType = 'choice' | 'addon' | 'removable' | 'size';
 
 export type ProductOptionGroupApi = {
     id?: number;

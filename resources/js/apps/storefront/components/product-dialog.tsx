@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildInitialSelectionFromCartLine } from '@/apps/storefront/cart/cart-line-to-selection';
 import type { CartLine } from '@/apps/storefront/cart/use-storefront-cart';
+import {
+    buildInitialOptionSelection,
+    buildSelectedProductOptions,
+    isGroupSelectionValid,
+    isSingleChoiceGroup,
+    selectionHint,
+} from '@/apps/storefront/components/product-option-selection';
 import { formatMoney } from '@/apps/storefront/mocks';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,7 +32,7 @@ export type StorefrontProductOption = {
 export type StorefrontOptionGroup = {
     id: number;
     name: string;
-    type: 'removable' | 'addon' | 'choice' | string;
+    type: 'removable' | 'addon' | 'choice' | 'size' | string;
     is_required: boolean;
     min_selection: number;
     max_selection: number;
@@ -37,6 +44,7 @@ export type StorefrontProduct = {
     name: string;
     description: string;
     price: number;
+    has_size_options?: boolean;
     allow_special_instructions?: boolean;
     option_groups?: StorefrontOptionGroup[];
     // legacy fallbacks
@@ -67,48 +75,6 @@ type ProductDialogProps = {
         removedIngredients: string[];
     }) => void;
 };
-
-function isSingleChoiceGroup(group: StorefrontOptionGroup): boolean {
-    return group.type === 'choice' && group.max_selection === 1;
-}
-
-function selectionHint(group: StorefrontOptionGroup): string | null {
-    if (group.type === 'removable') {
-        return null;
-    }
-
-    const { min_selection: min, max_selection: max } = group;
-
-    if (min === max) {
-        return min === 1 ? 'Elige 1 opción' : `Elige exactamente ${min} opciones`;
-    }
-
-    if (min === 0) {
-        return max === 1
-            ? 'Opcional · hasta 1 opción'
-            : `Opcional · hasta ${max} opciones`;
-    }
-
-    return `Elige entre ${min} y ${max} opciones`;
-}
-
-function isGroupSelectionValid(
-    group: StorefrontOptionGroup,
-    selectedCount: number,
-): boolean {
-    if (group.type === 'removable') {
-        return true;
-    }
-
-    if (group.type === 'choice' || group.is_required) {
-        return (
-            selectedCount >= group.min_selection &&
-            selectedCount <= group.max_selection
-        );
-    }
-
-    return selectedCount <= group.max_selection;
-}
 
 export function ProductDialog({
     product,
@@ -141,35 +107,9 @@ export function ProductDialog({
             return;
         }
 
-        const initial: Record<number, number[]> = {};
-
-        for (const group of product.option_groups ?? []) {
-            if (group.type === 'removable') {
-                initial[group.id] = group.options
-                    .filter((option) => option.is_default)
-                    .map((option) => option.id);
-            } else if (group.type === 'choice') {
-                const defaults = group.options.filter(
-                    (option) => option.is_default,
-                );
-
-                if (defaults.length > 0) {
-                    initial[group.id] = defaults
-                        .slice(0, group.max_selection)
-                        .map((option) => option.id);
-                } else if (group.is_required && group.options.length > 0) {
-                    initial[group.id] = group.options
-                        .slice(0, group.min_selection)
-                        .map((option) => option.id);
-                } else {
-                    initial[group.id] = [];
-                }
-            } else {
-                initial[group.id] = [];
-            }
-        }
-
-        setSelectedByGroup(initial);
+        setSelectedByGroup(
+            buildInitialOptionSelection(product.option_groups ?? []),
+        );
         setQuantity(1);
         setNote('');
     }, [product, open, editLine]);
@@ -187,11 +127,12 @@ export function ProductDialog({
             for (const option of group.options) {
                 const selected = selectedIds.includes(option.id);
 
-                if (group.type === 'addon' && selected) {
-                    total += option.price_modifier;
-                }
-
-                if (group.type === 'choice' && selected) {
+                if (
+                    (group.type === 'addon' ||
+                        group.type === 'choice' ||
+                        group.type === 'size') &&
+                    selected
+                ) {
                     total += option.price_modifier;
                 }
             }
@@ -238,45 +179,6 @@ export function ProductDialog({
         });
     };
 
-    const buildSelection = (): SelectedProductOption[] => {
-        const selectedOptions: SelectedProductOption[] = [];
-
-        for (const group of groups) {
-            const selectedIds = selectedByGroup[group.id] ?? [];
-
-            for (const option of group.options) {
-                const selected = selectedIds.includes(option.id);
-
-                if (group.type === 'removable') {
-                    if (!selected) {
-                        selectedOptions.push({
-                            option_id: option.id,
-                            group_id: group.id,
-                            name: option.name,
-                            action: 'removed',
-                            price_modifier: 0,
-                        });
-                    }
-
-                    continue;
-                }
-
-                if (selected) {
-                    selectedOptions.push({
-                        option_id: option.id,
-                        group_id: group.id,
-                        name: option.name,
-                        action:
-                            group.type === 'addon' ? 'added' : 'selected',
-                        price_modifier: option.price_modifier,
-                    });
-                }
-            }
-        }
-
-        return selectedOptions;
-    };
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -300,56 +202,104 @@ export function ProductDialog({
                             group,
                             selectedCount,
                         );
+                        const showAbsolutePrice = group.type === 'size';
 
                         return (
-                        <div key={group.id} className="space-y-2">
-                            <div>
-                                <p className="text-sm font-medium text-navy">
-                                    {group.name}
-                                    {group.is_required ? ' *' : ''}
-                                </p>
-                                {hint ? (
-                                    <p
-                                        className={`text-xs ${groupValid ? 'text-muted-foreground' : 'text-destructive'}`}
-                                    >
-                                        {hint}
-                                        {group.max_selection > 1
-                                            ? ` · ${selectedCount} de ${group.max_selection}`
-                                            : ''}
+                            <div key={group.id} className="space-y-2">
+                                <div>
+                                    <p className="text-sm font-medium text-navy">
+                                        {group.name}
+                                        {group.is_required ? ' *' : ''}
                                     </p>
-                                ) : null}
-                            </div>
-                            <ul className="space-y-2">
-                                {group.options.map((option) => {
-                                    const selected = selectedIds.includes(
-                                        option.id,
-                                    );
-                                    const optionDisabled =
-                                        !selected &&
-                                        atMax &&
-                                        group.type !== 'removable';
+                                    {hint ? (
+                                        <p
+                                            className={`text-xs ${groupValid ? 'text-muted-foreground' : 'text-destructive'}`}
+                                        >
+                                            {hint}
+                                            {group.max_selection > 1
+                                                ? ` · ${selectedCount} de ${group.max_selection}`
+                                                : ''}
+                                        </p>
+                                    ) : null}
+                                </div>
+                                <ul className="space-y-2">
+                                    {group.options.map((option) => {
+                                        const selected = selectedIds.includes(
+                                            option.id,
+                                        );
+                                        const optionDisabled =
+                                            !selected &&
+                                            atMax &&
+                                            group.type !== 'removable';
+                                        const absolutePrice =
+                                            product.price +
+                                            option.price_modifier;
 
-                                    if (isSingleChoiceGroup(group)) {
+                                        if (isSingleChoiceGroup(group)) {
+                                            return (
+                                                <li
+                                                    key={option.id}
+                                                    className="flex items-center justify-between gap-3"
+                                                >
+                                                    <label className="flex items-center gap-2 text-sm">
+                                                        <input
+                                                            type="radio"
+                                                            name={`group-${group.id}`}
+                                                            checked={selected}
+                                                            onChange={() =>
+                                                                toggleOption(
+                                                                    group,
+                                                                    option.id,
+                                                                )
+                                                            }
+                                                        />
+                                                        {option.name}
+                                                    </label>
+                                                    {showAbsolutePrice ? (
+                                                        <span className="text-sm font-medium text-navy">
+                                                            {formatMoney(
+                                                                absolutePrice,
+                                                            )}
+                                                        </span>
+                                                    ) : option.price_modifier !==
+                                                      0 ? (
+                                                        <span className="text-sm text-muted-foreground">
+                                                            +
+                                                            {formatMoney(
+                                                                option.price_modifier,
+                                                            )}
+                                                        </span>
+                                                    ) : null}
+                                                </li>
+                                            );
+                                        }
+
                                         return (
                                             <li
                                                 key={option.id}
                                                 className="flex items-center justify-between gap-3"
                                             >
-                                                <label className="flex items-center gap-2 text-sm">
-                                                    <input
-                                                        type="radio"
-                                                        name={`group-${group.id}`}
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
                                                         checked={selected}
-                                                        onChange={() =>
+                                                        disabled={
+                                                            optionDisabled
+                                                        }
+                                                        onCheckedChange={() =>
                                                             toggleOption(
                                                                 group,
                                                                 option.id,
                                                             )
                                                         }
                                                     />
-                                                    {option.name}
-                                                </label>
-                                                {option.price_modifier !== 0 ? (
+                                                    <Label
+                                                        className={`font-normal ${optionDisabled ? 'text-muted-foreground' : ''}`}
+                                                    >
+                                                        {option.name}
+                                                    </Label>
+                                                </div>
+                                                {group.type === 'addon' &&
+                                                option.price_modifier !== 0 ? (
                                                     <span className="text-sm text-muted-foreground">
                                                         +
                                                         {formatMoney(
@@ -359,44 +309,9 @@ export function ProductDialog({
                                                 ) : null}
                                             </li>
                                         );
-                                    }
-
-                                    return (
-                                        <li
-                                            key={option.id}
-                                            className="flex items-center justify-between gap-3"
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <Checkbox
-                                                    checked={selected}
-                                                    disabled={optionDisabled}
-                                                    onCheckedChange={() =>
-                                                        toggleOption(
-                                                            group,
-                                                            option.id,
-                                                        )
-                                                    }
-                                                />
-                                                <Label
-                                                    className={`font-normal ${optionDisabled ? 'text-muted-foreground' : ''}`}
-                                                >
-                                                    {option.name}
-                                                </Label>
-                                            </div>
-                                            {group.type === 'addon' &&
-                                            option.price_modifier !== 0 ? (
-                                                <span className="text-sm text-muted-foreground">
-                                                    +
-                                                    {formatMoney(
-                                                        option.price_modifier,
-                                                    )}
-                                                </span>
-                                            ) : null}
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
+                                    })}
+                                </ul>
+                            </div>
                         );
                     })}
 
@@ -406,25 +321,32 @@ export function ProductDialog({
                             <Textarea
                                 id="product-note"
                                 value={note}
-                                onChange={(event) => setNote(event.target.value)}
+                                onChange={(event) =>
+                                    setNote(event.target.value)
+                                }
                                 placeholder="Ej. Bien cocida"
                                 rows={3}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Solo se pueden modificar las opciones disponibles.
+                                Solo se pueden modificar las opciones
+                                disponibles.
                             </p>
                         </div>
                     ) : null}
 
                     <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-navy">Cantidad</p>
+                        <p className="text-sm font-medium text-navy">
+                            Cantidad
+                        </p>
                         <div className="flex items-center gap-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 className="min-h-11 min-w-11"
                                 onClick={() =>
-                                    setQuantity((value) => Math.max(1, value - 1))
+                                    setQuantity((value) =>
+                                        Math.max(1, value - 1),
+                                    )
                                 }
                             >
                                 -
@@ -436,7 +358,9 @@ export function ProductDialog({
                                 type="button"
                                 variant="outline"
                                 className="min-h-11 min-w-11"
-                                onClick={() => setQuantity((value) => value + 1)}
+                                onClick={() =>
+                                    setQuantity((value) => value + 1)
+                                }
                             >
                                 +
                             </Button>
@@ -450,7 +374,10 @@ export function ProductDialog({
                         className="min-h-12 w-full"
                         disabled={!selectionValid}
                         onClick={() => {
-                            const selectedOptions = buildSelection();
+                            const selectedOptions = buildSelectedProductOptions(
+                                groups,
+                                selectedByGroup,
+                            );
                             const extras = selectedOptions
                                 .filter(
                                     (option) =>

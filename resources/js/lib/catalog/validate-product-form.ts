@@ -6,6 +6,7 @@ const SECTION_LABELS: Record<string, string> = {
     choice: 'Variantes',
     addon: 'Extras',
     removable: 'Quitar ingredientes',
+    size: 'Tamaños / porciones',
 };
 
 export function sanitizeProductOptionGroups(
@@ -65,19 +66,52 @@ export function validateProductOptionGroups(
                 ] = 'El nombre de la opción no puede superar 100 caracteres.';
             }
 
-            if (group.type === 'addon' && option.price_modifier.trim() !== '') {
+            if (
+                (group.type === 'addon' || group.type === 'size') &&
+                option.price_modifier.trim() !== ''
+            ) {
                 const modifier = Number(option.price_modifier);
 
                 if (Number.isNaN(modifier) || modifier < 0) {
                     errors[
                         `${errorPrefix}.${groupIndex}.options.${optionIndex}.price_modifier`
-                    ] = 'Ingresa un precio adicional válido.';
+                    ] =
+                        group.type === 'size'
+                            ? 'Ingresa un precio válido para este tamaño.'
+                            : 'Ingresa un precio adicional válido.';
                 }
+            }
+
+            if (group.type === 'size' && option.price_modifier.trim() === '') {
+                errors[
+                    `${errorPrefix}.${groupIndex}.options.${optionIndex}.price_modifier`
+                ] = 'Ingresa un precio válido para este tamaño.';
             }
         });
     });
 
     return errors;
+}
+
+export function sizeGroupMinPrice(
+    groups: ProductOptionGroupDraft[],
+): string | null {
+    const sizeGroup = groups.find((group) => group.type === 'size');
+
+    if (!sizeGroup) {
+        return null;
+    }
+
+    const prices = sizeGroup.options
+        .filter((option) => option.name.trim() !== '')
+        .map((option) => Number(option.price_modifier))
+        .filter((price) => !Number.isNaN(price) && price >= 0);
+
+    if (prices.length === 0) {
+        return null;
+    }
+
+    return Math.min(...prices).toFixed(2);
 }
 
 export function validateProductForm(input: {

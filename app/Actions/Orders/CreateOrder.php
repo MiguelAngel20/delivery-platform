@@ -487,7 +487,7 @@ final class CreateOrder
             $expectedAction = match ($groupType) {
                 ProductOptionGroupType::Removable => OptionSelectionAction::Removed,
                 ProductOptionGroupType::Addon => OptionSelectionAction::Added,
-                ProductOptionGroupType::Choice => OptionSelectionAction::Selected,
+                ProductOptionGroupType::Choice, ProductOptionGroupType::Size => OptionSelectionAction::Selected,
             };
 
             if ($action !== $expectedAction) {
@@ -514,7 +514,11 @@ final class CreateOrder
             $groupType = ProductOptionGroupType::tryFrom((string) ($group['type'] ?? ''))
                 ?? ProductOptionGroupType::Choice;
 
-            if ($groupType === ProductOptionGroupType::Choice || ($group['is_required'] ?? false)) {
+            if (
+                $groupType === ProductOptionGroupType::Choice
+                || $groupType === ProductOptionGroupType::Size
+                || ($group['is_required'] ?? false)
+            ) {
                 if ($count < (int) ($group['min_selection'] ?? 0) || $count > (int) ($group['max_selection'] ?? 1)) {
                     throw ValidationException::withMessages([
                         "items.{$itemIndex}.selected_options" => "Selección inválida para {$group['name']}.",
@@ -574,7 +578,7 @@ final class CreateOrder
             $expectedAction = match ($group->type) {
                 ProductOptionGroupType::Removable => OptionSelectionAction::Removed,
                 ProductOptionGroupType::Addon => OptionSelectionAction::Added,
-                ProductOptionGroupType::Choice => OptionSelectionAction::Selected,
+                ProductOptionGroupType::Choice, ProductOptionGroupType::Size => OptionSelectionAction::Selected,
             };
 
             if ($action !== $expectedAction) {
@@ -601,7 +605,11 @@ final class CreateOrder
         foreach ($groups as $group) {
             $count = $countsByGroup[$group->id] ?? 0;
 
-            if ($group->type === ProductOptionGroupType::Choice || $group->is_required) {
+            if (
+                $group->type === ProductOptionGroupType::Choice
+                || $group->type === ProductOptionGroupType::Size
+                || $group->is_required
+            ) {
                 if ($count < $group->min_selection || $count > $group->max_selection) {
                     throw ValidationException::withMessages([
                         "items.{$itemIndex}.selected_options" => "Selección inválida para {$group->name}.",

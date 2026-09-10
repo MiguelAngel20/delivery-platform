@@ -50,14 +50,26 @@ export const SECTION_CONFIG: Record<
         isRequired: false,
         optionPlaceholder: 'Ej. Sin cebolla, Sin jalapeño',
     },
+    size: {
+        label: 'Tamaños / porciones',
+        description:
+            'Presentaciones del mismo producto con precio distinto (chico, media, orden completa, etc.).',
+        showPrice: true,
+        showLimits: false,
+        defaultMin: 1,
+        defaultMax: 1,
+        isRequired: true,
+        optionPlaceholder: 'Ej. Chico, Media, Grande',
+    },
 };
 
+/** Personalización only — size lives in its own ProductForm block. */
 export const SECTION_ORDER: SectionType[] = ['choice', 'addon', 'removable'];
 
 export function emptyOption(type: SectionType): ProductOptionDraft {
     return {
         name: '',
-        price_modifier: '0',
+        price_modifier: type === 'size' ? '' : '0',
         is_default: type === 'removable',
         is_available: true,
     };

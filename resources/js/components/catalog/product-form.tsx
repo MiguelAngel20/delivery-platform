@@ -1,16 +1,25 @@
 import { Form } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import type { ProductOptionGroupDraft } from '@/components/catalog/product-option-group-types';
+import {
+    buildGroup,
+    emptyOption,
+    findGroupIndex,
+    SECTION_CONFIG,
+} from '@/components/catalog/product-option-groups-config';
 import { ProductOptionGroupsFields } from '@/components/catalog/product-option-groups-fields';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
     resolveFieldError,
     sanitizeProductOptionGroups,
+    sizeGroupMinPrice,
     validateProductForm,
     type ProductFormClientErrors,
 } from '@/lib/catalog/validate-product-form';
@@ -58,6 +67,7 @@ export function ProductForm({
     const [groups, setGroups] = useState<ProductOptionGroupDraft[]>(
         product?.option_groups?.length ? product.option_groups : [],
     );
+    const [listPrice, setListPrice] = useState(product?.list_price ?? '');
     const [clientErrors, setClientErrors] = useState<ProductFormClientErrors>(
         {},
     );
@@ -79,14 +89,33 @@ export function ProductForm({
         setSelectedImagePath(product?.image_path ?? '');
         setImagePreviewUrl(product?.image_url ?? null);
         setHasNewFile(false);
-    }, [product?.id, product?.image_path, product?.image_url]);
+        setListPrice(product?.list_price ?? '');
+    }, [product?.id, product?.image_path, product?.image_url, product?.list_price]);
+
+    const sizeGroupIndex = findGroupIndex(groups, 'size');
+    const sizeGroup =
+        sizeGroupIndex === -1 ? undefined : groups[sizeGroupIndex];
+    const sizesEnabled = sizeGroup !== undefined;
+    const derivedListPrice = sizeGroupMinPrice(groups);
+
+    useEffect(() => {
+        if (derivedListPrice !== null) {
+            setListPrice(derivedListPrice);
+        }
+    }, [derivedListPrice]);
+
+    const onChangeGroups = (next: ProductOptionGroupDraft[]) => {
+        setGroups(next);
+    };
 
     function validateBeforeSubmit(): boolean {
         const data = formRef.current?.getData() ?? {};
         const validationErrors = validateProductForm({
             branchId,
             name: String(data.name ?? ''),
-            listPrice: String(data.list_price ?? ''),
+            listPrice: sizesEnabled
+                ? (derivedListPrice ?? listPrice)
+                : listPrice || String(data.list_price ?? ''),
             isEditing: Boolean(product?.id),
             groups,
         });
@@ -107,6 +136,75 @@ export function ProductForm({
 
         return true;
     }
+
+    const toggleSizes = (enabled: boolean) => {
+        if (enabled) {
+            if (findGroupIndex(groups, 'size') !== -1) {
+                return;
+            }
+
+            onChangeGroups([...groups, buildGroup('size')]);
+
+            return;
+        }
+
+        onChangeGroups(groups.filter((group) => group.type !== 'size'));
+    };
+
+    const updateSizeOption = (
+        optionIndex: number,
+        patch: Partial<ProductOptionGroupDraft['options'][number]>,
+    ) => {
+        onChangeGroups(
+            groups.map((group) => {
+                if (group.type !== 'size') {
+                    return group;
+                }
+
+                return {
+                    ...group,
+                    options: group.options.map((option, index) =>
+                        index === optionIndex ? { ...option, ...patch } : option,
+                    ),
+                };
+            }),
+        );
+    };
+
+    const addSizeOption = () => {
+        onChangeGroups(
+            groups.map((group) =>
+                group.type === 'size'
+                    ? {
+                          ...group,
+                          options: [...group.options, emptyOption('size')],
+                      }
+                    : group,
+            ),
+        );
+    };
+
+    const removeSizeOption = (optionIndex: number) => {
+        onChangeGroups(
+            groups.map((group) => {
+                if (group.type !== 'size') {
+                    return group;
+                }
+
+                const filtered = group.options.filter(
+                    (_, index) => index !== optionIndex,
+                );
+
+                return {
+                    ...group,
+                    options:
+                        filtered.length === 0
+                            ? [emptyOption('size')]
+                            : filtered,
+                };
+            }),
+        );
+    };
 
     const categories = useMemo(
         () =>
@@ -374,6 +472,11 @@ export function ProductForm({
                                 clientErrors,
                                 errors,
                             )}
+                            hint={
+                                sizesEnabled
+                                    ? 'Se toma del tamaño más económico.'
+                                    : undefined
+                            }
                         >
                             <Input
                                 id="list_price"
@@ -382,15 +485,21 @@ export function ProductForm({
                                 step="0.01"
                                 min="0"
                                 placeholder="0.00"
-                                defaultValue={product?.list_price ?? ''}
-                                onChange={() =>
+                                value={listPrice}
+                                readOnly={sizesEnabled}
+                                onChange={(event) => {
+                                    if (sizesEnabled) {
+                                        return;
+                                    }
+
+                                    setListPrice(event.target.value);
                                     setClientErrors((current) => {
                                         const next = { ...current };
                                         delete next.list_price;
 
                                         return next;
-                                    })
-                                }
+                                    });
+                                }}
                             />
                         </FormField>
 
@@ -418,6 +527,180 @@ export function ProductForm({
                                 />
                             </FormField>
                         ) : null}
+
+                        <div className="space-y-3 rounded-xl border border-border bg-surface p-4 md:col-span-2">
+                            <label className="flex cursor-pointer items-start gap-3 text-foreground">
+                                <Checkbox
+                                    checked={sizesEnabled}
+                                    onCheckedChange={(checked) =>
+                                        toggleSizes(checked === true)
+                                    }
+                                    className="mt-0.5"
+                                />
+                                <div>
+                                    <span className="text-sm font-medium">
+                                        {SECTION_CONFIG.size.label}
+                                    </span>
+                                    <p className="text-sm text-muted-foreground">
+                                        Opcional. Actívalo solo si el producto
+                                        tiene presentaciones con precios
+                                        distintos.
+                                    </p>
+                                </div>
+                            </label>
+
+                            {sizesEnabled && sizeGroup ? (
+                                <div className="space-y-3 border-t border-border pt-3">
+                                    {resolveFieldError(
+                                        `option_groups.${sizeGroupIndex}.options`,
+                                        clientErrors,
+                                        errors,
+                                    ) ? (
+                                        <p className="text-sm text-destructive">
+                                            {resolveFieldError(
+                                                `option_groups.${sizeGroupIndex}.options`,
+                                                clientErrors,
+                                                errors,
+                                            )}
+                                        </p>
+                                    ) : null}
+
+                                    {sizeGroup.options.map(
+                                        (option, optionIndex) => (
+                                            <div
+                                                key={`size-${optionIndex}`}
+                                                className="grid gap-3 sm:grid-cols-[1fr_8rem_auto]"
+                                            >
+                                                <FormField
+                                                    label={
+                                                        optionIndex === 0
+                                                            ? 'Nombre'
+                                                            : undefined
+                                                    }
+                                                    htmlFor={`size-name-${optionIndex}`}
+                                                    error={resolveFieldError(
+                                                        `option_groups.${sizeGroupIndex}.options.${optionIndex}.name`,
+                                                        clientErrors,
+                                                        errors,
+                                                    )}
+                                                >
+                                                    <Input
+                                                        id={`size-name-${optionIndex}`}
+                                                        placeholder={
+                                                            SECTION_CONFIG.size
+                                                                .optionPlaceholder
+                                                        }
+                                                        value={option.name}
+                                                        onChange={(event) => {
+                                                            updateSizeOption(
+                                                                optionIndex,
+                                                                {
+                                                                    name: event
+                                                                        .target
+                                                                        .value,
+                                                                },
+                                                            );
+                                                            setClientErrors(
+                                                                (current) => {
+                                                                    const next =
+                                                                        {
+                                                                            ...current,
+                                                                        };
+                                                                    delete next[
+                                                                        `option_groups.${sizeGroupIndex}.options.${optionIndex}.name`
+                                                                    ];
+
+                                                                    return next;
+                                                                },
+                                                            );
+                                                        }}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label={
+                                                        optionIndex === 0
+                                                            ? 'Precio (MXN)'
+                                                            : undefined
+                                                    }
+                                                    htmlFor={`size-price-${optionIndex}`}
+                                                    error={resolveFieldError(
+                                                        `option_groups.${sizeGroupIndex}.options.${optionIndex}.price_modifier`,
+                                                        clientErrors,
+                                                        errors,
+                                                    )}
+                                                >
+                                                    <Input
+                                                        id={`size-price-${optionIndex}`}
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder="0.00"
+                                                        value={
+                                                            option.price_modifier
+                                                        }
+                                                        onChange={(event) => {
+                                                            updateSizeOption(
+                                                                optionIndex,
+                                                                {
+                                                                    price_modifier:
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                },
+                                                            );
+                                                            setClientErrors(
+                                                                (current) => {
+                                                                    const next =
+                                                                        {
+                                                                            ...current,
+                                                                        };
+                                                                    delete next[
+                                                                        `option_groups.${sizeGroupIndex}.options.${optionIndex}.price_modifier`
+                                                                    ];
+
+                                                                    return next;
+                                                                },
+                                                            );
+                                                        }}
+                                                    />
+                                                </FormField>
+                                                <div
+                                                    className={
+                                                        optionIndex === 0
+                                                            ? 'flex items-end pb-0.5'
+                                                            : 'flex items-center'
+                                                    }
+                                                >
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-muted-foreground hover:text-destructive"
+                                                        aria-label="Quitar tamaño"
+                                                        onClick={() =>
+                                                            removeSizeOption(
+                                                                optionIndex,
+                                                            )
+                                                        }
+                                                    >
+                                                        <Trash2 className="size-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ),
+                                    )}
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={addSizeOption}
+                                    >
+                                        Agregar tamaño
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </div>
 
                         <FormField
                             label="Imagen"

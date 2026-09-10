@@ -513,3 +513,103 @@ test('catalog form options expose distinct product images for the business', fun
             ->has('options.product_images', 1)
             ->where('options.product_images.0.path', $path));
 });
+
+test('business admin can create product with optional size group and absolute prices', function () {
+    ['admin' => $admin, 'branch' => $branch] = seedCatalogBusinessAdmin();
+    $category = ProductCategory::factory()->create(['branch_id' => $branch->id]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('business.products.store'), [
+            'branch_id' => $branch->id,
+            'product_category_id' => $category->id,
+            'name' => 'Cóctel de camarón',
+            'description' => 'Con salsa especial',
+            'list_price' => 999,
+            'is_available' => true,
+            'is_active' => true,
+            'allow_special_instructions' => true,
+            'option_groups' => [
+                [
+                    'name' => 'Tamaños / porciones',
+                    'type' => ProductOptionGroupType::Size->value,
+                    'is_required' => true,
+                    'min_selection' => 1,
+                    'max_selection' => 1,
+                    'options' => [
+                        ['name' => 'Chico', 'price_modifier' => 80, 'is_default' => false],
+                        ['name' => 'Media', 'price_modifier' => 120, 'is_default' => false],
+                        ['name' => 'Grande', 'price_modifier' => 130, 'is_default' => false],
+                    ],
+                ],
+            ],
+        ]);
+
+    $product = Product::query()->where('name', 'Cóctel de camarón')->first();
+
+    expect($product)->not->toBeNull()
+        ->and($product?->currentPrice?->list_price)->toBe('80.00');
+
+    $sizeGroup = $product?->optionGroups()->where('type', ProductOptionGroupType::Size)->first();
+
+    expect($sizeGroup)->not->toBeNull()
+        ->and($sizeGroup?->is_required)->toBeTrue()
+        ->and($sizeGroup?->min_selection)->toBe(1)
+        ->and($sizeGroup?->max_selection)->toBe(1);
+
+    $modifiers = $sizeGroup?->options()->orderBy('sort_order')->pluck('price_modifier', 'name');
+
+    expect($modifiers?->get('Chico'))->toBe('0.00')
+        ->and($modifiers?->get('Media'))->toBe('40.00')
+        ->and($modifiers?->get('Grande'))->toBe('50.00');
+
+    $response->assertRedirect(route('business.products.edit', $product));
+});
+
+test('product without sizes keeps manual list price', function () {
+    ['admin' => $admin, 'branch' => $branch] = seedCatalogBusinessAdmin();
+
+    $this->actingAs($admin)
+        ->post(route('business.products.store'), [
+            'branch_id' => $branch->id,
+            'name' => 'Refresco',
+            'list_price' => 35,
+            'is_available' => true,
+            'is_active' => true,
+        ])
+        ->assertRedirect();
+
+    $product = Product::query()->where('name', 'Refresco')->first();
+
+    expect($product?->currentPrice?->list_price)->toBe('35.00')
+        ->and($product?->optionGroups()->count())->toBe(0);
+});
+
+test('size option without price fails validation on create', function () {
+    ['admin' => $admin, 'branch' => $branch] = seedCatalogBusinessAdmin();
+
+    $this->actingAs($admin)
+        ->from(route('business.products.create'))
+        ->post(route('business.products.store'), [
+            'branch_id' => $branch->id,
+            'name' => 'Producto con tamaño inválido',
+            'list_price' => 50,
+            'is_available' => true,
+            'is_active' => true,
+            'option_groups' => [
+                [
+                    'name' => 'Tamaños / porciones',
+                    'type' => ProductOptionGroupType::Size->value,
+                    'is_required' => true,
+                    'min_selection' => 1,
+                    'max_selection' => 1,
+                    'options' => [
+                        ['name' => 'Chico', 'price_modifier' => '', 'is_default' => false],
+                    ],
+                ],
+            ],
+        ])
+        ->assertSessionHasErrors()
+        ->assertRedirect(route('business.products.create'));
+
+    expect(Product::query()->where('name', 'Producto con tamaño inválido')->exists())->toBeFalse();
+});

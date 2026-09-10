@@ -22,6 +22,8 @@ final class UpdateProduct
     public function handle(Product $product, array $data, ?User $actor = null): Product
     {
         return DB::transaction(function () use ($product, $data, $actor): Product {
+            $data = $this->createProduct->applySizePricing($data);
+
             if (($data['image'] ?? null) instanceof UploadedFile) {
                 $this->imageStorage->replace($product, $data['image']);
             } elseif (

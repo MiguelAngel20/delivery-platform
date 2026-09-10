@@ -8,6 +8,7 @@ type ProductCardProduct = {
     name: string;
     description: string;
     price: number;
+    has_size_options?: boolean;
     image_url?: string | null;
 };
 
@@ -57,7 +58,9 @@ export function ProductCard({
                 </div>
                 <div className="mt-auto flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-primary md:text-base">
-                        {formatMoney(product.price)}
+                        {product.has_size_options
+                            ? `Desde ${formatMoney(product.price)}`
+                            : formatMoney(product.price)}
                     </span>
                     {canOrder ? (
                         <Button

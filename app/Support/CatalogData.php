@@ -78,28 +78,42 @@ final class CatalogData
      */
     public static function productOptionGroups(Product $product): array
     {
-        $product->loadMissing(['optionGroups.options']);
+        $product->loadMissing(['optionGroups.options', 'currentPrice']);
 
-        return $product->optionGroups->map(fn ($group): array => [
-            'id' => $group->id,
-            'name' => $group->name,
-            'type' => $group->type->value,
-            'type_label' => $group->type->displayLabel(),
-            'is_required' => $group->is_required,
-            'min_selection' => $group->min_selection,
-            'max_selection' => $group->max_selection,
-            'sort_order' => $group->sort_order,
-            'is_active' => $group->is_active,
-            'options' => $group->options->map(fn ($option): array => [
-                'id' => $option->id,
-                'name' => $option->name,
-                'description' => $option->description,
-                'price_modifier' => (string) $option->price_modifier,
-                'is_default' => $option->is_default,
-                'is_available' => $option->is_available,
-                'sort_order' => $option->sort_order,
-            ])->values()->all(),
-        ])->values()->all();
+        $listPrice = (string) ($product->currentPrice?->list_price ?? '0.00');
+
+        return $product->optionGroups->map(function ($group) use ($listPrice): array {
+            $isSize = $group->type === ProductOptionGroupType::Size;
+
+            return [
+                'id' => $group->id,
+                'name' => $group->name,
+                'type' => $group->type->value,
+                'type_label' => $group->type->displayLabel(),
+                'is_required' => $group->is_required,
+                'min_selection' => $group->min_selection,
+                'max_selection' => $group->max_selection,
+                'sort_order' => $group->sort_order,
+                'is_active' => $group->is_active,
+                'options' => $group->options->map(function ($option) use ($isSize, $listPrice): array {
+                    $priceModifier = (string) $option->price_modifier;
+
+                    if ($isSize) {
+                        $priceModifier = bcadd($listPrice, $priceModifier, 2);
+                    }
+
+                    return [
+                        'id' => $option->id,
+                        'name' => $option->name,
+                        'description' => $option->description,
+                        'price_modifier' => $priceModifier,
+                        'is_default' => $option->is_default,
+                        'is_available' => $option->is_available,
+                        'sort_order' => $option->sort_order,
+                    ];
+                })->values()->all(),
+            ];
+        })->values()->all();
     }
 
     /**

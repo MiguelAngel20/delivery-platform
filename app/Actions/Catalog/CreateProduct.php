@@ -26,6 +26,8 @@ final class CreateProduct
     public function handle(BusinessBranch $branch, array $data, ?User $actor = null): Product
     {
         return DB::transaction(function () use ($branch, $data, $actor): Product {
+            $data = $this->applySizePricing($data);
+
             $imagePath = null;
 
             if (($data['image'] ?? null) instanceof UploadedFile) {
@@ -57,6 +59,103 @@ final class CreateProduct
 
             return $product->fresh(['currentPrice', 'optionGroups.options', 'category']);
         });
+    }
+
+    /**
+     * When a size group is present, treat option price_modifier values as absolute prices,
+     * set list_price to the minimum, and store relative modifiers.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function applySizePricing(array $data): array
+    {
+        if (! is_array($data['option_groups'] ?? null)) {
+            return $data;
+        }
+
+        $normalizedGroups = [];
+        $sizeMin = null;
+
+        foreach (array_values($data['option_groups']) as $groupIndex => $groupData) {
+            if (! is_array($groupData)) {
+                continue;
+            }
+
+            $type = ProductOptionGroupType::tryFrom((string) ($groupData['type'] ?? ''));
+
+            if ($type !== ProductOptionGroupType::Size) {
+                $normalizedGroups[] = $groupData;
+
+                continue;
+            }
+
+            $options = array_values(array_filter(
+                $groupData['options'] ?? [],
+                fn (mixed $option): bool => is_array($option) && filled(trim((string) ($option['name'] ?? ''))),
+            ));
+
+            if ($options === []) {
+                continue;
+            }
+
+            $absolutePrices = [];
+
+            foreach ($options as $optionIndex => $optionData) {
+                $absolute = trim((string) ($optionData['price_modifier'] ?? ''));
+
+                if ($absolute === '' || ! is_numeric($absolute) || bccomp($absolute, '0', 2) === -1) {
+                    throw ValidationException::withMessages([
+                        "option_groups.{$groupIndex}.options.{$optionIndex}.price_modifier" => 'Cada tamaño debe tener un precio válido mayor o igual a 0.',
+                    ]);
+                }
+
+                $absolutePrices[] = number_format((float) $absolute, 2, '.', '');
+            }
+
+            $min = $absolutePrices[0];
+
+            foreach ($absolutePrices as $absolutePrice) {
+                if (bccomp($absolutePrice, $min, 2) === -1) {
+                    $min = $absolutePrice;
+                }
+            }
+
+            $convertedOptions = [];
+
+            foreach ($options as $optionIndex => $optionData) {
+                $absolute = $absolutePrices[$optionIndex];
+                $convertedOptions[] = [
+                    ...$optionData,
+                    'price_modifier' => bcsub($absolute, $min, 2),
+                    'is_default' => (bool) ($optionData['is_default'] ?? false),
+                    'is_available' => (bool) ($optionData['is_available'] ?? true),
+                ];
+            }
+
+            $normalizedGroups[] = [
+                ...$groupData,
+                'name' => filled(trim((string) ($groupData['name'] ?? '')))
+                    ? $groupData['name']
+                    : ProductOptionGroupType::Size->label(),
+                'type' => ProductOptionGroupType::Size->value,
+                'is_required' => true,
+                'min_selection' => 1,
+                'max_selection' => 1,
+                'is_active' => (bool) ($groupData['is_active'] ?? true),
+                'options' => $convertedOptions,
+            ];
+
+            $sizeMin = $min;
+        }
+
+        $data['option_groups'] = $normalizedGroups;
+
+        if ($sizeMin !== null) {
+            $data['list_price'] = $sizeMin;
+        }
+
+        return $data;
     }
 
     /**

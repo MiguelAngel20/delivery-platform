@@ -60,4 +60,15 @@ class ProductOptionGroupFactory extends Factory
             'max_selection' => 1,
         ]);
     }
+
+    public function size(): static
+    {
+        return $this->state(fn (): array => [
+            'type' => ProductOptionGroupType::Size,
+            'name' => 'Tamaños / porciones',
+            'is_required' => true,
+            'min_selection' => 1,
+            'max_selection' => 1,
+        ]);
+    }
 }

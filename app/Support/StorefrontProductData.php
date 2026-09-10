@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\ProductOptionGroupType;
 use App\Models\Product;
 
 final class StorefrontProductData
@@ -21,6 +22,9 @@ final class StorefrontProductData
         $category = $product->category;
         $parentName = $category?->parent?->name;
         $categoryName = $category?->name;
+        $hasSizeOptions = $product->optionGroups->contains(
+            fn ($group): bool => $group->type === ProductOptionGroupType::Size && $group->is_active,
+        );
 
         return [
             'id' => $product->id,
@@ -33,6 +37,7 @@ final class StorefrontProductData
             'name' => $product->name,
             'description' => $product->description ?? '',
             'price' => (float) ($product->currentPrice?->list_price ?? 0),
+            'has_size_options' => $hasSizeOptions,
             'image_url' => $product->imageUrl(),
             'is_available' => $product->is_available,
             'allow_special_instructions' => $product->allow_special_instructions,

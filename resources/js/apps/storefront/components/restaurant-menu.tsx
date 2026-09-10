@@ -18,6 +18,7 @@ export type RestaurantMenuProduct = {
     name: string;
     description: string;
     price: number;
+    has_size_options?: boolean;
     image_url?: string | null;
     is_available?: boolean;
     product_category_id?: number | null;
@@ -162,6 +163,7 @@ function SectionBlock({
                                     name: product.name,
                                     description: product.description,
                                     price: product.price,
+                                    has_size_options: product.has_size_options,
                                     image_url: product.image_url,
                                 }}
                                 canOrder={

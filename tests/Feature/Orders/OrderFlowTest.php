@@ -712,3 +712,68 @@ test('two simultaneous accepts do not corrupt order', function () {
     expect($order->fresh()->order_status)->toBe(OrderStatus::Preparing)
         ->and($order->fresh()->estimated_preparation_minutes)->toBe(15);
 });
+
+test('order with size option charges absolute size price', function () {
+    ['user' => $user, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+
+    $business = Business::factory()->create([
+        'operation_mode' => BusinessOperationMode::Partner,
+        'status' => BusinessStatus::Active,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+    $product = Product::factory()->create([
+        'branch_id' => $branch->id,
+        'name' => 'Cóctel de camarón',
+        'is_active' => true,
+        'is_available' => true,
+        'allow_special_instructions' => true,
+    ]);
+    ProductPrice::factory()->create([
+        'product_id' => $product->id,
+        'list_price' => 80,
+        'is_active' => true,
+    ]);
+
+    $sizeGroup = ProductOptionGroup::factory()->size()->create([
+        'product_id' => $product->id,
+    ]);
+    ProductOption::factory()->create([
+        'option_group_id' => $sizeGroup->id,
+        'name' => 'Chico',
+        'price_modifier' => 0,
+        'sort_order' => 0,
+    ]);
+    $grande = ProductOption::factory()->create([
+        'option_group_id' => $sizeGroup->id,
+        'name' => 'Grande',
+        'price_modifier' => 50,
+        'sort_order' => 1,
+    ]);
+
+    $order = app(CreateOrder::class)->handle($customer, $user, [
+        'branch_id' => $branch->id,
+        'items' => [
+            [
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'selected_options' => [
+                    [
+                        'option_id' => $grande->id,
+                        'action' => OptionSelectionAction::Selected->value,
+                    ],
+                ],
+            ],
+        ],
+        'delivery' => [
+            'source' => 'saved_address',
+            'customer_address_id' => $address->id,
+        ],
+    ]);
+
+    $item = $order->items->first();
+
+    expect((string) $item?->unit_list_price)->toBe('80.00')
+        ->and((string) $item?->unit_final_price)->toBe('130.00')
+        ->and($item?->options->firstWhere('option_name', 'Grande')?->option_type)
+        ->toBe(ProductOptionGroupType::Size);
+});
