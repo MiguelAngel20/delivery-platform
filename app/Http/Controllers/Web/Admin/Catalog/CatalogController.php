@@ -14,6 +14,7 @@ use App\Models\BusinessBranch;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\Promotion;
+use App\Support\Catalog\CatalogListPagination;
 use App\Support\CatalogData;
 use App\Support\ProductImageStorage;
 use Illuminate\Http\RedirectResponse;
@@ -45,18 +46,24 @@ class CatalogController extends Controller
     {
         $this->ensurePlatformOperated($business);
 
+        $perPage = CatalogListPagination::perPage($request);
+
         $categories = ProductCategory::query()
             ->whereIn('branch_id', $business->branches()->select('id'))
             ->roots()
             ->with(['branch:id,name'])
+            ->withCount(['products', 'children'])
             ->orderBy('sort_order')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString()
             ->through(fn (ProductCategory $category): array => CatalogData::category($category));
 
         return Inertia::render('admin/businesses/catalog/categories/index', [
             'business' => $this->businessPayload($business),
             'categories' => $categories,
+            'filters' => [
+                'per_page' => $perPage,
+            ],
             'options' => CatalogData::formOptions($business),
         ]);
     }
@@ -91,22 +98,90 @@ class CatalogController extends Controller
         return to_route('admin.businesses.catalog.categories.index', $business);
     }
 
+    public function categoriesEdit(Business $business, ProductCategory $category): Response
+    {
+        $this->ensurePlatformOperated($business);
+        $this->ensureCategory($business, $category);
+        abort_unless($category->isRoot(), 404);
+
+        $category->load(['branch:id,name']);
+
+        return Inertia::render('admin/businesses/catalog/categories/edit', [
+            'business' => $this->businessPayload($business),
+            'category' => CatalogData::category($category),
+            'options' => CatalogData::formOptions($business),
+        ]);
+    }
+
+    public function categoriesUpdate(Request $request, Business $business, ProductCategory $category): RedirectResponse
+    {
+        $this->ensurePlatformOperated($business);
+        $this->ensureCategory($business, $category);
+        abort_unless($category->isRoot(), 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'description' => ['nullable', 'string'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        $category->update([
+            ...$validated,
+            'parent_id' => null,
+            'is_active' => $request->boolean('is_active', $category->is_active),
+            'sort_order' => (int) ($validated['sort_order'] ?? $category->sort_order),
+        ]);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Categoría actualizada.']);
+
+        return to_route('admin.businesses.catalog.categories.index', $business);
+    }
+
+    public function categoriesDestroy(Business $business, ProductCategory $category): RedirectResponse
+    {
+        $this->ensurePlatformOperated($business);
+        $this->ensureCategory($business, $category);
+        abort_unless($category->isRoot(), 404);
+
+        if ($category->isInUse()) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'No se puede eliminar: la categoría tiene productos o subcategorías asociadas.',
+            ]);
+
+            return back();
+        }
+
+        $category->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Categoría eliminada.']);
+
+        return back();
+    }
+
     public function subcategoriesIndex(Request $request, Business $business): Response
     {
         $this->ensurePlatformOperated($business);
+
+        $perPage = CatalogListPagination::perPage($request);
 
         $subcategories = ProductCategory::query()
             ->whereIn('branch_id', $business->branches()->select('id'))
             ->whereNotNull('parent_id')
             ->with(['branch:id,name', 'parent:id,name'])
+            ->withCount('products')
             ->orderBy('sort_order')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString()
             ->through(fn (ProductCategory $category): array => CatalogData::category($category));
 
         return Inertia::render('admin/businesses/catalog/subcategories/index', [
             'business' => $this->businessPayload($business),
             'subcategories' => $subcategories,
+            'filters' => [
+                'per_page' => $perPage,
+            ],
             'options' => CatalogData::formOptions($business),
         ]);
     }
@@ -148,21 +223,106 @@ class CatalogController extends Controller
         return to_route('admin.businesses.catalog.subcategories.index', $business);
     }
 
+    public function subcategoriesEdit(Business $business, ProductCategory $subcategory): Response
+    {
+        $this->ensurePlatformOperated($business);
+        $this->ensureCategory($business, $subcategory);
+        abort_unless($subcategory->isSubcategory(), 404);
+
+        $subcategory->load(['branch:id,name', 'parent:id,name']);
+
+        return Inertia::render('admin/businesses/catalog/subcategories/edit', [
+            'business' => $this->businessPayload($business),
+            'subcategory' => CatalogData::category($subcategory),
+            'options' => CatalogData::formOptions($business),
+        ]);
+    }
+
+    public function subcategoriesUpdate(Request $request, Business $business, ProductCategory $subcategory): RedirectResponse
+    {
+        $this->ensurePlatformOperated($business);
+        $this->ensureCategory($business, $subcategory);
+        abort_unless($subcategory->isSubcategory(), 404);
+
+        $validated = $request->validate([
+            'parent_id' => [
+                'required',
+                'integer',
+                Rule::exists('product_categories', 'id')
+                    ->where('branch_id', $subcategory->branch_id)
+                    ->whereNull('parent_id')
+                    ->whereNull('deleted_at'),
+            ],
+            'name' => ['required', 'string', 'max:100'],
+            'description' => ['nullable', 'string'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        $subcategory->update([
+            ...$validated,
+            'parent_id' => (int) $validated['parent_id'],
+            'is_active' => $request->boolean('is_active', $subcategory->is_active),
+            'sort_order' => (int) ($validated['sort_order'] ?? $subcategory->sort_order),
+        ]);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Subcategoría actualizada.']);
+
+        return to_route('admin.businesses.catalog.subcategories.index', $business);
+    }
+
+    public function subcategoriesDestroy(Business $business, ProductCategory $subcategory): RedirectResponse
+    {
+        $this->ensurePlatformOperated($business);
+        $this->ensureCategory($business, $subcategory);
+        abort_unless($subcategory->isSubcategory(), 404);
+
+        if ($subcategory->isInUse()) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'No se puede eliminar: la subcategoría tiene productos asociados.',
+            ]);
+
+            return back();
+        }
+
+        $subcategory->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Subcategoría eliminada.']);
+
+        return back();
+    }
+
     public function productsIndex(Request $request, Business $business): Response
     {
         $this->ensurePlatformOperated($business);
 
-        $products = Product::query()
+        $perPage = CatalogListPagination::perPage($request);
+        $categoryId = $request->input('category_id', '');
+        $subcategoryId = $request->input('subcategory_id', '');
+
+        $productsQuery = Product::query()
             ->whereIn('branch_id', $business->branches()->select('id'))
-            ->with(['category:id,name', 'currentPrice', 'branch:id,name'])
+            ->with(['category:id,name,parent_id', 'currentPrice', 'branch:id,name']);
+
+        $products = CatalogListPagination::applyProductCategoryFilters(
+            $productsQuery,
+            $categoryId,
+            $subcategoryId,
+        )
             ->latest()
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString()
             ->through(fn (Product $product): array => CatalogData::productListRow($product));
 
         return Inertia::render('admin/businesses/catalog/products/index', [
             'business' => $this->businessPayload($business),
             'products' => $products,
+            'filters' => [
+                'category_id' => $categoryId,
+                'subcategory_id' => $subcategoryId,
+                'per_page' => $perPage,
+            ],
             'options' => CatalogData::formOptions($business),
         ]);
     }
@@ -318,6 +478,11 @@ class CatalogController extends Controller
     private function ensureProduct(Business $business, Product $product): void
     {
         abort_unless($business->branches()->whereKey($product->branch_id)->exists(), 404);
+    }
+
+    private function ensureCategory(Business $business, ProductCategory $category): void
+    {
+        abort_unless($business->branches()->whereKey($category->branch_id)->exists(), 404);
     }
 
     private function ensurePromotion(Business $business, Promotion $promotion): void

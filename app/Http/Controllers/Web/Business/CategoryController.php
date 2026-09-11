@@ -8,6 +8,7 @@ use App\Http\Requests\Business\Catalog\StoreProductCategoryRequest;
 use App\Http\Requests\Business\Catalog\UpdateProductCategoryRequest;
 use App\Models\Business;
 use App\Models\ProductCategory;
+use App\Support\Catalog\CatalogListPagination;
 use App\Support\CatalogData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,10 +26,13 @@ class CategoryController extends Controller
 
         $branchIds = $business->branches()->pluck('id');
 
+        $perPage = CatalogListPagination::perPage($request);
+
         $categories = ProductCategory::query()
             ->whereIn('branch_id', $branchIds)
             ->roots()
             ->with(['branch:id,name'])
+            ->withCount(['products', 'children'])
             ->when(
                 filled($request->string('search')->toString()),
                 fn ($query) => $query->where('name', 'like', '%'.$request->string('search')->toString().'%'),
@@ -43,7 +47,7 @@ class CategoryController extends Controller
             )
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString()
             ->through(fn (ProductCategory $category): array => CatalogData::category($category));
 
@@ -53,6 +57,7 @@ class CategoryController extends Controller
                 'search' => $request->string('search')->toString(),
                 'branch_id' => $request->input('branch_id', ''),
                 'is_active' => $request->input('is_active', ''),
+                'per_page' => $perPage,
             ],
             'options' => CatalogData::formOptions($business),
         ]);
@@ -125,6 +130,32 @@ class CategoryController extends Controller
         ]);
 
         return to_route('business.categories.index');
+    }
+
+    public function destroy(Request $request, ProductCategory $category): RedirectResponse
+    {
+        $business = $this->currentBusiness($request);
+        $this->ensureCategoryBelongsToBusiness($business, $category);
+        abort_unless($category->isRoot(), 404);
+        $this->authorize('delete', $category);
+
+        if ($category->isInUse()) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'No se puede eliminar: la categoría tiene productos o subcategorías asociadas.',
+            ]);
+
+            return back();
+        }
+
+        $category->delete();
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Categoría eliminada.',
+        ]);
+
+        return back();
     }
 
     public function deactivate(Request $request, ProductCategory $category): RedirectResponse

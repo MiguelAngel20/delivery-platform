@@ -1,11 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Pencil } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import {
-    DataTable
-} from '@/components/data-display/data-table';
-import type {DataTableColumn} from '@/components/data-display/data-table';
+    DEFAULT_CATALOG_PER_PAGE,
+    PerPageSelect,
+} from '@/components/catalog/per-page-select';
+import { DataTable } from '@/components/data-display/data-table';
+import type { DataTableColumn } from '@/components/data-display/data-table';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { FilterSelect } from '@/components/forms/filter-select';
 import { PageContainer, PageHeader } from '@/components/layout/page';
@@ -29,9 +31,11 @@ type ProductRow = {
 type Filters = {
     search: string;
     branch_id: string;
-    product_category_id: string;
+    category_id: string;
+    subcategory_id: string;
     is_available: string;
     is_active: string;
+    per_page: number;
 };
 
 type Paginated<T> = {
@@ -107,7 +111,22 @@ const columns: DataTableColumn<ProductRow>[] = [
 ];
 
 function visitFilters(next: Partial<Filters> & { page?: number }) {
-    router.get(index.url({ query: next }), {}, { preserveState: true, replace: true });
+    router.get(
+        index.url({
+            query: {
+                search: next.search || undefined,
+                branch_id: next.branch_id || undefined,
+                category_id: next.category_id || undefined,
+                subcategory_id: next.subcategory_id || undefined,
+                is_available: next.is_available || undefined,
+                is_active: next.is_active || undefined,
+                per_page: next.per_page || DEFAULT_CATALOG_PER_PAGE,
+                page: next.page,
+            },
+        }),
+        {},
+        { preserveState: true, preserveScroll: true, replace: true },
+    );
 }
 
 export default function BusinessProductsIndex({
@@ -116,6 +135,7 @@ export default function BusinessProductsIndex({
     options,
 }: Props) {
     const [search, setSearch] = useState(filters.search);
+    const perPage = filters.per_page || DEFAULT_CATALOG_PER_PAGE;
 
     useEffect(() => {
         const timeout = window.setTimeout(() => {
@@ -127,10 +147,31 @@ export default function BusinessProductsIndex({
         return () => window.clearTimeout(timeout);
     }, [search, filters]);
 
-    const categoryOptions = options.categories.filter((category) =>
-        filters.branch_id
-            ? String(category.branch_id) === filters.branch_id
-            : true,
+    const principalCategories = useMemo(
+        () =>
+            options.categories.filter(
+                (category) =>
+                    category.is_root !== false &&
+                    !category.parent_id &&
+                    (filters.branch_id
+                        ? String(category.branch_id) === filters.branch_id
+                        : true),
+            ),
+        [options.categories, filters.branch_id],
+    );
+
+    const subcategories = useMemo(
+        () =>
+            options.categories.filter(
+                (category) =>
+                    category.parent_id !== null &&
+                    category.parent_id !== undefined &&
+                    String(category.parent_id) === filters.category_id &&
+                    (filters.branch_id
+                        ? String(category.branch_id) === filters.branch_id
+                        : true),
+            ),
+        [options.categories, filters.category_id, filters.branch_id],
     );
 
     return (
@@ -147,7 +188,7 @@ export default function BusinessProductsIndex({
                     }
                 />
 
-                <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <Input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
@@ -160,7 +201,8 @@ export default function BusinessProductsIndex({
                             visitFilters({
                                 ...filters,
                                 branch_id: event.target.value,
-                                product_category_id: '',
+                                category_id: '',
+                                subcategory_id: '',
                                 page: 1,
                             })
                         }
@@ -174,19 +216,49 @@ export default function BusinessProductsIndex({
                     </FilterSelect>
                     <FilterSelect
                         label="Categoría"
-                        value={filters.product_category_id || ''}
+                        value={filters.category_id || ''}
                         onChange={(event) =>
                             visitFilters({
                                 ...filters,
-                                product_category_id: event.target.value,
+                                category_id: event.target.value,
+                                subcategory_id: '',
                                 page: 1,
                             })
                         }
                     >
                         <option value="">Todas las categorías</option>
-                        {categoryOptions.map((category) => (
+                        {principalCategories.map((category) => (
                             <option key={category.value} value={category.value}>
-                                {category.label}
+                                {category.label.includes(' › ')
+                                    ? category.label.split(' › ')[0]
+                                    : category.label}
+                            </option>
+                        ))}
+                    </FilterSelect>
+                    <FilterSelect
+                        label="Subcategoría"
+                        value={filters.subcategory_id || ''}
+                        disabled={filters.category_id === ''}
+                        onChange={(event) =>
+                            visitFilters({
+                                ...filters,
+                                subcategory_id: event.target.value,
+                                page: 1,
+                            })
+                        }
+                    >
+                        <option value="">
+                            {filters.category_id === ''
+                                ? 'Elige una categoría primero'
+                                : subcategories.length === 0
+                                  ? 'Sin subcategorías'
+                                  : 'Todas las subcategorías'}
+                        </option>
+                        {subcategories.map((category) => (
+                            <option key={category.value} value={category.value}>
+                                {category.label.includes(' › ')
+                                    ? category.label.split(' › ').pop()
+                                    : category.label}
                             </option>
                         ))}
                     </FilterSelect>
@@ -220,44 +292,29 @@ export default function BusinessProductsIndex({
                         <option value="1">Activo</option>
                         <option value="0">Inactivo</option>
                     </FilterSelect>
+                    <PerPageSelect
+                        value={perPage}
+                        onChange={(nextPerPage) =>
+                            visitFilters({
+                                ...filters,
+                                per_page: nextPerPage,
+                                page: 1,
+                            })
+                        }
+                    />
                 </div>
 
                 <DataTable
                     columns={columns}
                     data={products.data}
                     rowKey={(row) => row.id}
+                    pagination={{
+                        page: products.current_page,
+                        lastPage: products.last_page,
+                        onPageChange: (page) =>
+                            visitFilters({ ...filters, page }),
+                    }}
                 />
-
-                {products.last_page > 1 ? (
-                    <div className="mt-4 flex justify-end gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={products.current_page <= 1}
-                            onClick={() =>
-                                visitFilters({
-                                    ...filters,
-                                    page: products.current_page - 1,
-                                })
-                            }
-                        >
-                            Anterior
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={products.current_page >= products.last_page}
-                            onClick={() =>
-                                visitFilters({
-                                    ...filters,
-                                    page: products.current_page + 1,
-                                })
-                            }
-                        >
-                            Siguiente
-                        </Button>
-                    </div>
-                ) : null}
             </PageContainer>
         </>
     );

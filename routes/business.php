@@ -49,6 +49,7 @@ Route::middleware([
             Route::post('categories', [CategoryController::class, 'store'])->name('categories.store');
             Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
             Route::put('categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
+            Route::delete('categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
             Route::post('categories/{category}/deactivate', [CategoryController::class, 'deactivate'])->name('categories.deactivate');
             Route::post('categories/{category}/activate', [CategoryController::class, 'activate'])->name('categories.activate');
 
@@ -57,6 +58,7 @@ Route::middleware([
             Route::post('subcategories', [SubcategoryController::class, 'store'])->name('subcategories.store');
             Route::get('subcategories/{subcategory}/edit', [SubcategoryController::class, 'edit'])->name('subcategories.edit');
             Route::put('subcategories/{subcategory}', [SubcategoryController::class, 'update'])->name('subcategories.update');
+            Route::delete('subcategories/{subcategory}', [SubcategoryController::class, 'destroy'])->name('subcategories.destroy');
             Route::post('subcategories/{subcategory}/deactivate', [SubcategoryController::class, 'deactivate'])->name('subcategories.deactivate');
             Route::post('subcategories/{subcategory}/activate', [SubcategoryController::class, 'activate'])->name('subcategories.activate');
 

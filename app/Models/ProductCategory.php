@@ -81,6 +81,38 @@ class ProductCategory extends Model
     }
 
     /**
+     * A category is in use when it has products, or (for roots) when it has subcategories.
+     */
+    public function isInUse(): bool
+    {
+        if ($this->relationLoaded('products')) {
+            if ($this->products->isNotEmpty()) {
+                return true;
+            }
+        } elseif (isset($this->products_count)) {
+            if ((int) $this->products_count > 0) {
+                return true;
+            }
+        } elseif ($this->products()->exists()) {
+            return true;
+        }
+
+        if (! $this->isRoot()) {
+            return false;
+        }
+
+        if ($this->relationLoaded('children')) {
+            return $this->children->isNotEmpty();
+        }
+
+        if (isset($this->children_count)) {
+            return (int) $this->children_count > 0;
+        }
+
+        return $this->children()->exists();
+    }
+
+    /**
      * @param  Builder<ProductCategory>  $query
      * @return Builder<ProductCategory>
      */

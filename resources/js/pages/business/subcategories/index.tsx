@@ -1,7 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Pencil } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
+import {
+    DEFAULT_CATALOG_PER_PAGE,
+    PerPageSelect,
+} from '@/components/catalog/per-page-select';
 import { DataTable } from '@/components/data-display/data-table';
 import type { DataTableColumn } from '@/components/data-display/data-table';
 import { StatusBadge } from '@/components/data-display/status-badge';
@@ -12,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import business from '@/routes/business';
 import {
     create,
+    destroy,
     edit,
     index,
 } from '@/routes/business/subcategories';
@@ -25,6 +30,7 @@ type SubcategoryRow = {
     name: string;
     display_name?: string;
     is_active: boolean;
+    can_delete?: boolean;
 };
 
 type Filters = {
@@ -32,6 +38,7 @@ type Filters = {
     branch_id: string;
     parent_id: string;
     is_active: string;
+    per_page: number;
 };
 
 type Paginated<T> = {
@@ -46,58 +53,20 @@ type Props = {
     options: CatalogFormOptions;
 };
 
-const columns: DataTableColumn<SubcategoryRow>[] = [
-    {
-        key: 'name',
-        header: 'Subcategoría',
-        cell: (row) => (
-            <div>
-                <p className="font-medium">{row.name}</p>
-                <p className="text-xs text-muted-foreground">
-                    En {row.parent_name ?? '—'}
-                </p>
-            </div>
-        ),
-    },
-    {
-        key: 'branch',
-        header: 'Sucursal',
-        cell: (row) => row.branch_name ?? '—',
-    },
-    {
-        key: 'status',
-        header: 'Estado',
-        cell: (row) => (
-            <StatusBadge tone={row.is_active ? 'success' : 'neutral'}>
-                {row.is_active ? 'Activa' : 'Inactiva'}
-            </StatusBadge>
-        ),
-    },
-    {
-        key: 'actions',
-        header: 'Acciones',
-        className: 'text-right',
-        cell: (row) => (
-            <Button variant="ghost" size="icon" className="size-8" asChild>
-                <Link
-                    href={edit.url(row.id)}
-                    aria-label={`Editar ${row.name}`}
-                    title="Editar"
-                >
-                    <Pencil className="size-4" />
-                </Link>
-            </Button>
-        ),
-    },
-];
-
 function visitFilters(next: Partial<Filters> & { page?: number }) {
     router.get(
         index.url({
-            query: next,
+            query: {
+                search: next.search || undefined,
+                branch_id: next.branch_id || undefined,
+                parent_id: next.parent_id || undefined,
+                is_active: next.is_active || undefined,
+                per_page: next.per_page || DEFAULT_CATALOG_PER_PAGE,
+                page: next.page,
+            },
         }),
         {},
-        { preserveState: true, replace: true },
+        { preserveState: true, preserveScroll: true, replace: true },
     );
 }
 
@@ -107,6 +76,7 @@ export default function BusinessSubcategoriesIndex({
     options,
 }: Props) {
     const [search, setSearch] = useState(filters.search);
+    const perPage = filters.per_page || DEFAULT_CATALOG_PER_PAGE;
 
     useEffect(() => {
         const timeout = window.setTimeout(() => {
@@ -117,6 +87,91 @@ export default function BusinessSubcategoriesIndex({
 
         return () => window.clearTimeout(timeout);
     }, [search, filters]);
+
+    const columns = useMemo<DataTableColumn<SubcategoryRow>[]>(
+        () => [
+            {
+                key: 'name',
+                header: 'Subcategoría',
+                cell: (row) => (
+                    <div>
+                        <p className="font-medium">{row.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                            En {row.parent_name ?? '—'}
+                        </p>
+                    </div>
+                ),
+            },
+            {
+                key: 'branch',
+                header: 'Sucursal',
+                cell: (row) => row.branch_name ?? '—',
+            },
+            {
+                key: 'status',
+                header: 'Estado',
+                cell: (row) => (
+                    <StatusBadge tone={row.is_active ? 'success' : 'neutral'}>
+                        {row.is_active ? 'Activa' : 'Inactiva'}
+                    </StatusBadge>
+                ),
+            },
+            {
+                key: 'actions',
+                header: 'Acciones',
+                className: 'text-right',
+                cell: (row) => (
+                    <div className="flex justify-end gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            asChild
+                        >
+                            <Link
+                                href={edit.url(row.id)}
+                                aria-label={`Editar ${row.name}`}
+                                title="Editar"
+                            >
+                                <Pencil className="size-4" />
+                            </Link>
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground hover:text-destructive disabled:opacity-40"
+                            aria-label={`Eliminar ${row.name}`}
+                            title={
+                                row.can_delete
+                                    ? 'Eliminar'
+                                    : 'No se puede eliminar: está en uso'
+                            }
+                            disabled={!row.can_delete}
+                            onClick={() => {
+                                if (!row.can_delete) {
+                                    return;
+                                }
+
+                                if (
+                                    !window.confirm(
+                                        `¿Eliminar la subcategoría "${row.name}"?`,
+                                    )
+                                ) {
+                                    return;
+                                }
+
+                                router.delete(destroy.url(row.id));
+                            }}
+                        >
+                            <Trash2 className="size-4" />
+                        </Button>
+                    </div>
+                ),
+            },
+        ],
+        [],
+    );
 
     return (
         <>
@@ -132,7 +187,7 @@ export default function BusinessSubcategoriesIndex({
                     }
                 />
 
-                <div className="mb-4 grid gap-3 md:grid-cols-3">
+                <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <Input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
@@ -174,12 +229,28 @@ export default function BusinessSubcategoriesIndex({
                             </option>
                         ))}
                     </FilterSelect>
+                    <PerPageSelect
+                        value={perPage}
+                        onChange={(nextPerPage) =>
+                            visitFilters({
+                                ...filters,
+                                per_page: nextPerPage,
+                                page: 1,
+                            })
+                        }
+                    />
                 </div>
 
                 <DataTable
                     columns={columns}
                     data={subcategories.data}
                     rowKey={(row) => row.id}
+                    pagination={{
+                        page: subcategories.current_page,
+                        lastPage: subcategories.last_page,
+                        onPageChange: (page) =>
+                            visitFilters({ ...filters, page }),
+                    }}
                 />
             </PageContainer>
         </>

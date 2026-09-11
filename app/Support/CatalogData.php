@@ -30,6 +30,7 @@ final class CatalogData
             'description' => $category->description,
             'sort_order' => $category->sort_order,
             'is_active' => $category->is_active,
+            'can_delete' => ! $category->isInUse(),
         ];
     }
 

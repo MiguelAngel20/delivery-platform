@@ -10,6 +10,7 @@ use App\Http\Requests\Business\Catalog\StoreProductRequest;
 use App\Http\Requests\Business\Catalog\UpdateProductRequest;
 use App\Models\Business;
 use App\Models\Product;
+use App\Support\Catalog\CatalogListPagination;
 use App\Support\CatalogData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -27,10 +28,13 @@ class ProductController extends Controller
         $this->authorize('viewAny', Product::class);
 
         $branchIds = $business->branches()->pluck('id');
+        $perPage = CatalogListPagination::perPage($request);
+        $categoryId = $request->input('category_id', '');
+        $subcategoryId = $request->input('subcategory_id', '');
 
-        $products = Product::query()
+        $productsQuery = Product::query()
             ->whereIn('branch_id', $branchIds)
-            ->with(['category:id,name', 'currentPrice', 'branch:id,name'])
+            ->with(['category:id,name,parent_id', 'currentPrice', 'branch:id,name'])
             ->when(
                 filled($request->string('search')->toString()),
                 fn ($query) => $query->where('name', 'like', '%'.$request->string('search')->toString().'%'),
@@ -40,19 +44,21 @@ class ProductController extends Controller
                 fn ($query) => $query->where('branch_id', $request->integer('branch_id')),
             )
             ->when(
-                filled($request->input('product_category_id')),
-                fn ($query) => $query->where('product_category_id', $request->integer('product_category_id')),
-            )
-            ->when(
                 $request->input('is_available') !== null && $request->input('is_available') !== '',
                 fn ($query) => $query->where('is_available', filter_var($request->input('is_available'), FILTER_VALIDATE_BOOLEAN)),
             )
             ->when(
                 $request->input('is_active') !== null && $request->input('is_active') !== '',
                 fn ($query) => $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN)),
-            )
+            );
+
+        $products = CatalogListPagination::applyProductCategoryFilters(
+            $productsQuery,
+            $categoryId,
+            $subcategoryId,
+        )
             ->latest()
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString()
             ->through(fn (Product $product): array => CatalogData::productListRow($product));
 
@@ -61,9 +67,11 @@ class ProductController extends Controller
             'filters' => [
                 'search' => $request->string('search')->toString(),
                 'branch_id' => $request->input('branch_id', ''),
-                'product_category_id' => $request->input('product_category_id', ''),
+                'category_id' => $categoryId,
+                'subcategory_id' => $subcategoryId,
                 'is_available' => $request->input('is_available', ''),
                 'is_active' => $request->input('is_active', ''),
+                'per_page' => $perPage,
             ],
             'options' => CatalogData::formOptions($business),
         ]);

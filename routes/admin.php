@@ -96,9 +96,15 @@ Route::middleware([
 
             Route::get('categories', [CatalogController::class, 'categoriesIndex'])->name('categories.index');
             Route::post('categories', [CatalogController::class, 'categoriesStore'])->name('categories.store');
+            Route::get('categories/{category}/edit', [CatalogController::class, 'categoriesEdit'])->name('categories.edit');
+            Route::put('categories/{category}', [CatalogController::class, 'categoriesUpdate'])->name('categories.update');
+            Route::delete('categories/{category}', [CatalogController::class, 'categoriesDestroy'])->name('categories.destroy');
 
             Route::get('subcategories', [CatalogController::class, 'subcategoriesIndex'])->name('subcategories.index');
             Route::post('subcategories', [CatalogController::class, 'subcategoriesStore'])->name('subcategories.store');
+            Route::get('subcategories/{subcategory}/edit', [CatalogController::class, 'subcategoriesEdit'])->name('subcategories.edit');
+            Route::put('subcategories/{subcategory}', [CatalogController::class, 'subcategoriesUpdate'])->name('subcategories.update');
+            Route::delete('subcategories/{subcategory}', [CatalogController::class, 'subcategoriesDestroy'])->name('subcategories.destroy');
 
             Route::get('products', [CatalogController::class, 'productsIndex'])->name('products.index');
             Route::get('products/create', [CatalogController::class, 'productsCreate'])->name('products.create');

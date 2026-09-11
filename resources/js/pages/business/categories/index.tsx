@@ -1,11 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Pencil } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import {
-    DataTable
-} from '@/components/data-display/data-table';
-import type {DataTableColumn} from '@/components/data-display/data-table';
+    DEFAULT_CATALOG_PER_PAGE,
+    PerPageSelect,
+} from '@/components/catalog/per-page-select';
+import { DataTable } from '@/components/data-display/data-table';
+import type { DataTableColumn } from '@/components/data-display/data-table';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { FilterSelect } from '@/components/forms/filter-select';
 import { PageContainer, PageHeader } from '@/components/layout/page';
@@ -14,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import business from '@/routes/business';
 import {
     create,
+    destroy,
     edit,
     index,
 } from '@/routes/business/categories';
@@ -29,12 +32,14 @@ type CategoryRow = {
     description?: string | null;
     sort_order: number;
     is_active: boolean;
+    can_delete?: boolean;
 };
 
 type Filters = {
     search: string;
     branch_id: string;
     is_active: string;
+    per_page: number;
 };
 
 type Paginated<T> = {
@@ -49,53 +54,19 @@ type Props = {
     options: CatalogFormOptions;
 };
 
-const columns: DataTableColumn<CategoryRow>[] = [
-    {
-        key: 'name',
-        header: 'Categoría',
-        cell: (row) => (
-            <p className="font-medium">{row.name}</p>
-        ),
-    },
-    {
-        key: 'branch',
-        header: 'Sucursal',
-        cell: (row) => row.branch_name ?? '—',
-    },
-    {
-        key: 'status',
-        header: 'Estado',
-        cell: (row) => (
-            <StatusBadge tone={row.is_active ? 'success' : 'neutral'}>
-                {row.is_active ? 'Activa' : 'Inactiva'}
-            </StatusBadge>
-        ),
-    },
-    {
-        key: 'actions',
-        header: 'Acciones',
-        className: 'text-right',
-        cell: (row) => (
-            <Button variant="ghost" size="icon" className="size-8" asChild>
-                <Link
-                    href={edit.url(row.id)}
-                    aria-label={`Editar ${row.name}`}
-                    title="Editar"
-                >
-                    <Pencil className="size-4" />
-                </Link>
-            </Button>
-        ),
-    },
-];
-
 function visitFilters(next: Partial<Filters> & { page?: number }) {
     router.get(
         index.url({
-            query: next,
+            query: {
+                search: next.search || undefined,
+                branch_id: next.branch_id || undefined,
+                is_active: next.is_active || undefined,
+                per_page: next.per_page || DEFAULT_CATALOG_PER_PAGE,
+                page: next.page,
+            },
         }),
         {},
-        { preserveState: true, replace: true },
+        { preserveState: true, preserveScroll: true, replace: true },
     );
 }
 
@@ -105,6 +76,7 @@ export default function BusinessCategoriesIndex({
     options,
 }: Props) {
     const [search, setSearch] = useState(filters.search);
+    const perPage = filters.per_page || DEFAULT_CATALOG_PER_PAGE;
 
     useEffect(() => {
         const timeout = window.setTimeout(() => {
@@ -115,6 +87,84 @@ export default function BusinessCategoriesIndex({
 
         return () => window.clearTimeout(timeout);
     }, [search, filters]);
+
+    const columns = useMemo<DataTableColumn<CategoryRow>[]>(
+        () => [
+            {
+                key: 'name',
+                header: 'Categoría',
+                cell: (row) => <p className="font-medium">{row.name}</p>,
+            },
+            {
+                key: 'branch',
+                header: 'Sucursal',
+                cell: (row) => row.branch_name ?? '—',
+            },
+            {
+                key: 'status',
+                header: 'Estado',
+                cell: (row) => (
+                    <StatusBadge tone={row.is_active ? 'success' : 'neutral'}>
+                        {row.is_active ? 'Activa' : 'Inactiva'}
+                    </StatusBadge>
+                ),
+            },
+            {
+                key: 'actions',
+                header: 'Acciones',
+                className: 'text-right',
+                cell: (row) => (
+                    <div className="flex justify-end gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            asChild
+                        >
+                            <Link
+                                href={edit.url(row.id)}
+                                aria-label={`Editar ${row.name}`}
+                                title="Editar"
+                            >
+                                <Pencil className="size-4" />
+                            </Link>
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground hover:text-destructive disabled:opacity-40"
+                            aria-label={`Eliminar ${row.name}`}
+                            title={
+                                row.can_delete
+                                    ? 'Eliminar'
+                                    : 'No se puede eliminar: está en uso'
+                            }
+                            disabled={!row.can_delete}
+                            onClick={() => {
+                                if (!row.can_delete) {
+                                    return;
+                                }
+
+                                if (
+                                    !window.confirm(
+                                        `¿Eliminar la categoría "${row.name}"?`,
+                                    )
+                                ) {
+                                    return;
+                                }
+
+                                router.delete(destroy.url(row.id));
+                            }}
+                        >
+                            <Trash2 className="size-4" />
+                        </Button>
+                    </div>
+                ),
+            },
+        ],
+        [],
+    );
 
     return (
         <>
@@ -130,7 +180,7 @@ export default function BusinessCategoriesIndex({
                     }
                 />
 
-                <div className="mb-4 grid gap-3 md:grid-cols-3">
+                <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <Input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
@@ -169,46 +219,29 @@ export default function BusinessCategoriesIndex({
                         <option value="1">Activas</option>
                         <option value="0">Inactivas</option>
                     </FilterSelect>
+                    <PerPageSelect
+                        value={perPage}
+                        onChange={(nextPerPage) =>
+                            visitFilters({
+                                ...filters,
+                                per_page: nextPerPage,
+                                page: 1,
+                            })
+                        }
+                    />
                 </div>
 
                 <DataTable
                     columns={columns}
                     data={categories.data}
                     rowKey={(row) => row.id}
+                    pagination={{
+                        page: categories.current_page,
+                        lastPage: categories.last_page,
+                        onPageChange: (page) =>
+                            visitFilters({ ...filters, page }),
+                    }}
                 />
-
-                {categories.last_page > 1 ? (
-                    <div className="mt-4 flex justify-end gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={categories.current_page <= 1}
-                            onClick={() =>
-                                visitFilters({
-                                    ...filters,
-                                    page: categories.current_page - 1,
-                                })
-                            }
-                        >
-                            Anterior
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={
-                                categories.current_page >= categories.last_page
-                            }
-                            onClick={() =>
-                                visitFilters({
-                                    ...filters,
-                                    page: categories.current_page + 1,
-                                })
-                            }
-                        >
-                            Siguiente
-                        </Button>
-                    </div>
-                ) : null}
             </PageContainer>
         </>
     );
