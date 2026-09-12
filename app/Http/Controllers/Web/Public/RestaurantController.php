@@ -151,6 +151,8 @@ class RestaurantController extends Controller
             ->latest()
             ->get();
 
+        $logoUrl = $this->logoStorage->url($business->logo_path);
+
         $latitude = $request->filled('lat') ? (float) $request->input('lat') : null;
         $longitude = $request->filled('lng') ? (float) $request->input('lng') : null;
         $inCoverage = true;
@@ -190,7 +192,9 @@ class RestaurantController extends Controller
                     'description' => $child->description,
                 ])->values()->all(),
             ])->values()->all(),
-            'products' => $products->map(fn (Product $product): array => $this->productPayload($product, $business->slug))->values()->all(),
+            'products' => $products->map(
+                fn (Product $product): array => $this->productPayload($product, $business->slug, $logoUrl),
+            )->values()->all(),
             'promotions' => $promotions->map(fn (Promotion $promotion): array => [
                 'id' => $promotion->id,
                 'name' => $promotion->name,
@@ -296,8 +300,11 @@ class RestaurantController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function productPayload(Product $product, string $restaurantSlug): array
-    {
-        return StorefrontProductData::menuProduct($product, $restaurantSlug);
+    private function productPayload(
+        Product $product,
+        string $restaurantSlug,
+        ?string $fallbackImageUrl = null,
+    ): array {
+        return StorefrontProductData::menuProduct($product, $restaurantSlug, $fallbackImageUrl);
     }
 }

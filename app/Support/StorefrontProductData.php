@@ -10,8 +10,11 @@ final class StorefrontProductData
     /**
      * @return array<string, mixed>
      */
-    public static function menuProduct(Product $product, string $restaurantSlug): array
-    {
+    public static function menuProduct(
+        Product $product,
+        string $restaurantSlug,
+        ?string $fallbackImageUrl = null,
+    ): array {
         $product->loadMissing([
             'category:id,name,parent_id',
             'category.parent:id,name',
@@ -38,7 +41,7 @@ final class StorefrontProductData
             'description' => $product->description ?? '',
             'price' => (float) ($product->currentPrice?->list_price ?? 0),
             'has_size_options' => $hasSizeOptions,
-            'image_url' => $product->imageUrl(),
+            'image_url' => $product->imageUrl() ?? $fallbackImageUrl,
             'is_available' => $product->is_available,
             'allow_special_instructions' => $product->allow_special_instructions,
             'option_groups' => $product->optionGroups->map(fn ($group): array => [

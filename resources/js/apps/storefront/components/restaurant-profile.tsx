@@ -6,6 +6,7 @@ import {
     MapPin,
     Phone,
     Store,
+    TriangleAlert,
     type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -107,9 +108,14 @@ export function RestaurantProfile({
                 ) : null}
 
                 {!restaurant.open ? (
-                    <p className="mt-3 rounded-xl border border-border bg-secondary px-3 py-2 text-sm text-navy">
-                        Este negocio está cerrado ahora. Puedes ver el menú,
-                        pero no agregar productos al carrito hasta que abra.
+                    <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-navy">
+                        <TriangleAlert
+                            className="mt-0.5 size-4 shrink-0 text-amber-600"
+                            aria-hidden
+                        />
+                        <span>
+                            Negocio cerrado, regresa cuando esté abierto.
+                        </span>
                     </p>
                 ) : null}
 

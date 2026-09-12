@@ -11,6 +11,7 @@ use App\Models\ProductPrice;
 use App\Models\Promotion;
 use App\Models\User;
 use App\Support\BusinessHours;
+use Illuminate\Support\Facades\Storage;
 
 test('guests can browse the public storefront', function (string $routeName) {
     $this->get(route($routeName))->assertOk();
@@ -59,6 +60,40 @@ test('guests can open a restaurant menu', function () {
         ->assertInertia(fn ($page) => $page
             ->component('public/restaurants/show')
             ->where('restaurant.slug', 'pollo-guero'));
+});
+
+test('products without image fall back to business logo on restaurant menu', function () {
+    Storage::fake('public');
+
+    $logoPath = 'businesses/logos/demo.webp';
+    Storage::disk('public')->put($logoPath, 'logo');
+
+    $business = Business::factory()->create([
+        'slug' => 'logo-fallback',
+        'status' => BusinessStatus::Active,
+        'logo_path' => $logoPath,
+    ]);
+    $branch = BusinessBranch::factory()->for($business)->create();
+    $product = Product::factory()->create([
+        'branch_id' => $branch->id,
+        'name' => 'Sin imagen',
+        'image_path' => null,
+        'is_active' => true,
+        'is_available' => true,
+    ]);
+    ProductPrice::factory()->create([
+        'product_id' => $product->id,
+        'list_price' => 40,
+        'is_active' => true,
+    ]);
+
+    $this->get(route('restaurants.show', ['slug' => 'logo-fallback']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('public/restaurants/show')
+            ->has('products', 1)
+            ->where('products.0.id', $product->id)
+            ->where('products.0.image_url', Storage::disk('public')->url($logoPath)));
 });
 
 test('restaurant page includes location contact and schedule details', function () {

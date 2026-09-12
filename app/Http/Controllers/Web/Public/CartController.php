@@ -8,12 +8,17 @@ use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Promotion;
+use App\Support\BusinessLogoStorage;
 use App\Support\StorefrontProductData;
 use App\Support\StorefrontPromotionData;
 use Illuminate\Http\JsonResponse;
 
 class CartController extends Controller
 {
+    public function __construct(
+        private readonly BusinessLogoStorage $logoStorage,
+    ) {}
+
     public function product(Product $product): JsonResponse
     {
         $product->load([
@@ -35,7 +40,11 @@ class CartController extends Controller
         $business = $product->branch->business;
 
         return response()->json([
-            'product' => StorefrontProductData::menuProduct($product, $business->slug),
+            'product' => StorefrontProductData::menuProduct(
+                $product,
+                $business->slug,
+                $this->logoStorage->url($business->logo_path),
+            ),
             'branch_id' => $product->branch_id,
             'restaurant' => [
                 'name' => $business->name,

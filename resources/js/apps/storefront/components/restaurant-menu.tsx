@@ -36,15 +36,30 @@ type RestaurantMenuProps = {
     onAdd: (product: RestaurantMenuProduct) => void;
 };
 
+type MenuSubsection = {
+    id: number | string | null;
+    name: string | null;
+    products: RestaurantMenuProduct[];
+};
+
 type MenuSection = {
     id: number | string;
     name: string;
-    subsections: Array<{
-        id: number | string | null;
-        name: string | null;
-        products: RestaurantMenuProduct[];
-    }>;
+    subsections: MenuSubsection[];
 };
+
+type ScrollableTabItem = {
+    id: string;
+    label: string;
+};
+
+function subsectionKey(subsection: MenuSubsection): string {
+    return String(subsection.id ?? 'root');
+}
+
+function subsectionLabel(subsection: MenuSubsection): string {
+    return subsection.name ?? 'General';
+}
 
 function buildMenuSections(
     categories: RestaurantMenuCategory[],
@@ -60,7 +75,7 @@ function buildMenuSections(
             );
             direct.forEach((product) => assigned.add(String(product.id)));
 
-            const subsections: MenuSection['subsections'] = [];
+            const subsections: MenuSubsection[] = [];
 
             if (direct.length > 0) {
                 subsections.push({
@@ -126,69 +141,48 @@ function buildMenuSections(
     return sections;
 }
 
-function SectionBlock({
-    section,
+function ProductGrid({
+    products,
     canOrder,
     onAdd,
 }: {
-    section: MenuSection;
+    products: RestaurantMenuProduct[];
     canOrder: boolean;
     onAdd: (product: RestaurantMenuProduct) => void;
 }) {
-    const sectionId = String(section.id);
-
     return (
-        <div className="space-y-3 md:space-y-4">
-            <div className="space-y-1">
-                <h3 className="text-base font-semibold text-navy md:text-lg">
-                    {section.name}
-                </h3>
-                <div className="h-0.5 w-10 rounded-full bg-primary md:w-12" />
-            </div>
-
-            {section.subsections.map((subsection) => (
-                <div
-                    key={`${sectionId}-${subsection.id ?? 'root'}`}
-                    className="space-y-2 md:space-y-3"
-                >
-                    {subsection.name ? (
-                        <h4 className="text-sm font-medium text-muted-foreground md:text-base md:font-semibold md:text-navy">
-                            {subsection.name}
-                        </h4>
-                    ) : null}
-                    <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
-                        {subsection.products.map((product) => (
-                            <ProductCard
-                                key={product.id}
-                                product={{
-                                    id: String(product.id),
-                                    name: product.name,
-                                    description: product.description,
-                                    price: product.price,
-                                    has_size_options: product.has_size_options,
-                                    image_url: product.image_url,
-                                }}
-                                canOrder={
-                                    canOrder && product.is_available !== false
-                                }
-                                onAdd={() => onAdd(product)}
-                            />
-                        ))}
-                    </div>
-                </div>
+        <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
+            {products.map((product) => (
+                <ProductCard
+                    key={product.id}
+                    product={{
+                        id: String(product.id),
+                        name: product.name,
+                        description: product.description,
+                        price: product.price,
+                        has_size_options: product.has_size_options,
+                        image_url: product.image_url,
+                    }}
+                    canOrder={canOrder && product.is_available !== false}
+                    onAdd={() => onAdd(product)}
+                />
             ))}
         </div>
     );
 }
 
-function CategoryTabs({
-    sections,
-    activeSectionId,
+function ScrollableTabs({
+    items,
+    activeId,
     onSelect,
+    previousLabel,
+    nextLabel,
 }: {
-    sections: MenuSection[];
-    activeSectionId: string;
+    items: ScrollableTabItem[];
+    activeId: string;
     onSelect: (id: string) => void;
+    previousLabel: string;
+    nextLabel: string;
 }) {
     const scrollerRef = useRef<HTMLDivElement>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -255,7 +249,7 @@ function CategoryTabs({
             el.removeEventListener('wheel', onWheel);
             resizeObserver.disconnect();
         };
-    }, [sections]);
+    }, [items]);
 
     useEffect(() => {
         const el = scrollerRef.current;
@@ -265,7 +259,7 @@ function CategoryTabs({
         }
 
         const active = el.querySelector<HTMLElement>(
-            `[data-category-id="${CSS.escape(activeSectionId)}"]`,
+            `[data-tab-id="${CSS.escape(activeId)}"]`,
         );
 
         active?.scrollIntoView({
@@ -273,7 +267,7 @@ function CategoryTabs({
             inline: 'nearest',
             block: 'nearest',
         });
-    }, [activeSectionId]);
+    }, [activeId]);
 
     const scrollByDirection = (direction: -1 | 1) => {
         const el = scrollerRef.current;
@@ -288,60 +282,40 @@ function CategoryTabs({
         });
     };
 
-    return (
-        <div className="relative">
-            {canScrollLeft ? (
-                <>
-                    <div
-                        aria-hidden
-                        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background via-background/80 to-transparent md:w-10"
-                    />
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="absolute top-1/2 left-0 z-20 size-7 -translate-y-1/2 rounded-full bg-surface/95 shadow-sm md:size-8"
-                        aria-label="Ver categorías anteriores"
-                        onClick={() => scrollByDirection(-1)}
-                    >
-                        <ChevronLeft className="size-4" />
-                    </Button>
-                </>
-            ) : null}
+    const needsScrollControls = canScrollLeft || canScrollRight;
 
-            {canScrollRight ? (
-                <>
-                    <div
-                        aria-hidden
-                        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background via-background/80 to-transparent md:w-10"
-                    />
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="absolute top-1/2 right-0 z-20 size-7 -translate-y-1/2 rounded-full bg-surface/95 shadow-sm md:size-8"
-                        aria-label="Ver más categorías"
-                        onClick={() => scrollByDirection(1)}
-                    >
-                        <ChevronRight className="size-4" />
-                    </Button>
-                </>
+    return (
+        <div className="flex items-center gap-1 md:gap-1.5">
+            {needsScrollControls ? (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={!canScrollLeft}
+                    className={cn(
+                        'size-7 shrink-0 rounded-full bg-surface shadow-sm md:size-8',
+                        !canScrollLeft && 'invisible',
+                    )}
+                    aria-label={previousLabel}
+                    onClick={() => scrollByDirection(-1)}
+                >
+                    <ChevronLeft className="size-4" />
+                </Button>
             ) : null}
 
             <div
                 ref={scrollerRef}
-                className="flex gap-2 overflow-x-auto scroll-smooth px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:gap-2.5"
+                className="flex min-w-0 flex-1 gap-2 overflow-x-auto scroll-smooth pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:gap-2.5"
             >
-                {sections.map((section) => {
-                    const id = String(section.id);
-                    const selected = activeSectionId === id;
+                {items.map((item) => {
+                    const selected = activeId === item.id;
 
                     return (
                         <button
-                            key={id}
+                            key={item.id}
                             type="button"
-                            data-category-id={id}
-                            onClick={() => onSelect(id)}
+                            data-tab-id={item.id}
+                            onClick={() => onSelect(item.id)}
                             aria-pressed={selected}
                             className={cn(
                                 'shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors md:px-4 md:py-2 md:text-sm',
@@ -350,11 +324,28 @@ function CategoryTabs({
                                     : 'border-border bg-secondary/70 text-navy hover:border-primary/40',
                             )}
                         >
-                            {section.name}
+                            {item.label}
                         </button>
                     );
                 })}
             </div>
+
+            {needsScrollControls ? (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={!canScrollRight}
+                    className={cn(
+                        'size-7 shrink-0 rounded-full bg-surface shadow-sm md:size-8',
+                        !canScrollRight && 'invisible',
+                    )}
+                    aria-label={nextLabel}
+                    onClick={() => scrollByDirection(1)}
+                >
+                    <ChevronRight className="size-4" />
+                </Button>
+            ) : null}
         </div>
     );
 }
@@ -372,10 +363,16 @@ export function RestaurantMenu({
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         sections[0] ? String(sections[0].id) : null,
     );
+    const [activeSubsectionId, setActiveSubsectionId] = useState<string | null>(
+        sections[0]?.subsections[0]
+            ? subsectionKey(sections[0].subsections[0])
+            : null,
+    );
 
     useEffect(() => {
         if (sections.length === 0) {
             setActiveSectionId(null);
+            setActiveSubsectionId(null);
 
             return;
         }
@@ -397,25 +394,89 @@ export function RestaurantMenu({
         [sections, activeSectionId],
     );
 
-    if (sections.length === 0 || activeSection === null) {
+    useEffect(() => {
+        if (!activeSection || activeSection.subsections.length === 0) {
+            setActiveSubsectionId(null);
+
+            return;
+        }
+
+        const stillExists = activeSection.subsections.some(
+            (subsection) => subsectionKey(subsection) === activeSubsectionId,
+        );
+
+        if (!stillExists) {
+            setActiveSubsectionId(subsectionKey(activeSection.subsections[0]));
+        }
+    }, [activeSection, activeSubsectionId]);
+
+    const activeSubsection = useMemo(() => {
+        if (!activeSection) {
+            return null;
+        }
+
+        return (
+            activeSection.subsections.find(
+                (subsection) =>
+                    subsectionKey(subsection) === activeSubsectionId,
+            ) ??
+            activeSection.subsections[0] ??
+            null
+        );
+    }, [activeSection, activeSubsectionId]);
+
+    const categoryTabs = useMemo(
+        () =>
+            sections.map((section) => ({
+                id: String(section.id),
+                label: section.name,
+            })),
+        [sections],
+    );
+
+    const subcategoryTabs = useMemo(() => {
+        if (!activeSection || activeSection.subsections.length <= 1) {
+            return [];
+        }
+
+        return activeSection.subsections.map((subsection) => ({
+            id: subsectionKey(subsection),
+            label: subsectionLabel(subsection),
+        }));
+    }, [activeSection]);
+
+    if (sections.length === 0 || activeSection === null || !activeSubsection) {
         return null;
     }
 
     return (
         <div className="space-y-4">
-            <nav
-                aria-label="Categorías del menú"
-                className="sticky top-[4.25rem] z-20 -mx-1 border-b border-border/60 bg-background/95 px-1 pb-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:top-[5.25rem]"
-            >
-                <CategoryTabs
-                    sections={sections}
-                    activeSectionId={String(activeSection.id)}
-                    onSelect={setActiveSectionId}
-                />
-            </nav>
+            <div className="sticky top-[4.25rem] z-20 -mx-4 space-y-2 border-b border-border/60 bg-background/95 px-1 pb-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:top-[5.25rem] md:-mx-6 md:px-2">
+                <nav aria-label="Categorías del menú">
+                    <ScrollableTabs
+                        items={categoryTabs}
+                        activeId={String(activeSection.id)}
+                        onSelect={setActiveSectionId}
+                        previousLabel="Ver categorías anteriores"
+                        nextLabel="Ver más categorías"
+                    />
+                </nav>
 
-            <SectionBlock
-                section={activeSection}
+                {subcategoryTabs.length > 0 ? (
+                    <nav aria-label="Subcategorías del menú">
+                        <ScrollableTabs
+                            items={subcategoryTabs}
+                            activeId={subsectionKey(activeSubsection)}
+                            onSelect={setActiveSubsectionId}
+                            previousLabel="Ver subcategorías anteriores"
+                            nextLabel="Ver más subcategorías"
+                        />
+                    </nav>
+                ) : null}
+            </div>
+
+            <ProductGrid
+                products={activeSubsection.products}
                 canOrder={canOrder}
                 onAdd={onAdd}
             />
