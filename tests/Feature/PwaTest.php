@@ -22,7 +22,12 @@ test('storefront home includes pwa manifest link', function () {
         ->assertOk()
         ->assertSee('/manifest.webmanifest', false)
         ->assertSee('theme-color', false)
-        ->assertSee('apple-mobile-web-app-capable', false);
+        ->assertSee('apple-mobile-web-app-capable', false)
+        ->assertSee('/assets/branding/isotipo.png', false)
+        ->assertSee('property="og:image"', false)
+        ->assertSee('/assets/branding/logo-horizontal.png', false)
+        ->assertSee('name="twitter:card"', false)
+        ->assertSee('summary_large_image', false);
 });
 
 test('driver manifest is publicly accessible', function () {

@@ -10,7 +10,7 @@ import {
     ShoppingCart,
     UserRound,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     LoyaltyProgressCard,
     type LoyaltyProgress,
@@ -46,6 +46,7 @@ import type { Auth } from '@/types';
 
 export function StorefrontHeader() {
     const page = usePage();
+    const headerRef = useRef<HTMLElement>(null);
     const { auth, q: searchQuery = '', storefront, loyalty } = page.props as {
         auth: Auth;
         q?: string;
@@ -147,8 +148,35 @@ export function StorefrontHeader() {
         };
     }, [showSearch, searchOpen, onSearchPage]);
 
+    useEffect(() => {
+        const el = headerRef.current;
+
+        if (!el) {
+            return;
+        }
+
+        const syncHeaderHeight = () => {
+            document.documentElement.style.setProperty(
+                '--storefront-header-height',
+                `${el.offsetHeight}px`,
+            );
+        };
+
+        syncHeaderHeight();
+
+        const resizeObserver = new ResizeObserver(syncHeaderHeight);
+        resizeObserver.observe(el);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, [onHomePage, showSearch, searchOpen, authenticated]);
+
     return (
-        <header className="sticky top-0 z-30 border-b border-border bg-surface">
+        <header
+            ref={headerRef}
+            className="sticky top-0 z-30 border-b border-border bg-surface"
+        >
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-2 md:gap-3 md:px-6 md:py-3">
                 <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
                     {!onHomePage ? (

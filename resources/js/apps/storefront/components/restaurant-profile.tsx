@@ -36,6 +36,7 @@ export type RestaurantProfileData = {
     mode: string;
     modeLabel: string;
     canOrder: boolean;
+    closed_message?: string | null;
     description?: string | null;
     logo_url?: string | null;
     phone?: string | null;
@@ -114,7 +115,8 @@ export function RestaurantProfile({
                             aria-hidden
                         />
                         <span>
-                            Negocio cerrado, regresa cuando esté abierto.
+                            {restaurant.closed_message ??
+                                'Negocio cerrado, regresa cuando esté abierto.'}
                         </span>
                     </p>
                 ) : null}

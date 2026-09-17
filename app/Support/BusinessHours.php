@@ -384,6 +384,101 @@ final class BusinessHours
             ->all();
     }
 
+    /**
+     * @param  list<array{day: string, is_open: bool, opens_at: string|null, closes_at: string|null}>|null  $hours
+     */
+    public static function closedNotice(?array $hours, ?CarbonInterface $at = null): string
+    {
+        $fallback = 'Negocio cerrado, regresa cuando esté abierto.';
+
+        if ($hours === null || $hours === []) {
+            return $fallback;
+        }
+
+        $at = Carbon::instance($at ?? now())->timezone(self::timezone());
+
+        if (self::isOpenNow($hours, $at)) {
+            return $fallback;
+        }
+
+        $nextOpen = self::nextOpenAt($hours, $at);
+
+        if ($nextOpen === null) {
+            return $fallback;
+        }
+
+        $time = self::formatClock($nextOpen->format('H:i'));
+
+        if ($nextOpen->isSameDay($at)) {
+            return sprintf('Negocio cerrado, abre pronto a las %s.', $time);
+        }
+
+        if ($nextOpen->isSameDay($at->copy()->addDay())) {
+            return sprintf('Negocio cerrado, abren mañana a las %s.', $time);
+        }
+
+        $dayKey = strtolower($nextOpen->englishDayOfWeek);
+        $dayLabel = self::dayLabels()[$dayKey] ?? $nextOpen->dayName;
+
+        return sprintf('Negocio cerrado, abren el %s a las %s.', $dayLabel, $time);
+    }
+
+    /**
+     * @param  list<array{day: string, is_open: bool, opens_at: string|null, closes_at: string|null}>|null  $hours
+     */
+    public static function nextOpenAt(?array $hours, ?CarbonInterface $at = null): ?CarbonInterface
+    {
+        if ($hours === null || $hours === []) {
+            return null;
+        }
+
+        $at = Carbon::instance($at ?? now())->timezone(self::timezone());
+        $normalized = collect(self::normalize($hours))->keyBy('day');
+
+        for ($offset = 0; $offset < 7; $offset++) {
+            $candidateDay = $at->copy()->startOfDay()->addDays($offset);
+            $dayKey = strtolower($candidateDay->englishDayOfWeek);
+            $row = $normalized->get($dayKey);
+
+            if (! is_array($row) || ! ($row['is_open'] ?? false)) {
+                continue;
+            }
+
+            $opensAt = self::normalizeTime($row['opens_at'] ?? null);
+
+            if ($opensAt === null) {
+                continue;
+            }
+
+            $openDateTime = $candidateDay->copy()->setTimeFromTimeString($opensAt);
+
+            if ($offset === 0 && $openDateTime->lessThanOrEqualTo($at)) {
+                continue;
+            }
+
+            return $openDateTime;
+        }
+
+        return null;
+    }
+
+    private static function formatClock(string $time): string
+    {
+        [$hour, $minute] = array_map('intval', explode(':', $time));
+        $suffix = $hour >= 12 ? 'pm' : 'am';
+        $displayHour = $hour % 12;
+
+        if ($displayHour === 0) {
+            $displayHour = 12;
+        }
+
+        if ($minute === 0) {
+            return sprintf('%d%s', $displayHour, $suffix);
+        }
+
+        return sprintf('%d:%02d%s', $displayHour, $minute, $suffix);
+    }
+
     private static function normalizeTime(mixed $value): ?string
     {
         if (! is_string($value) || $value === '') {

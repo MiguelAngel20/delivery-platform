@@ -305,7 +305,7 @@ function ScrollableTabs({
 
             <div
                 ref={scrollerRef}
-                className="flex min-w-0 flex-1 gap-2 overflow-x-auto scroll-smooth pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:gap-2.5"
+                className="flex min-w-0 flex-1 gap-2 overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:gap-2.5"
             >
                 {items.map((item) => {
                     const selected = activeId === item.id;
@@ -451,7 +451,7 @@ export function RestaurantMenu({
 
     return (
         <div className="space-y-4">
-            <div className="sticky top-[4.25rem] z-20 -mx-4 space-y-2 border-b border-border/60 bg-background/95 px-1 pb-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:top-[5.25rem] md:-mx-6 md:px-2">
+            <div className="sticky top-[var(--storefront-header-height,3rem)] z-20 -mx-4 space-y-1 border-b border-border/40 bg-background/55 px-1 py-1.5 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-background/40 md:-mx-6 md:space-y-1 md:px-2 md:py-2">
                 <nav aria-label="Categorías del menú">
                     <ScrollableTabs
                         items={categoryTabs}

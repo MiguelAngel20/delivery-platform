@@ -278,8 +278,7 @@ export function useStorefrontCart() {
         [cart.lines],
     );
 
-    const discount =
-        cart.restaurantMode === 'platform_operated' && subtotal > 0 ? 5 : 0;
+    const discount = 0;
     const service =
         cart.lines.length > 0 ? (page.props.orderSettings?.service_fee ?? 50) : 0;
     const serviceFeeDiscount =

@@ -5,7 +5,7 @@ export const brandAssets = {
     logoOnDark: '/assets/branding/logo-on-dark.png',
     isotipo: '/assets/branding/isotipo.png',
     isotipoFallback: '/assets/branding/isotipo.svg',
-    favicon: '/assets/branding/favicon.svg',
-    appIcon: '/assets/branding/app-icon.svg',
+    favicon: '/assets/branding/isotipo.png',
+    appIcon: '/assets/branding/isotipo.png',
     placeholder: '/assets/images/placeholder.svg',
 } as const;

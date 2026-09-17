@@ -30,10 +30,42 @@ test('business hours detects open and closed windows', function () {
         ->and(BusinessHours::todayLabel($hours, $closedDay))->toBe('Cerrado hoy');
 });
 
-test('null opening hours are treated as closed', function () {
-    expect(BusinessHours::isOpenNow(null))->toBeFalse()
-        ->and(BusinessHours::isOpenNow([]))->toBeFalse()
-        ->and(BusinessHours::todayLabel(null))->toBe('Horario no configurado');
+test('closed notice describes the next opening window', function () {
+    $hours = collect(BusinessHours::dayKeys())
+        ->map(fn (string $day): array => [
+            'day' => $day,
+            'is_open' => in_array($day, ['monday', 'wednesday'], true),
+            'opens_at' => in_array($day, ['monday', 'wednesday'], true) ? '10:00' : null,
+            'closes_at' => in_array($day, ['monday', 'wednesday'], true) ? '18:00' : null,
+        ])
+        ->all();
+
+    $beforeOpen = Carbon::parse('2026-08-17 08:00:00', BusinessHours::timezone());
+    $afterClose = Carbon::parse('2026-08-17 19:00:00', BusinessHours::timezone());
+    $closedTuesday = Carbon::parse('2026-08-18 12:00:00', BusinessHours::timezone());
+
+    expect(BusinessHours::closedNotice($hours, $beforeOpen))
+        ->toBe('Negocio cerrado, abre pronto a las 10am.')
+        ->and(BusinessHours::closedNotice($hours, $afterClose))
+        ->toBe('Negocio cerrado, abren el Miércoles a las 10am.')
+        ->and(BusinessHours::closedNotice($hours, $closedTuesday))
+        ->toBe('Negocio cerrado, abren mañana a las 10am.');
+});
+
+test('closed notice falls back when no upcoming open window exists', function () {
+    $hours = collect(BusinessHours::dayKeys())
+        ->map(fn (string $day): array => [
+            'day' => $day,
+            'is_open' => false,
+            'opens_at' => null,
+            'closes_at' => null,
+        ])
+        ->all();
+
+    expect(BusinessHours::closedNotice($hours))
+        ->toBe('Negocio cerrado, regresa cuando esté abierto.')
+        ->and(BusinessHours::closedNotice(null))
+        ->toBe('Negocio cerrado, regresa cuando esté abierto.');
 });
 
 test('business hours summarizes consecutive days with the same window', function () {

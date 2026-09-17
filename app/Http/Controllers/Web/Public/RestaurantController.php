@@ -264,6 +264,7 @@ class RestaurantController extends Controller
                     : ($canAcceptOrders
                         ? 'Entrega disponible'
                         : 'Solo información')),
+            'closed_message' => $isOpen ? null : BusinessHours::closedNotice($hours),
             'logo_url' => $this->logoStorage->url($business->logo_path),
             'is_affiliated' => $business->operation_mode === BusinessOperationMode::Partner,
         ];

@@ -40,17 +40,36 @@
             }
         </style>
 
-        <link rel="icon" href="/assets/branding/favicon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/assets/branding/app-icon.svg">
         @php
             $isDriverPortal = request()->is('driver', 'driver/*');
+            $appName = $isDriverPortal ? 'ChisDrive Repartidor' : config('app.name', 'ChisDrive');
+            $appDescription = $isDriverPortal
+                ? 'Portal de repartidores ChisDrive.'
+                : 'Pide comida y más a domicilio con ChisDrive.';
+            $shareImageUrl = url('/assets/branding/logo-horizontal.png');
+            $currentUrl = url()->current();
         @endphp
+        <link rel="icon" href="/assets/branding/isotipo.png" type="image/png">
+        <link rel="apple-touch-icon" href="/assets/branding/isotipo.png">
         <link rel="manifest" href="{{ $isDriverPortal ? '/driver/manifest.webmanifest' : '/manifest.webmanifest' }}">
         <meta name="theme-color" content="#FF7A00">
+        <meta name="description" content="{{ $appDescription }}">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
-        <meta name="apple-mobile-web-app-title" content="{{ $isDriverPortal ? 'ChisDrive Repartidor' : config('app.name', 'ChisDrive') }}">
+        <meta name="apple-mobile-web-app-title" content="{{ $appName }}">
+
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="{{ config('app.name', 'ChisDrive') }}">
+        <meta property="og:title" content="{{ $appName }}">
+        <meta property="og:description" content="{{ $appDescription }}">
+        <meta property="og:url" content="{{ $currentUrl }}">
+        <meta property="og:image" content="{{ $shareImageUrl }}">
+
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="{{ $appName }}">
+        <meta name="twitter:description" content="{{ $appDescription }}">
+        <meta name="twitter:image" content="{{ $shareImageUrl }}">
 
         @fonts
 
