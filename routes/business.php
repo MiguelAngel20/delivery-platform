@@ -17,6 +17,13 @@ use App\Http\Controllers\Web\Business\UpgradeRequestController;
 use App\Http\Controllers\Web\Notifications\NotificationPreferencesController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('business/manifest.webmanifest', function () {
+    return response()->file(
+        public_path('business-manifest.webmanifest'),
+        ['Content-Type' => 'application/manifest+json; charset=utf-8'],
+    );
+})->name('business.manifest');
+
 Route::middleware([
     'auth',
     'role:'.UserRole::BusinessAdmin->value.','.UserRole::BusinessEmployee->value,

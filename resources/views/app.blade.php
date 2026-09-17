@@ -41,17 +41,42 @@
         </style>
 
         @php
-            $isDriverPortal = request()->is('driver', 'driver/*');
-            $appName = $isDriverPortal ? 'ChisDrive Repartidor' : config('app.name', 'ChisDrive');
-            $appDescription = $isDriverPortal
-                ? 'Portal de repartidores ChisDrive.'
-                : 'Pide comida y más a domicilio con ChisDrive.';
+            $pwaPortal = match (true) {
+                request()->is('driver', 'driver/*') => 'driver',
+                request()->is('admin', 'admin/*') => 'admin',
+                request()->is('business', 'business/*') => 'business',
+                default => 'storefront',
+            };
+
+            [$appName, $appDescription, $manifestHref] = match ($pwaPortal) {
+                'driver' => [
+                    'ChisDrive Repartidor',
+                    'Portal de repartidores ChisDrive.',
+                    '/driver/manifest.webmanifest',
+                ],
+                'admin' => [
+                    'ChisDrive Admin',
+                    'Panel de administración ChisDrive.',
+                    '/admin/manifest.webmanifest',
+                ],
+                'business' => [
+                    'ChisDrive Negocio',
+                    'Panel de negocios ChisDrive.',
+                    '/business/manifest.webmanifest',
+                ],
+                default => [
+                    config('app.name', 'ChisDrive'),
+                    'Pide comida y más a domicilio con ChisDrive.',
+                    '/manifest.webmanifest',
+                ],
+            };
+
             $shareImageUrl = url('/assets/branding/logo-horizontal.png');
             $currentUrl = url()->current();
         @endphp
         <link rel="icon" href="/assets/branding/isotipo.png" type="image/png">
         <link rel="apple-touch-icon" href="/assets/branding/isotipo.png">
-        <link rel="manifest" href="{{ $isDriverPortal ? '/driver/manifest.webmanifest' : '/manifest.webmanifest' }}">
+        <link rel="manifest" href="{{ $manifestHref }}">
         <meta name="theme-color" content="#FF7A00">
         <meta name="description" content="{{ $appDescription }}">
         <meta name="mobile-web-app-capable" content="yes">

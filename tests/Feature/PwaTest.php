@@ -1,5 +1,9 @@
 <?php
 
+use App\Enums\BusinessUserRole;
+use App\Enums\BusinessUserStatus;
+use App\Models\Business;
+use App\Models\BusinessUser;
 use App\Models\Driver;
 use App\Models\User;
 
@@ -45,4 +49,46 @@ test('driver portal includes driver pwa manifest link', function () {
         ->get(route('driver.home'))
         ->assertOk()
         ->assertSee('/driver/manifest.webmanifest', false);
+});
+
+test('admin manifest is publicly accessible', function () {
+    $response = $this->get('/admin/manifest.webmanifest');
+
+    $response->assertOk();
+    expect($response->headers->get('content-type'))->toContain('application/manifest+json');
+});
+
+test('admin portal includes admin pwa manifest link', function () {
+    $user = User::factory()->systemAdmin()->create();
+
+    $this->actingAs($user)
+        ->get(route('admin.home'))
+        ->assertOk()
+        ->assertSee('/admin/manifest.webmanifest', false)
+        ->assertSee('ChisDrive Admin', false);
+});
+
+test('business manifest is publicly accessible', function () {
+    $response = $this->get('/business/manifest.webmanifest');
+
+    $response->assertOk();
+    expect($response->headers->get('content-type'))->toContain('application/manifest+json');
+});
+
+test('business portal includes business pwa manifest link', function () {
+    $user = User::factory()->businessAdmin()->create();
+    $business = Business::factory()->create();
+
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $user->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('business.home'))
+        ->assertOk()
+        ->assertSee('/business/manifest.webmanifest', false)
+        ->assertSee('ChisDrive Negocio', false);
 });

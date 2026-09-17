@@ -1,10 +1,12 @@
 export type InstallPlatform = 'android' | 'ios' | 'desktop' | 'unsupported';
 
-export type InstallBannerScope = 'storefront' | 'driver';
+export type InstallBannerScope = 'storefront' | 'driver' | 'admin' | 'business';
 
 const DISMISS_STORAGE_KEYS: Record<InstallBannerScope, string> = {
     storefront: 'ride.pwa.install-banner.dismissed-at',
     driver: 'ride.driver.pwa.install-banner.dismissed-at',
+    admin: 'ride.admin.pwa.install-banner.dismissed-at',
+    business: 'ride.business.pwa.install-banner.dismissed-at',
 };
 
 /** Tiempo antes de volver a mostrar el banner tras cerrarlo sin instalar. */
