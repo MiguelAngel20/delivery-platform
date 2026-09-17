@@ -225,6 +225,21 @@ final class Portal
     }
 
     /**
+     * Whether a URL points at a different host than the current request.
+     */
+    public static function isCrossOriginUrl(string $url, ?Request $request = null): bool
+    {
+        $request ??= request();
+        $targetHost = parse_url($url, PHP_URL_HOST);
+
+        if (! is_string($targetHost) || $targetHost === '') {
+            return false;
+        }
+
+        return strcasecmp($targetHost, $request->getHost()) !== 0;
+    }
+
+    /**
      * Register routes optionally scoped to a portal domain.
      *
      * @param  callable(): void  $routes

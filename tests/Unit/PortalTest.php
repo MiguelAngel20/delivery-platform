@@ -40,3 +40,11 @@ test('portal absolute urls use configured host and scheme', function () {
     expect(Portal::absolute(Portal::ADMIN, '/admin/login'))
         ->toBe('https://admin.chisdrive.com/admin/login');
 });
+
+test('portal detects cross origin urls', function () {
+    $request = Request::create('https://chisdrive.com/login', 'GET');
+
+    expect(Portal::isCrossOriginUrl('https://admin.chisdrive.com/admin', $request))->toBeTrue()
+        ->and(Portal::isCrossOriginUrl('https://chisdrive.com/customer', $request))->toBeFalse()
+        ->and(Portal::isCrossOriginUrl('/customer', $request))->toBeFalse();
+});
