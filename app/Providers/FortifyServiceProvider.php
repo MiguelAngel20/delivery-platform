@@ -6,6 +6,7 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
 use App\Models\User;
+use App\Support\Portal;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -59,6 +60,14 @@ class FortifyServiceProvider extends ServiceProvider
                 ]);
             }
 
+            $portal = Portal::current($request);
+
+            if (! Portal::allowsRole($portal, $user->role)) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => __('Estas credenciales no corresponden a este portal.'),
+                ]);
+            }
+
             return $user;
         });
     }
@@ -66,6 +75,14 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureViews(): void
     {
         Fortify::loginView(function (Request $request) {
+            if (Portal::enabled()) {
+                $portal = Portal::fromHost($request->getHost()) ?? Portal::STOREFRONT;
+
+                if ($portal !== Portal::STOREFRONT) {
+                    return redirect()->route(Portal::loginRouteName($portal));
+                }
+            }
+
             $request->session()->put('login_portal', 'login');
             cookie()->queue(cookie('login_portal', 'login', 60 * 24 * 14));
 

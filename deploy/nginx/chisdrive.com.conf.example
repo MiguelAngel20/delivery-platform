@@ -1,25 +1,29 @@
-# ChisDrive — Nginx site (HTTPS)
+# ChisDrive — Nginx site (HTTPS) with portal subdomains
 # Path example: /etc/nginx/sites-available/chisdrive.com
 #
-# Include the Reverb WebSocket block from reverb.conf.example inside server { listen 443 ssl; ... }
+# Same Laravel `public/` root for all hosts. Portal routing is handled in Laravel
+# when PORTALS_BY_HOST=true (see config/portals.php).
+#
+# Include the Reverb WebSocket block from reverb.conf.example inside the HTTPS server.
 
 server {
     listen 80;
     listen [::]:80;
-    server_name chisdrive.com www.chisdrive.com;
-    return 301 https://chisdrive.com$request_uri;
+    server_name chisdrive.com www.chisdrive.com admin.chisdrive.com business.chisdrive.com driver.chisdrive.com;
+    return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name chisdrive.com www.chisdrive.com;
+    server_name chisdrive.com www.chisdrive.com admin.chisdrive.com business.chisdrive.com driver.chisdrive.com;
 
     root /var/www/delivery-platform/public;
     index index.php;
 
     # ssl_certificate /etc/letsencrypt/live/chisdrive.com/fullchain.pem;
     # ssl_certificate_key /etc/letsencrypt/live/chisdrive.com/privkey.pem;
+    # Prefer a wildcard or multi-SAN cert covering admin/business/driver subdomains.
 
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";

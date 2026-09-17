@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
+use App\Support\Portal;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -34,7 +35,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureUserHasRole::class,
         ]);
 
-        $middleware->redirectGuestsTo(fn (): string => route('login'));
+        $middleware->redirectGuestsTo(function (Request $request): string {
+            return route(Portal::loginRouteName(Portal::current($request)));
+        });
 
         $middleware->redirectUsersTo(function (): string {
             /** @var User|null $user */

@@ -2,6 +2,7 @@
 
 namespace App\Http\Responses;
 
+use App\Support\Portal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
@@ -15,7 +16,13 @@ class LogoutResponse implements LogoutResponseContract
             return new JsonResponse('', 204);
         }
 
-        return (new RedirectResponse(route('home')))
+        $portal = Portal::current($request);
+
+        $target = $portal === Portal::STOREFRONT
+            ? route('home')
+            : route(Portal::loginRouteName($portal));
+
+        return (new RedirectResponse($target))
             ->withCookie(cookie()->forget('login_portal'));
     }
 }

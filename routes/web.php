@@ -3,16 +3,12 @@
 use App\Http\Controllers\Web\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\Web\Auth\LoginPageController;
 use App\Models\User;
+use App\Support\Portal;
 use Illuminate\Support\Facades\Route;
 
-require __DIR__.'/storefront.php';
-
-Route::middleware('guest')->group(function () {
-    Route::get('admin/login', [LoginPageController::class, 'admin'])->name('admin.login');
-    Route::get('business/login', [LoginPageController::class, 'business'])->name('business.login');
-    Route::get('driver/login', [LoginPageController::class, 'driver'])->name('driver.login');
-});
-
+/*
+| Shared routes (available on every host when portals-by-host is enabled).
+*/
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', function () {
         /** @var User $user */
@@ -28,9 +24,68 @@ Route::middleware(['auth'])->group(function () {
         ->name('password.force.update');
 });
 
-require __DIR__.'/customer.php';
-require __DIR__.'/business.php';
-require __DIR__.'/driver.php';
-require __DIR__.'/admin.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/notifications.php';
+
+/*
+| Storefront / customers
+*/
+Portal::routes(Portal::STOREFRONT, function () {
+    require __DIR__.'/storefront.php';
+    require __DIR__.'/customer.php';
+
+    if (Portal::enabled()) {
+        foreach ([Portal::ADMIN, Portal::BUSINESS, Portal::DRIVER] as $portal) {
+            Route::any($portal.'/{path?}', function () use ($portal) {
+                return redirect()->away(
+                    Portal::absolute($portal, request()->getRequestUri()),
+                );
+            })->where('path', '.*');
+        }
+    }
+});
+
+/*
+| Admin portal
+*/
+Portal::routes(Portal::ADMIN, function () {
+    Route::middleware('guest')->group(function () {
+        Route::get('admin/login', [LoginPageController::class, 'admin'])->name('admin.login');
+    });
+
+    require __DIR__.'/admin.php';
+
+    if (Portal::enabled()) {
+        Route::redirect('/', '/admin');
+    }
+});
+
+/*
+| Business portal
+*/
+Portal::routes(Portal::BUSINESS, function () {
+    Route::middleware('guest')->group(function () {
+        Route::get('business/login', [LoginPageController::class, 'business'])->name('business.login');
+    });
+
+    require __DIR__.'/business.php';
+
+    if (Portal::enabled()) {
+        Route::redirect('/', '/business');
+    }
+});
+
+/*
+| Driver portal
+*/
+Portal::routes(Portal::DRIVER, function () {
+    Route::middleware('guest')->group(function () {
+        Route::get('driver/login', [LoginPageController::class, 'driver'])->name('driver.login');
+    });
+
+    require __DIR__.'/driver.php';
+
+    if (Portal::enabled()) {
+        Route::redirect('/', '/driver');
+    }
+});
