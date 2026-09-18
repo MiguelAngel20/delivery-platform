@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Lluvia">
+  <rect width="320" height="200" rx="24" fill="#E8F3FF"/>
+  <ellipse cx="120" cy="78" rx="52" ry="28" fill="#94A3B8"/>
+  <ellipse cx="160" cy="70" rx="44" ry="26" fill="#64748B"/>
+  <ellipse cx="196" cy="82" rx="40" ry="22" fill="#94A3B8"/>
+  <path d="M110 108v34M130 104v40M150 110v36M170 106v38M190 112v32M210 108v34" stroke="#38BDF8" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 10"/>
+  <path d="M92 168c18-18 36-10 48 2 14-16 34-18 48 0" fill="none" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="108" cy="158" r="10" fill="#0F172A"/>
+  <circle cx="176" cy="158" r="10" fill="#0F172A"/>
+</svg>

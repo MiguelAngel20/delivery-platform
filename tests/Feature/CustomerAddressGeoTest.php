@@ -2,11 +2,13 @@
 
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
+use App\Enums\CoverageScopeType;
 use App\Enums\OrderAddressSource;
 use App\Enums\OrderAddressType;
 use App\Enums\OrderStatus;
 use App\Models\Business;
 use App\Models\BusinessBranch;
+use App\Models\CoverageZone;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\Order;
@@ -32,6 +34,31 @@ test('customer can save valid address', function () {
 
     expect($customer->addresses()->count())->toBe(1)
         ->and($customer->addresses()->first()->place_id)->toBe('abc123');
+});
+
+test('customer cannot save an address outside platform coverage', function () {
+    CoverageZone::factory()->create([
+        'scope_type' => CoverageScopeType::Platform,
+        'center_latitude' => 16.2514,
+        'center_longitude' => -92.1342,
+        'radius_meters' => 2000,
+        'is_active' => true,
+    ]);
+
+    $user = User::factory()->customer()->create();
+    $customer = Customer::factory()->forUser($user)->create();
+
+    $this->actingAs($user)
+        ->post(route('customer.addresses.store'), [
+            'label' => 'Tzimol lejos',
+            'address_text' => 'Fuera de radio',
+            'latitude' => 16.40,
+            'longitude' => -92.40,
+            'is_default' => true,
+        ])
+        ->assertSessionHasErrors(['latitude']);
+
+    expect($customer->addresses()->count())->toBe(0);
 });
 
 test('customer cannot exceed four active addresses', function () {

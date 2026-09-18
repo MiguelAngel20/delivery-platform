@@ -22,6 +22,7 @@ use App\Services\Finance\OrderFinancialService;
 use App\Services\Geo\OrderLogisticsService;
 use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderNumberGenerator;
+use App\Services\Platform\PlatformActivitySuspensionService;
 use App\Services\Realtime\OrderRealtimePublisher;
 use App\Support\GeoPoint;
 use App\Support\GoogleMapsUrl;
@@ -35,6 +36,7 @@ final class ConvertCustomQuoteToOrder
         private readonly OrderRealtimePublisher $realtime,
         private readonly OrderLogisticsService $logistics,
         private readonly CustomerLoyaltyService $loyalty,
+        private readonly PlatformActivitySuspensionService $activitySuspension,
     ) {}
 
     public function handle(CustomOrderRequest $request, OrderQuote $quote, User $actor): Order
@@ -53,6 +55,8 @@ final class ConvertCustomQuoteToOrder
                 ]);
             }
         }
+
+        $this->activitySuspension->assertOrderingAllowed();
 
         $quote->loadMissing('items');
 

@@ -1,10 +1,15 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { AddressCard } from '@/apps/storefront/components/address-card';
+import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
 import {
     type DeliveryLocation,
     useDeliveryLocation,
 } from '@/apps/storefront/hooks/use-delivery-location';
+import {
+    COVERAGE_UNAVAILABLE_MESSAGE,
+    checkDeliveryCoverage,
+} from '@/apps/storefront/lib/check-delivery-coverage';
 import { AddressPicker } from '@/components/maps/address-picker';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,6 +82,8 @@ export function DeliveryLocationDialog({ open, onOpenChange }: Props) {
     const hasSaved = savedAddresses.length > 0;
 
     const [mode, setMode] = useState<Mode>(hasSaved ? 'saved' : 'search');
+    const [coverageError, setCoverageError] = useState<string | null>(null);
+    const [checkingCoverage, setCheckingCoverage] = useState(false);
     const [draft, setDraft] = useState<Partial<AddressValue>>({
         address_text: location.detail,
         latitude: location.latitude ?? undefined,
@@ -92,6 +99,7 @@ export function DeliveryLocationDialog({ open, onOpenChange }: Props) {
         }
 
         setMode(hasSaved ? 'saved' : 'search');
+        setCoverageError(null);
         setDraft({
             address_text:
                 location.address_id != null
@@ -105,21 +113,49 @@ export function DeliveryLocationDialog({ open, onOpenChange }: Props) {
         });
     }, [open, hasSaved, location]);
 
+    const tryApplyLocation = async (next: DeliveryLocation) => {
+        if (next.latitude == null || next.longitude == null) {
+            return;
+        }
+
+        setCheckingCoverage(true);
+        setCoverageError(null);
+
+        try {
+            const result = await checkDeliveryCoverage(
+                next.latitude,
+                next.longitude,
+            );
+
+            if (!result.covered) {
+                setCoverageError(
+                    result.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
+                );
+
+                return;
+            }
+
+            applyAndBrowse(next, setLocation, onOpenChange);
+        } catch {
+            setCoverageError(
+                'No pudimos verificar la cobertura. Intenta de nuevo.',
+            );
+        } finally {
+            setCheckingCoverage(false);
+        }
+    };
+
     const selectSaved = (address: SavedAddress) => {
-        applyAndBrowse(
-            {
-                label: address.label,
-                detail: address.address_text,
-                latitude: Number(address.latitude),
-                longitude: Number(address.longitude),
-                formatted_address: address.formatted_address ?? null,
-                place_id: address.place_id ?? null,
-                reference: address.reference ?? null,
-                address_id: address.id,
-            },
-            setLocation,
-            onOpenChange,
-        );
+        void tryApplyLocation({
+            label: address.label,
+            detail: address.address_text,
+            latitude: Number(address.latitude),
+            longitude: Number(address.longitude),
+            formatted_address: address.formatted_address ?? null,
+            place_id: address.place_id ?? null,
+            reference: address.reference ?? null,
+            address_id: address.id,
+        });
     };
 
     const saveSearch = () => {
@@ -134,20 +170,16 @@ export function DeliveryLocationDialog({ open, onOpenChange }: Props) {
         const shortLabel =
             draft.address_text.split(',')[0]?.trim() || 'Entrega';
 
-        applyAndBrowse(
-            {
-                label: shortLabel,
-                detail: draft.address_text,
-                latitude: draft.latitude,
-                longitude: draft.longitude,
-                formatted_address: draft.formatted_address ?? null,
-                place_id: draft.place_id ?? null,
-                reference: draft.reference ?? null,
-                address_id: null,
-            },
-            setLocation,
-            onOpenChange,
-        );
+        void tryApplyLocation({
+            label: shortLabel,
+            detail: draft.address_text,
+            latitude: draft.latitude,
+            longitude: draft.longitude,
+            formatted_address: draft.formatted_address ?? null,
+            place_id: draft.place_id ?? null,
+            reference: draft.reference ?? null,
+            address_id: null,
+        });
     };
 
     return (
@@ -163,7 +195,10 @@ export function DeliveryLocationDialog({ open, onOpenChange }: Props) {
                             type="button"
                             variant={mode === 'saved' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setMode('saved')}
+                            onClick={() => {
+                                setMode('saved');
+                                setCoverageError(null);
+                            }}
                         >
                             Mis direcciones
                         </Button>
@@ -171,11 +206,18 @@ export function DeliveryLocationDialog({ open, onOpenChange }: Props) {
                             type="button"
                             variant={mode === 'search' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setMode('search')}
+                            onClick={() => {
+                                setMode('search');
+                                setCoverageError(null);
+                            }}
                         >
                             Otra ubicación
                         </Button>
                     </div>
+                ) : null}
+
+                {coverageError ? (
+                    <CoverageUnavailableBanner message={coverageError} />
                 ) : null}
 
                 {mode === 'saved' && hasSaved ? (
@@ -205,18 +247,24 @@ export function DeliveryLocationDialog({ open, onOpenChange }: Props) {
                             value={draft}
                             showCurrentLocation
                             mapHeightClassName="h-[min(45vh,20rem)] sm:h-80"
-                            onChange={setDraft}
+                            onChange={(value) => {
+                                setDraft(value);
+                                setCoverageError(null);
+                            }}
                         />
                         <Button
                             type="button"
                             className={cn('min-h-12 w-full')}
                             onClick={saveSearch}
                             disabled={
+                                checkingCoverage ||
                                 draft.latitude == null ||
                                 draft.longitude == null
                             }
                         >
-                            Usar esta ubicación
+                            {checkingCoverage
+                                ? 'Verificando cobertura…'
+                                : 'Usar esta ubicación'}
                         </Button>
                     </>
                 )}

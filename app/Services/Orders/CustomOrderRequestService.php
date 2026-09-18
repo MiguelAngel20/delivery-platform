@@ -5,11 +5,13 @@ namespace App\Services\Orders;
 use App\Enums\CustomOrderRequestStatus;
 use App\Enums\OrderAddressSource;
 use App\Enums\OrderQuoteStatus;
+use App\Models\BusinessBranch;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\CustomOrderRequest;
 use App\Models\User;
 use App\Services\Geo\CoverageService;
+use App\Services\Platform\PlatformActivitySuspensionService;
 use App\Services\Realtime\CustomOrderRealtimePublisher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +21,7 @@ final class CustomOrderRequestService
     public function __construct(
         private readonly CustomOrderRealtimePublisher $realtime,
         private readonly CoverageService $coverage,
+        private readonly PlatformActivitySuspensionService $activitySuspension,
     ) {}
 
     /**
@@ -26,6 +29,8 @@ final class CustomOrderRequestService
      */
     public function create(Customer $customer, User $actor, array $payload): CustomOrderRequest
     {
+        $this->activitySuspension->assertOrderingAllowed();
+
         if ($customer->isBlocked()) {
             throw ValidationException::withMessages([
                 'customer' => 'Tu cuenta no puede solicitar pedidos personalizados.',
@@ -264,12 +269,12 @@ final class CustomOrderRequestService
         }
 
         if ($branchId !== null) {
-            $branch = \App\Models\BusinessBranch::query()->find($branchId);
+            $branch = BusinessBranch::query()->find($branchId);
         }
 
         if (! $this->coverage->isOrderCovered($branch, (float) $latitude, (float) $longitude)) {
             throw ValidationException::withMessages([
-                'delivery' => 'Por el momento no realizamos entregas en esta ubicación.',
+                'delivery' => $this->coverage->unavailableMessage(),
             ]);
         }
     }

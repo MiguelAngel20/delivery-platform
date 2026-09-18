@@ -11,9 +11,16 @@ use Illuminate\Support\Collection;
 
 final class CoverageService
 {
+    public const UNAVAILABLE_MESSAGE = 'Ups, lo sentimos. Aún no tenemos cobertura para tu zona. Pronto llegaremos a tu zona.';
+
     public function __construct(
         private readonly DistanceService $distance,
     ) {}
+
+    public function unavailableMessage(): string
+    {
+        return self::UNAVAILABLE_MESSAGE;
+    }
 
     public function isPointCovered(float $latitude, float $longitude, ?BusinessBranch $branch = null): bool
     {
@@ -40,16 +47,50 @@ final class CoverageService
         $point = GeoPoint::make($latitude, $longitude);
 
         if ($branch !== null) {
-            $branchZone = $this->activeBranchZones($branch)
-                ->first(fn (CoverageZone $zone): bool => $this->pointInZone($zone, $point));
+            $branchMatches = $this->activeBranchZones($branch)
+                ->filter(fn (CoverageZone $zone): bool => $this->pointInZone($zone, $point))
+                ->values();
 
-            if ($branchZone !== null) {
-                return $branchZone;
+            if ($branchMatches->isNotEmpty()) {
+                return $this->pickBestZone($branchMatches);
             }
         }
 
-        return $this->activePlatformZones()
-            ->first(fn (CoverageZone $zone): bool => $this->pointInZone($zone, $point));
+        $platformMatches = $this->activePlatformZones()
+            ->filter(fn (CoverageZone $zone): bool => $this->pointInZone($zone, $point))
+            ->values();
+
+        return $this->pickBestZone($platformMatches);
+    }
+
+    /**
+     * @param  Collection<int, CoverageZone>  $zones
+     */
+    public function pickBestZone(Collection $zones): ?CoverageZone
+    {
+        if ($zones->isEmpty()) {
+            return null;
+        }
+
+        return $zones
+            ->sort(function (CoverageZone $a, CoverageZone $b): int {
+                $priority = ((int) $b->priority) <=> ((int) $a->priority);
+
+                if ($priority !== 0) {
+                    return $priority;
+                }
+
+                $feeA = $a->service_fee !== null ? (float) $a->service_fee : -1.0;
+                $feeB = $b->service_fee !== null ? (float) $b->service_fee : -1.0;
+                $fee = $feeB <=> $feeA;
+
+                if ($fee !== 0) {
+                    return $fee;
+                }
+
+                return ((int) $b->id) <=> ((int) $a->id);
+            })
+            ->first();
     }
 
     /**

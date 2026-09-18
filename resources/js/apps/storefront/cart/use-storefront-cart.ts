@@ -247,7 +247,10 @@ export type AddToCartInput = {
     selectedOptions?: SelectedProductOption[];
 };
 
-export function useStorefrontCart() {
+export function useStorefrontCart(options?: {
+    serviceFeeOverride?: number | null;
+    serviceFeeDiscountOverride?: number | null;
+}) {
     const page = usePage<{
         orderSettings?: {
             service_fee?: number;
@@ -279,13 +282,20 @@ export function useStorefrontCart() {
     );
 
     const discount = 0;
+    const defaultService = page.props.orderSettings?.service_fee ?? 50;
+    const defaultDiscount = page.props.orderSettings?.service_fee_discount ?? 0;
     const service =
-        cart.lines.length > 0 ? (page.props.orderSettings?.service_fee ?? 50) : 0;
+        cart.lines.length > 0
+            ? (options?.serviceFeeOverride ?? defaultService)
+            : 0;
     const serviceFeeDiscount =
         cart.lines.length > 0
             ? Math.min(
                   service,
-                  Math.max(0, page.props.orderSettings?.service_fee_discount ?? 0),
+                  Math.max(
+                      0,
+                      options?.serviceFeeDiscountOverride ?? defaultDiscount,
+                  ),
               )
             : 0;
     const total = Math.max(subtotal + service - serviceFeeDiscount - discount, 0);

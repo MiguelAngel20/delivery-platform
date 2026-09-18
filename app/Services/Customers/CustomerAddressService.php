@@ -4,17 +4,35 @@ namespace App\Services\Customers;
 
 use App\Models\Customer;
 use App\Models\CustomerAddress;
+use App\Services\Geo\CoverageService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class CustomerAddressService
 {
+    public function __construct(
+        private readonly CoverageService $coverage,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
     public function create(Customer $customer, array $data): CustomerAddress
     {
+        $latitude = isset($data['latitude']) ? (float) $data['latitude'] : null;
+        $longitude = isset($data['longitude']) ? (float) $data['longitude'] : null;
+
+        if (
+            $latitude === null
+            || $longitude === null
+            || ! $this->coverage->isPointCovered($latitude, $longitude)
+        ) {
+            throw ValidationException::withMessages([
+                'latitude' => $this->coverage->unavailableMessage(),
+            ]);
+        }
+
         try {
             return DB::transaction(function () use ($customer, $data): CustomerAddress {
                 $locked = Customer::query()

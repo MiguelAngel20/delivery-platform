@@ -6,9 +6,11 @@ import {
     consumePendingCartClear,
 } from '@/apps/storefront/cart/use-storefront-cart';
 import { StorefrontBottomNav } from '@/apps/storefront/components/storefront-bottom-nav';
+import { ActivitySuspensionModal } from '@/apps/storefront/components/activity-suspension-modal';
 import { InstallAppBanner } from '@/apps/storefront/components/install-app-banner';
 import { StorefrontFooter } from '@/apps/storefront/components/storefront-footer';
 import { StorefrontHeader } from '@/apps/storefront/components/storefront-header';
+import { clearAccountBoundDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-location';
 import { useStorefrontShell } from '@/apps/storefront/hooks/use-storefront-shell';
 import { PushPermissionPrompt } from '@/components/notifications/push-permission-prompt';
 import { useCustomerForegroundPush } from '@/hooks/use-customer-foreground-push';
@@ -31,6 +33,14 @@ export default function StorefrontLayout({
     useEffect(() => {
         consumePendingCartClear();
     }, []);
+
+    useEffect(() => {
+        if (auth.user?.role === 'customer') {
+            return;
+        }
+
+        clearAccountBoundDeliveryLocation();
+    }, [auth.user?.role]);
 
     useEffect(() => {
         if (auth.user?.role !== 'customer') {
@@ -58,6 +68,7 @@ export default function StorefrontLayout({
             </div>
             {showBottomNav ? <StorefrontBottomNav /> : null}
             <InstallAppBanner />
+            <ActivitySuspensionModal />
         </div>
     );
 }

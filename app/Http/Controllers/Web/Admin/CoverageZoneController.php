@@ -7,8 +7,10 @@ use App\Enums\CoverageZoneType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCoverageZoneRequest;
 use App\Http\Requests\Admin\UpdateCoverageZoneRequest;
+use App\Http\Requests\Admin\UpdateServiceFeeDistanceSettingsRequest;
 use App\Models\BusinessBranch;
 use App\Models\CoverageZone;
+use App\Models\ServiceFeeDistanceSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -35,9 +37,17 @@ class CoverageZoneController extends Controller
                 'longitude' => (string) $branch->longitude,
             ]);
 
+        $tariff = ServiceFeeDistanceSetting::current();
+
         return Inertia::render('admin/coverage/index', [
             'zones' => $zones,
             'branches' => $branches,
+            'serviceFeeTariff' => [
+                'base_meters' => (int) $tariff->base_meters,
+                'base_fee' => number_format((float) $tariff->base_fee, 2, '.', ''),
+                'step_meters' => (int) $tariff->step_meters,
+                'step_fee' => number_format((float) $tariff->step_fee, 2, '.', ''),
+            ],
             'options' => [
                 'scope_types' => collect(CoverageScopeType::cases())->map(fn ($case) => [
                     'value' => $case->value,
@@ -49,7 +59,12 @@ class CoverageZoneController extends Controller
                 'radius_presets_meters' => [1000, 3000, 5000, 8000, 10000],
             ],
             'maps' => [
+                'browser_api_key' => (string) config('maps.browser_api_key', ''),
                 'default_center' => config('maps.default_center'),
+                'default_place_label' => (string) config(
+                    'maps.default_place_label',
+                    'Comitán de Domínguez, Chiapas',
+                ),
             ],
         ]);
     }
@@ -76,6 +91,19 @@ class CoverageZoneController extends Controller
         Inertia::flash('toast', [
             'type' => 'success',
             'message' => 'Zona de cobertura actualizada.',
+        ]);
+
+        return back();
+    }
+
+    public function updateTariff(UpdateServiceFeeDistanceSettingsRequest $request): RedirectResponse
+    {
+        $tariff = ServiceFeeDistanceSetting::current();
+        $tariff->update($request->validated());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Tarifa de servicio actualizada.',
         ]);
 
         return back();

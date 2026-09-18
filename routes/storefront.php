@@ -8,6 +8,7 @@ use App\Http\Controllers\Web\Public\LegalPageController;
 use App\Http\Controllers\Web\Public\PromotionController;
 use App\Http\Controllers\Web\Public\RestaurantController;
 use App\Http\Controllers\Web\Public\SearchController;
+use App\Http\Controllers\Web\Public\ServiceFeeQuoteController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -31,6 +32,10 @@ Route::get('cart/products/{product}', [CartController::class, 'product'])
 
 Route::get('cart/promotions/{promotion}', [CartController::class, 'promotion'])
     ->name('cart.promotions.show');
+
+Route::post('service-fee-quote', ServiceFeeQuoteController::class)
+    ->middleware('throttle:maps-geo')
+    ->name('service-fee.quote');
 
 Route::middleware('guest')->group(function () {
     Route::get('registro', [CustomerRegisterController::class, 'create'])

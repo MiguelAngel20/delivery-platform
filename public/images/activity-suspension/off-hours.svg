@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Fuera de horario">
+  <rect width="320" height="200" rx="24" fill="#FFF7ED"/>
+  <circle cx="160" cy="100" r="58" fill="#fff" stroke="#FB923C" stroke-width="8"/>
+  <circle cx="160" cy="100" r="6" fill="#9A3412"/>
+  <path d="M160 100V62" stroke="#9A3412" stroke-width="7" stroke-linecap="round"/>
+  <path d="M160 100l28 18" stroke="#C2410C" stroke-width="7" stroke-linecap="round"/>
+  <path d="M160 42v10M160 148v10M98 100h10M212 100h10" stroke="#FDBA74" stroke-width="5" stroke-linecap="round"/>
+</svg>

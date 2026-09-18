@@ -7,6 +7,7 @@ use App\Enums\OrderStatus;
 use App\Models\Customer;
 use App\Models\CustomerLoyaltyAccount;
 use App\Models\Order;
+use App\Models\ServiceFeeDistanceSetting;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -41,12 +42,12 @@ final class CustomerLoyaltyService
      *     service_fee_after_discount: string
      * }
      */
-    public function progressFor(Customer $customer): array
+    public function progressFor(Customer $customer, ?string $serviceFee = null): array
     {
         $account = $this->accountFor($customer);
         $required = $this->requiredOrders();
         $count = min($required, max(0, $account->qualifying_orders_count));
-        $serviceFee = $this->baseServiceFee();
+        $serviceFee = $serviceFee ?? $this->baseServiceFee();
 
         $discount = '0.00';
         $label = null;
@@ -472,7 +473,7 @@ final class CustomerLoyaltyService
 
     private function baseServiceFee(): string
     {
-        return number_format((float) config('business.orders.service_fee', 50), 2, '.', '');
+        return number_format((float) ServiceFeeDistanceSetting::current()->base_fee, 2, '.', '');
     }
 
     private function requiredOrders(): int

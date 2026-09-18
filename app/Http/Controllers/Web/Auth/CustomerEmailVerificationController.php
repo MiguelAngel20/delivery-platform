@@ -51,7 +51,7 @@ class CustomerEmailVerificationController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        $continue = $request->session()->pull('register.continue', route('customer.checkout'));
+        $continue = $request->session()->pull('register.continue', route('cart'));
 
         return redirect()->to($continue);
     }

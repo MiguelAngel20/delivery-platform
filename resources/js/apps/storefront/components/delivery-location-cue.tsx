@@ -26,8 +26,12 @@ export function DeliveryLocationCue({ className }: DeliveryLocationCueProps) {
     const authenticated = auth.user?.role === 'customer';
     const defaultPlace =
         maps?.default_place_label ?? 'Comitán de Domínguez, Chiapas';
+    const isAccountBound = Boolean(location.address_id);
+    // Guests keep map picks, but not saved-address picks from a prior session.
+    const showStoredPlace =
+        hasCoordinates && (authenticated || !isAccountBound);
 
-    const place = hasCoordinates
+    const place = showStoredPlace
         ? location.label ||
           location.detail ||
           location.formatted_address ||

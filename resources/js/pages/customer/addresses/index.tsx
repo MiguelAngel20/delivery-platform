@@ -1,6 +1,11 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
+import {
+    COVERAGE_UNAVAILABLE_MESSAGE,
+    checkDeliveryCoverage,
+} from '@/apps/storefront/lib/check-delivery-coverage';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { AddressPicker } from '@/components/maps/address-picker';
@@ -47,6 +52,8 @@ export default function CustomerAddressesIndex({
     maxAddresses,
 }: Props) {
     const [open, setOpen] = useState(false);
+    const [coverageError, setCoverageError] = useState<string | null>(null);
+    const [checkingCoverage, setCheckingCoverage] = useState(false);
     const canAdd = addresses.length < maxAddresses;
     const form = useForm({
         ...emptyForm,
@@ -55,6 +62,7 @@ export default function CustomerAddressesIndex({
 
     const openCreate = () => {
         form.clearErrors();
+        setCoverageError(null);
         form.setData({
             ...emptyForm,
             is_default: addresses.length === 0,
@@ -73,6 +81,29 @@ export default function CustomerAddressesIndex({
             place_id: value.place_id ?? '',
             google_maps_url: value.google_maps_url ?? '',
         }));
+        form.clearErrors('latitude', 'address_text');
+        setCoverageError(null);
+
+        void (async () => {
+            setCheckingCoverage(true);
+
+            try {
+                const result = await checkDeliveryCoverage(
+                    value.latitude,
+                    value.longitude,
+                );
+
+                if (!result.covered) {
+                    setCoverageError(
+                        result.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
+                    );
+                }
+            } catch {
+                // Server still validates.
+            } finally {
+                setCheckingCoverage(false);
+            }
+        })();
     };
 
     return (
@@ -141,6 +172,7 @@ export default function CustomerAddressesIndex({
                     setOpen(next);
                     if (!next) {
                         form.clearErrors();
+                        setCoverageError(null);
                     }
                 }}
             >
@@ -152,6 +184,11 @@ export default function CustomerAddressesIndex({
                         className="space-y-3"
                         onSubmit={(event) => {
                             event.preventDefault();
+
+                            if (coverageError) {
+                                return;
+                            }
+
                             form.post(store.url(), {
                                 preserveScroll: true,
                                 onSuccess: () => {
@@ -195,16 +232,31 @@ export default function CustomerAddressesIndex({
                             mapHeightClassName="h-[min(45vh,20rem)] sm:h-80"
                             onChange={onAddressChange}
                         />
-                        {form.errors.address_text || form.errors.latitude ? (
+                        {coverageError || form.errors.latitude ? (
+                            <CoverageUnavailableBanner
+                                message={
+                                    coverageError ?? form.errors.latitude
+                                }
+                            />
+                        ) : null}
+                        {form.errors.address_text && !coverageError ? (
                             <p className="text-sm text-destructive">
-                                {form.errors.address_text ??
-                                    form.errors.latitude}
+                                {form.errors.address_text}
+                            </p>
+                        ) : null}
+                        {checkingCoverage ? (
+                            <p className="text-xs text-muted-foreground">
+                                Verificando cobertura…
                             </p>
                         ) : null}
                         <Button
                             type="submit"
                             className="min-h-12 w-full"
-                            disabled={form.processing}
+                            disabled={
+                                form.processing ||
+                                Boolean(coverageError) ||
+                                checkingCoverage
+                            }
                         >
                             Guardar dirección
                         </Button>

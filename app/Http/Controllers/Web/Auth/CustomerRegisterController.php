@@ -43,7 +43,9 @@ class CustomerRegisterController extends Controller
         $request->session()->put('pending_customer_user_id', $user->id);
 
         if (! $request->session()->has('register.continue')) {
-            $request->session()->put('register.continue', route('customer.checkout'));
+            // Land on cart (paso 1) so guests with localStorage lines see their order
+            // before address/payment. Checkout alone starts at step 2 without line items.
+            $request->session()->put('register.continue', route('cart'));
         }
 
         return redirect()->route('register.verify-email');

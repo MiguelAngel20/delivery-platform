@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\CoverageScopeType;
+use App\Models\CoverageZone;
 use App\Models\User;
 use App\Notifications\Auth\CustomerEmailVerificationCode;
 use Illuminate\Support\Facades\Notification;
@@ -89,7 +91,7 @@ test('registration rejects an email that already exists', function () {
         ->assertSessionHasErrors(['email']);
 });
 
-test('a customer can verify the email code and continue to checkout', function () {
+test('a customer can verify the email code and continue to the cart', function () {
     Notification::fake();
 
     $this->post(route('register.store'), customerRegistrationPayload());
@@ -114,7 +116,7 @@ test('a customer can verify the email code and continue to checkout', function (
             ->where('email', 'ana.lopez@example.com'));
 
     $this->post(route('register.verify-email.store'), ['code' => $code])
-        ->assertRedirect(route('customer.checkout'));
+        ->assertRedirect(route('cart'));
 
     $this->assertAuthenticatedAs($user);
     expect($user->fresh()->email_verified_at)->not->toBeNull();
@@ -173,4 +175,22 @@ test('the verification code can be resent', function () {
         ->assertRedirect();
 
     Notification::assertSentToTimes($user, CustomerEmailVerificationCode::class, 2);
+});
+
+test('registration rejects an address outside platform coverage', function () {
+    CoverageZone::factory()->create([
+        'scope_type' => CoverageScopeType::Platform,
+        'center_latitude' => 16.2514,
+        'center_longitude' => -92.1342,
+        'radius_meters' => 2000,
+        'is_active' => true,
+    ]);
+
+    $this->post(route('register.store'), customerRegistrationPayload([
+        'latitude' => 16.40,
+        'longitude' => -92.40,
+        'address_text' => 'Fuera de zona',
+    ]))->assertSessionHasErrors(['latitude']);
+
+    expect(User::query()->where('email', 'ana.lopez@example.com')->exists())->toBeFalse();
 });

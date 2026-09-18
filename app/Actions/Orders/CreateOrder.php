@@ -28,8 +28,10 @@ use App\Models\User;
 use App\Services\BusinessBranchContext;
 use App\Services\Finance\OrderFinancialService;
 use App\Services\Geo\OrderLogisticsService;
+use App\Services\Geo\ServiceFeeResolver;
 use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderNumberGenerator;
+use App\Services\Platform\PlatformActivitySuspensionService;
 use App\Services\PricingEngine;
 use App\Services\Realtime\OrderRealtimePublisher;
 use App\Support\BusinessHours;
@@ -46,7 +48,9 @@ final class CreateOrder
         private readonly OrderFinancialService $financials,
         private readonly OrderRealtimePublisher $realtime,
         private readonly OrderLogisticsService $logistics,
+        private readonly ServiceFeeResolver $serviceFees,
         private readonly CustomerLoyaltyService $loyalty,
+        private readonly PlatformActivitySuspensionService $activitySuspension,
     ) {}
 
     /**
@@ -54,6 +58,8 @@ final class CreateOrder
      */
     public function handle(Customer $customer, User $actor, array $payload): Order
     {
+        $this->activitySuspension->assertOrderingAllowed();
+
         $order = DB::transaction(function () use ($customer, $actor, $payload): Order {
             $branch = BusinessBranch::query()
                 ->with('business')
@@ -112,7 +118,6 @@ final class CreateOrder
             }
 
             $subtotalAfterDiscount = bcsub($subtotalBeforeDiscount, $discountTotal, 2);
-            $serviceFee = number_format((float) config('business.orders.service_fee', 50), 2, '.', '');
 
             $deliveryPayload = $payload['delivery'] ?? [];
             $deliveryCoords = $this->resolveDeliveryCoordinates($customer, $deliveryPayload);
@@ -121,6 +126,13 @@ final class CreateOrder
                 $branch,
                 $deliveryCoords['latitude'],
                 $deliveryCoords['longitude'],
+            );
+
+            $serviceFee = $this->serviceFees->resolve(
+                $deliveryCoords['latitude'],
+                $deliveryCoords['longitude'],
+                $branch,
+                $logisticsSnapshot['distance_meters'],
             );
 
             $deliveryFee = $logisticsSnapshot['delivery_fee'];

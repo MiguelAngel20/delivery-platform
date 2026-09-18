@@ -17,6 +17,7 @@ use App\Http\Controllers\Web\Admin\FinanceController;
 use App\Http\Controllers\Web\Admin\HomeController;
 use App\Http\Controllers\Web\Admin\IncidentController;
 use App\Http\Controllers\Web\Admin\OrderController;
+use App\Http\Controllers\Web\Admin\PlatformActivitySuspensionController;
 use App\Http\Controllers\Web\Notifications\NotificationPreferencesController;
 use Illuminate\Support\Facades\Route;
 
@@ -151,6 +152,7 @@ Route::middleware([
         Route::get('finance/{order}', [FinanceController::class, 'show'])->name('finance.show');
         Route::get('coverage', [CoverageZoneController::class, 'index'])->name('coverage.index');
         Route::post('coverage', [CoverageZoneController::class, 'store'])->name('coverage.store');
+        Route::put('coverage/tariff', [CoverageZoneController::class, 'updateTariff'])->name('coverage.tariff.update');
         Route::put('coverage/{coverage}', [CoverageZoneController::class, 'update'])->name('coverage.update');
         Route::post('coverage/{coverage}/deactivate', [CoverageZoneController::class, 'deactivate'])->name('coverage.deactivate');
         Route::post('coverage/{coverage}/activate', [CoverageZoneController::class, 'activate'])->name('coverage.activate');
@@ -167,4 +169,8 @@ Route::middleware([
             ->name('settings.notifications.edit');
         Route::put('settings/notifications', [NotificationPreferencesController::class, 'update'])
             ->name('settings.notifications.update');
+        Route::get('settings/activity-suspension', [PlatformActivitySuspensionController::class, 'edit'])
+            ->name('settings.activity-suspension.edit');
+        Route::put('settings/activity-suspension', [PlatformActivitySuspensionController::class, 'update'])
+            ->name('settings.activity-suspension.update');
     });

@@ -1,10 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ShoppingBag, Store } from 'lucide-react';
 import { useState } from 'react';
-import {
-    setCheckoutIntent,
-    useStorefrontCart,
-} from '@/apps/storefront/cart/use-storefront-cart';
+import { setCheckoutIntent, useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
 import type { CartLine } from '@/apps/storefront/cart/use-storefront-cart';
 import { isPromotionCartLine } from '@/apps/storefront/cart/use-storefront-cart';
 import { CartLineCard } from '@/apps/storefront/components/cart-line-card';
@@ -13,12 +10,18 @@ import { CheckoutStepper } from '@/apps/storefront/components/checkout-stepper';
 import type { StorefrontProduct } from '@/apps/storefront/components/product-dialog';
 import { ProductDialog } from '@/apps/storefront/components/product-dialog';
 import { PromotionDialog } from '@/apps/storefront/components/promotion-dialog';
+import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
+import { useDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-location';
+import { useServiceFeeQuote } from '@/apps/storefront/hooks/use-service-fee-quote';
+import { COVERAGE_UNAVAILABLE_MESSAGE } from '@/apps/storefront/lib/check-delivery-coverage';
+import type { ActivitySuspensionShared } from '@/apps/storefront/components/activity-suspension-modal';
 import { notify } from '@/components/feedback/toast';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
 import { create as register } from '@/actions/App/Http/Controllers/Web/Auth/CustomerRegisterController';
+import { cart as cartRoute } from '@/routes';
 import customer from '@/routes/customer';
 import restaurants from '@/routes/restaurants';
 import type { Auth } from '@/types';
@@ -34,17 +37,23 @@ type CartProductResponse = {
 };
 
 export default function CartIndex() {
-    const { auth } = usePage().props as { auth: Auth };
-    const {
-        cart,
-        subtotal,
-        service,
-        discount,
-        total,
-        updateQuantity,
-        replaceLine,
-        clear,
-    } = useStorefrontCart();
+    const { auth, activitySuspension } = usePage().props as {
+        auth: Auth;
+        activitySuspension?: ActivitySuspensionShared | null;
+    };
+    const orderingSuspended = activitySuspension?.active === true;
+    const { location, hasCoordinates } = useDeliveryLocation();
+    const { cart, updateQuantity, replaceLine, clear } = useStorefrontCart();
+    const feeQuote = useServiceFeeQuote(
+        hasCoordinates ? location.latitude : null,
+        hasCoordinates ? location.longitude : null,
+        cart.branchId,
+    );
+    const { subtotal, service, serviceFeeDiscount, discount, total } =
+        useStorefrontCart({
+            serviceFeeOverride: feeQuote?.serviceFee ?? null,
+            serviceFeeDiscountOverride: feeQuote?.serviceFeeDiscount ?? null,
+        });
     const isCustomer = auth.user?.role === 'customer';
     const checkoutHref = isCustomer ? customer.checkout() : register();
 
@@ -61,9 +70,29 @@ export default function CartIndex() {
     const [editingPromotionLine, setEditingPromotionLine] =
         useState<CartLine | null>(null);
 
+    const outsideCoverage = feeQuote?.covered === false;
+
     const handleContinue = () => {
+        if (orderingSuspended) {
+            notify.error(
+                activitySuspension?.footnote ??
+                    'Por el momento no es posible realizar pedidos nuevos.',
+            );
+
+            return;
+        }
+
+        if (outsideCoverage) {
+            notify.error(
+                feeQuote?.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
+            );
+
+            return;
+        }
+
         if (!isCustomer) {
-            setCheckoutIntent(customer.checkout.url());
+            // Resume at cart (paso 1) after login/register so line items stay visible.
+            setCheckoutIntent(cartRoute.url());
         }
 
         router.visit(checkoutHref);
@@ -186,13 +215,29 @@ export default function CartIndex() {
                         <OrderSummary
                             subtotal={subtotal}
                             service={service}
+                            serviceFeeDiscount={serviceFeeDiscount}
                             discount={discount}
                         />
+                        {feeQuote?.distanceMeters != null && !outsideCoverage ? (
+                            <p className="text-xs text-muted-foreground">
+                                Servicio según distancia (
+                                {(feeQuote.distanceMeters / 1000).toFixed(1)} km)
+                            </p>
+                        ) : null}
+
+                        {outsideCoverage ? (
+                            <CoverageUnavailableBanner
+                                message={feeQuote?.message}
+                            />
+                        ) : null}
 
                         <CheckoutFooter
                             total={total}
                             primaryLabel="Continuar"
                             onPrimary={handleContinue}
+                            primaryDisabled={
+                                outsideCoverage || orderingSuspended
+                            }
                         />
                     </>
                 )}

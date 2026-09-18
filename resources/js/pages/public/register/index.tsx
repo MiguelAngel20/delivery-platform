@@ -1,5 +1,10 @@
 import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
+import {
+    COVERAGE_UNAVAILABLE_MESSAGE,
+    checkDeliveryCoverage,
+} from '@/apps/storefront/lib/check-delivery-coverage';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer } from '@/components/layout/page';
 import { AddressPicker } from '@/components/maps/address-picker';
@@ -49,6 +54,8 @@ export default function CustomerRegister({
     });
     const [clientErrors, setClientErrors] =
         useState<CustomerRegisterClientErrors>({});
+    const [coverageError, setCoverageError] = useState<string | null>(null);
+    const [checkingCoverage, setCheckingCoverage] = useState(false);
 
     const fieldError = (key: string) =>
         resolveFieldError(key, clientErrors, form.errors);
@@ -78,6 +85,30 @@ export default function CustomerRegister({
             google_maps_url: value.google_maps_url ?? '',
         }));
         clearFieldError('address_text');
+        clearFieldError('latitude');
+        clearFieldError('longitude');
+        setCoverageError(null);
+
+        void (async () => {
+            setCheckingCoverage(true);
+
+            try {
+                const result = await checkDeliveryCoverage(
+                    value.latitude,
+                    value.longitude,
+                );
+
+                if (!result.covered) {
+                    setCoverageError(
+                        result.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
+                    );
+                }
+            } catch {
+                // Server will still validate on submit.
+            } finally {
+                setCheckingCoverage(false);
+            }
+        })();
     };
 
     const validateBeforeSubmit = (): boolean => {
@@ -100,6 +131,14 @@ export default function CustomerRegister({
 
         if (Object.keys(validationErrors).length > 0) {
             setClientErrors(validationErrors);
+
+            return false;
+        }
+
+        if (coverageError) {
+            setClientErrors({
+                latitude: coverageError,
+            });
 
             return false;
         }
@@ -348,12 +387,25 @@ export default function CustomerRegister({
                                 onChange={onAddressChange}
                             />
                         </FormField>
+                        {coverageError ||
+                        fieldError('latitude')?.includes('cobertura') ? (
+                            <CoverageUnavailableBanner
+                                message={
+                                    coverageError ?? fieldError('latitude')
+                                }
+                            />
+                        ) : null}
+                        {checkingCoverage ? (
+                            <p className="text-xs text-muted-foreground">
+                                Verificando cobertura…
+                            </p>
+                        ) : null}
                     </section>
 
                     <Button
                         type="submit"
                         className="h-11 w-full"
-                        disabled={form.processing}
+                        disabled={form.processing || Boolean(coverageError)}
                     >
                         {form.processing ? <Spinner /> : null}
                         Terminar registro

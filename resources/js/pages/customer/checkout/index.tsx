@@ -9,7 +9,11 @@ import { AddressCard } from '@/apps/storefront/components/address-card';
 import { CartLineCard } from '@/apps/storefront/components/cart-line-card';
 import { CheckoutFooter } from '@/apps/storefront/components/checkout-footer';
 import { CheckoutStepper } from '@/apps/storefront/components/checkout-stepper';
+import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
+import { useServiceFeeQuote } from '@/apps/storefront/hooks/use-service-fee-quote';
+import { COVERAGE_UNAVAILABLE_MESSAGE } from '@/apps/storefront/lib/check-delivery-coverage';
+import type { ActivitySuspensionShared } from '@/apps/storefront/components/activity-suspension-modal';
 import {
     LoyaltyProgressCard,
     type LoyaltyProgress,
@@ -67,9 +71,13 @@ function isAddressValid(
 }
 
 export default function CustomerCheckout({ addresses, loyalty }: Props) {
-    const { cart: bag, subtotal, service, serviceFeeDiscount, discount, total, clear } =
-        useStorefrontCart();
-    const pageErrors = usePage().props.errors ?? {};
+    const { cart: bag, clear } = useStorefrontCart();
+    const page = usePage();
+    const pageErrors = page.props.errors ?? {};
+    const activitySuspension = (
+        page.props as { activitySuspension?: ActivitySuspensionShared | null }
+    ).activitySuspension;
+    const orderingSuspended = activitySuspension?.active === true;
     const [step, setStep] = useState<CheckoutWizardStep>(2);
     const [processing, setProcessing] = useState(false);
     const [mode, setMode] = useState<'saved' | 'temporary'>(
@@ -80,6 +88,41 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
     );
     const [temporary, setTemporary] = useState<Partial<AddressValue>>({});
     const [paymentMethod] = useState<'cash'>('cash');
+
+    const selectedSaved = useMemo(
+        () => addresses.find((address) => address.id === addressId),
+        [addresses, addressId],
+    );
+
+    const deliveryLat =
+        mode === 'saved'
+            ? selectedSaved
+                ? Number(selectedSaved.latitude)
+                : null
+            : temporary.latitude != null
+              ? Number(temporary.latitude)
+              : null;
+    const deliveryLng =
+        mode === 'saved'
+            ? selectedSaved
+                ? Number(selectedSaved.longitude)
+                : null
+            : temporary.longitude != null
+              ? Number(temporary.longitude)
+              : null;
+
+    const feeQuote = useServiceFeeQuote(
+        deliveryLat,
+        deliveryLng,
+        bag.branchId,
+    );
+    const outsideCoverage = feeQuote?.covered === false;
+
+    const { subtotal, service, serviceFeeDiscount, discount, total } =
+        useStorefrontCart({
+            serviceFeeOverride: feeQuote?.serviceFee ?? null,
+            serviceFeeDiscountOverride: feeQuote?.serviceFeeDiscount ?? null,
+        });
 
     const payloadItems = useMemo(
         () =>
@@ -189,7 +232,24 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
     };
 
     const submit = () => {
-        if (!bag.branchId || processing || !addressReady) {
+        if (
+            !bag.branchId ||
+            processing ||
+            !addressReady ||
+            outsideCoverage ||
+            orderingSuspended
+        ) {
+            if (orderingSuspended) {
+                notify.error(
+                    activitySuspension?.footnote ??
+                        'Por el momento no es posible realizar pedidos nuevos.',
+                );
+            } else if (outsideCoverage) {
+                notify.error(
+                    feeQuote?.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
+                );
+            }
+
             return;
         }
 
@@ -231,6 +291,23 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
         if (step === 2) {
             if (!addressReady) {
                 notify.error('Selecciona o ingresa una dirección de entrega.');
+
+                return;
+            }
+
+            if (orderingSuspended) {
+                notify.error(
+                    activitySuspension?.footnote ??
+                        'Por el momento no es posible realizar pedidos nuevos.',
+                );
+
+                return;
+            }
+
+            if (outsideCoverage) {
+                notify.error(
+                    feeQuote?.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
+                );
 
                 return;
             }
@@ -287,6 +364,40 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                             ))}
                         </ul>
                     </div>
+                ) : null}
+
+                {step === 2 || step === 3 ? (
+                    <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+                        <p className="text-sm font-semibold text-navy">
+                            Tu pedido · {bag.lines.reduce((sum, line) => sum + line.quantity, 0)}{' '}
+                            {bag.lines.reduce((sum, line) => sum + line.quantity, 0) === 1
+                                ? 'producto'
+                                : 'productos'}
+                        </p>
+                        <ul className="space-y-2">
+                            {bag.lines.map((line) => (
+                                <li key={line.key}>
+                                    <CartLineCard line={line} compact />
+                                </li>
+                            ))}
+                        </ul>
+                        <OrderSummary
+                            subtotal={subtotal}
+                            service={service}
+                            serviceFeeDiscount={serviceFeeDiscount}
+                            discount={discount}
+                        />
+                        {feeQuote?.distanceMeters != null && !outsideCoverage ? (
+                            <p className="text-xs text-muted-foreground">
+                                Servicio según distancia (
+                                {(feeQuote.distanceMeters / 1000).toFixed(1)} km)
+                            </p>
+                        ) : null}
+                    </div>
+                ) : null}
+
+                {step === 2 && outsideCoverage ? (
+                    <CoverageUnavailableBanner message={feeQuote?.message} />
                 ) : null}
 
                 {step === 2 ? (
@@ -462,6 +573,12 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                             serviceFeeDiscount={serviceFeeDiscount}
                             discount={discount}
                         />
+                        {feeQuote?.distanceMeters != null && !outsideCoverage ? (
+                            <p className="text-xs text-muted-foreground">
+                                Servicio según distancia (
+                                {(feeQuote.distanceMeters / 1000).toFixed(1)} km)
+                            </p>
+                        ) : null}
                     </section>
                 ) : null}
 
@@ -472,7 +589,9 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                     }
                     onPrimary={step === 4 ? submit : goNext}
                     primaryDisabled={
-                        step === 2 ? !addressReady : step === 4 ? !bag.branchId : false
+                        orderingSuspended ||
+                        (step === 2 && (!addressReady || outsideCoverage)) ||
+                        (step === 4 && (!bag.branchId || outsideCoverage))
                     }
                     primaryLoading={processing}
                     onBack={goBack}

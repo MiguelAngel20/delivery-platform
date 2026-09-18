@@ -9,8 +9,10 @@ use App\Enums\UserRole;
 use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\Driver;
+use App\Models\ServiceFeeDistanceSetting;
 use App\Services\Dispatch\DriverActiveOrderService;
 use App\Services\Loyalty\CustomerLoyaltyService;
+use App\Services\Platform\PlatformActivitySuspensionService;
 use App\Support\BusinessAccess;
 use App\Support\BusinessTypes;
 use Illuminate\Http\Request;
@@ -42,6 +44,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $loyalty = $this->loyaltyProgress($request);
 
         return [
             ...parent::share($request),
@@ -57,13 +60,19 @@ class HandleInertiaRequests extends Middleware
             ],
             'businessContext' => $this->businessContext($request),
             'realtime' => $this->realtimeContext($request),
-            'loyalty' => $this->loyaltyProgress($request),
+            'loyalty' => $loyalty,
             'customerAddresses' => $this->customerAddresses($request),
             'orderSettings' => [
-                'service_fee' => (float) config('business.orders.service_fee', 50),
+                'service_fee' => $loyalty !== null
+                    ? (float) $loyalty['service_fee']
+                    : (float) ServiceFeeDistanceSetting::current()->base_fee,
+                'service_fee_discount' => $loyalty !== null
+                    ? (float) $loyalty['next_service_fee_discount']
+                    : 0.0,
                 'delivery_fee' => (float) config('business.orders.delivery_fee', 0),
                 'max_customer_addresses' => (int) config('business.orders.max_customer_addresses', 4),
             ],
+            'activitySuspension' => $this->activitySuspension($request),
             'support' => $this->supportLinks(),
             'maps' => [
                 'browser_api_key' => (string) config('maps.browser_api_key', ''),
@@ -115,6 +124,36 @@ class HandleInertiaRequests extends Middleware
                 'Escribir por WhatsApp',
             ),
         ];
+    }
+
+    /**
+     * @return array{
+     *     active: bool,
+     *     reason: string,
+     *     reason_label: string,
+     *     title: string,
+     *     body: string,
+     *     footnote: string,
+     *     image_url: string,
+     *     active_order_message: string|null,
+     *     active_orders: list<array{id: int, order_number: string, status: string, status_label: string}>
+     * }|null
+     */
+    private function activitySuspension(Request $request): ?array
+    {
+        if ($request->is(['admin', 'admin/*', 'business', 'business/*', 'driver', 'driver/*'])) {
+            return null;
+        }
+
+        $user = $request->user();
+        $customer = null;
+
+        if ($user !== null && $user->hasRole(UserRole::Customer)) {
+            $user->loadMissing('customer');
+            $customer = $user->customer;
+        }
+
+        return app(PlatformActivitySuspensionService::class)->storefrontPayload($customer);
     }
 
     /**

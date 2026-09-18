@@ -13,6 +13,7 @@ use App\Models\CustomerAddress;
 use App\Models\Product;
 use App\Models\ProductPrice;
 use App\Models\User;
+use App\Services\Geo\CoverageService;
 use Illuminate\Validation\ValidationException;
 
 test('checkout rejects delivery outside coverage', function () {
@@ -39,18 +40,24 @@ test('checkout rejects delivery outside coverage', function () {
     $product = Product::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
     ProductPrice::factory()->create(['product_id' => $product->id, 'list_price' => 50]);
 
-    expect(fn () => app(CreateOrder::class)->handle($customer, $user, [
-        'branch_id' => $branch->id,
-        'items' => [
-            ['product_id' => $product->id, 'quantity' => 1, 'selected_options' => []],
-        ],
-        'delivery' => [
-            'source' => OrderAddressSource::Temporary->value,
-            'address_text' => 'Lejos',
-            'latitude' => 16.40,
-            'longitude' => -92.40,
-        ],
-    ]))->toThrow(ValidationException::class);
+    try {
+        app(CreateOrder::class)->handle($customer, $user, [
+            'branch_id' => $branch->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1, 'selected_options' => []],
+            ],
+            'delivery' => [
+                'source' => OrderAddressSource::Temporary->value,
+                'address_text' => 'Lejos',
+                'latitude' => 16.40,
+                'longitude' => -92.40,
+            ],
+        ]);
+        expect(false)->toBeTrue();
+    } catch (ValidationException $exception) {
+        expect($exception->errors()['delivery'][0] ?? null)
+            ->toBe(CoverageService::UNAVAILABLE_MESSAGE);
+    }
 });
 
 test('checkout inside coverage stores logistics snapshot', function () {

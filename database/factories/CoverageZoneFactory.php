@@ -28,10 +28,20 @@ class CoverageZoneFactory extends Factory
             'center_latitude' => 16.2514000,
             'center_longitude' => -92.1342000,
             'radius_meters' => 5000,
+            'service_fee' => null,
+            'priority' => 0,
             'polygon' => null,
             'is_active' => true,
             'created_by_user_id' => User::factory()->systemAdmin(),
         ];
+    }
+
+    public function withServiceFee(float|string $fee, int $priority = 0): static
+    {
+        return $this->state(fn (): array => [
+            'service_fee' => number_format((float) $fee, 2, '.', ''),
+            'priority' => $priority,
+        ]);
     }
 
     public function forBranch(int $branchId): static

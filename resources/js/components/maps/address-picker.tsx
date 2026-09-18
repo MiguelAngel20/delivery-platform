@@ -35,6 +35,8 @@ type AddressPickerProps = {
     showFullscreenAdjust?: boolean;
     mapHeightClassName?: string;
     disabled?: boolean;
+    /** Draws a coverage circle around the pin (admin zones). */
+    radiusMeters?: number | null;
 };
 
 type PlaceSuggestion = AddressAutocompleteSuggestion;
@@ -75,6 +77,7 @@ export function AddressPicker({
     showFullscreenAdjust = true,
     mapHeightClassName = 'h-[min(50vh,24rem)] md:h-96',
     disabled = false,
+    radiusMeters = null,
 }: AddressPickerProps) {
     const { ready, error: mapsError, defaultCenter, google: googleApi } =
         useGoogleMaps();
@@ -488,7 +491,9 @@ export function AddressPicker({
 
     const mapHint = (
         <p className="text-xs text-muted-foreground">
-            Mueve el mapa para colocar el pin en tu ubicación exacta.
+            {radiusMeters != null && radiusMeters > 0
+                ? `Mueve el mapa para centrar la zona. El círculo naranja muestra el radio (${(radiusMeters / 1000).toFixed(1)} km).`
+                : 'Mueve el mapa para colocar el pin en tu ubicación exacta.'}
         </p>
     );
 
@@ -556,6 +561,7 @@ export function AddressPicker({
                     }
                     disabled={disabled}
                     blockInteraction={mapBlockInteraction}
+                    radiusMeters={radiusMeters}
                     onCenterSettled={onMapCenterSettled}
                     className={mapHeightClassName}
                 />
@@ -608,7 +614,9 @@ export function AddressPicker({
                     </DialogHeader>
 
                     <p className="shrink-0 text-xs text-muted-foreground">
-                        Mueve el mapa. El pin central marca dónde entregaremos.
+                        {radiusMeters != null && radiusMeters > 0
+                            ? `Mueve el mapa. El círculo muestra el radio de cobertura (${(radiusMeters / 1000).toFixed(1)} km).`
+                            : 'Mueve el mapa. El pin central marca dónde entregaremos.'}
                     </p>
 
                     {ready && googleApi ? (
@@ -618,6 +626,7 @@ export function AddressPicker({
                             initialCenter={mapCenter}
                             initialZoom={SELECTED_PLACE_ZOOM}
                             disabled={disabled}
+                            radiusMeters={radiusMeters}
                             onCenterSettled={onMapCenterSettled}
                             className="min-h-0 flex-1"
                         />

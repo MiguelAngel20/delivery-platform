@@ -29,7 +29,7 @@ final class OrderLogisticsService
     ): array {
         if (! $this->coverage->isOrderCovered($branch, $deliveryLatitude, $deliveryLongitude)) {
             throw ValidationException::withMessages([
-                'delivery' => 'Por el momento no realizamos entregas en esta ubicación.',
+                'delivery' => $this->coverage->unavailableMessage(),
             ]);
         }
 

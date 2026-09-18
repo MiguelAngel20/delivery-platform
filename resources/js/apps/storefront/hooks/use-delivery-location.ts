@@ -68,6 +68,31 @@ function subscribe(listener: () => void): () => void {
     };
 }
 
+export function clearDeliveryLocation(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.removeItem(STORAGE_KEY);
+    cachedRaw = null;
+    cachedLocation = emptyLocation;
+    emit();
+}
+
+/**
+ * Saved addresses belong to an account. Guests must not keep showing
+ * labels like "Casa" after logout / hard refresh.
+ */
+export function clearAccountBoundDeliveryLocation(): void {
+    const current = readLocation();
+
+    if (current.address_id == null || current.address_id === '') {
+        return;
+    }
+
+    clearDeliveryLocation();
+}
+
 export function useDeliveryLocation() {
     const location = useSyncExternalStore(
         subscribe,
@@ -84,10 +109,7 @@ export function useDeliveryLocation() {
     }, []);
 
     const clearLocation = useCallback(() => {
-        window.localStorage.removeItem(STORAGE_KEY);
-        cachedRaw = null;
-        cachedLocation = emptyLocation;
-        emit();
+        clearDeliveryLocation();
     }, []);
 
     const hasCoordinates =

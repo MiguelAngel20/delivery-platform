@@ -20,6 +20,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $center_latitude
  * @property string|null $center_longitude
  * @property int|null $radius_meters
+ * @property string|null $service_fee
+ * @property int $priority
  * @property array<int, array{lat: float, lng: float}>|null $polygon
  * @property bool $is_active
  * @property int|null $created_by_user_id
@@ -34,6 +36,8 @@ use Illuminate\Support\Carbon;
     'center_latitude',
     'center_longitude',
     'radius_meters',
+    'service_fee',
+    'priority',
     'polygon',
     'is_active',
     'created_by_user_id',
@@ -49,6 +53,7 @@ class CoverageZone extends Model
     protected $attributes = [
         'zone_type' => 'radius',
         'is_active' => true,
+        'priority' => 0,
     ];
 
     /**
@@ -62,6 +67,8 @@ class CoverageZone extends Model
             'polygon' => 'array',
             'is_active' => 'boolean',
             'radius_meters' => 'integer',
+            'service_fee' => 'decimal:2',
+            'priority' => 'integer',
         ];
     }
 

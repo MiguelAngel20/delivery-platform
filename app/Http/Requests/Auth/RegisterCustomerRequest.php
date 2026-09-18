@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\Geo\CoverageService;
 use App\Support\ApplicationPassword;
 use App\Support\PhoneDialCodes;
 use Illuminate\Foundation\Http\FormRequest;
@@ -130,6 +131,27 @@ class RegisterCustomerRequest extends FormRequest
                     $validator->errors()->add(
                         'phone_national',
                         "El número debe tener {$expected} dígitos para ese país.",
+                    );
+                }
+            },
+            function (Validator $validator): void {
+                if ($validator->errors()->hasAny(['latitude', 'longitude'])) {
+                    return;
+                }
+
+                $latitude = $this->input('latitude');
+                $longitude = $this->input('longitude');
+
+                if (! is_numeric($latitude) || ! is_numeric($longitude)) {
+                    return;
+                }
+
+                $coverage = app(CoverageService::class);
+
+                if (! $coverage->isPointCovered((float) $latitude, (float) $longitude)) {
+                    $validator->errors()->add(
+                        'latitude',
+                        $coverage->unavailableMessage(),
                     );
                 }
             },

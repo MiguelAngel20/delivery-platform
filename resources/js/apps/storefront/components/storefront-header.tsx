@@ -24,6 +24,7 @@ import {
     storefrontGoBack,
     useStorefrontShell,
 } from '@/apps/storefront/hooks/use-storefront-shell';
+import { clearAccountBoundDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-location';
 import type { MockCategory } from '@/apps/storefront/mocks';
 import { BrandLogo } from '@/components/brand-logo';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -361,6 +362,7 @@ export function StorefrontHeader() {
                                             className="w-full text-destructive focus:text-destructive"
                                             data-test="customer-logout-button"
                                             onClick={() => {
+                                                clearAccountBoundDeliveryLocation();
                                                 void deactivateStoredPushDevice();
                                                 router.flushAll();
                                             }}
