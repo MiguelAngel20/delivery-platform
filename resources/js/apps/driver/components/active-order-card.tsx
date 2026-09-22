@@ -71,7 +71,7 @@ export type DriverActiveOrder = {
 const statusTone: Record<string, StatusTone> = {
     driver_assigned: 'primary',
     driver_at_business: 'warning',
-    ready_for_pickup: 'warning',
+    ready_for_pickup: 'success',
     picked_up: 'info',
     on_the_way: 'info',
 };
@@ -183,7 +183,11 @@ export function ActiveOrderCard({ order, className }: ActiveOrderCardProps) {
                         <StatusBadge tone="neutral">Pedido personalizado</StatusBadge>
                     ) : null}
                     <StatusBadge
-                        tone={statusTone[order.order_status] ?? 'neutral'}
+                        tone={
+                            statusLabel === 'Listo para recoger'
+                                ? 'success'
+                                : (statusTone[order.order_status] ?? 'neutral')
+                        }
                     >
                         {statusLabel}
                     </StatusBadge>

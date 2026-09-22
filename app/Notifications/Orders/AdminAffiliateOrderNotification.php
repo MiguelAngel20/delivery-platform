@@ -50,6 +50,6 @@ final class AdminAffiliateOrderNotification extends RideNotification
 
     public function clickPath(): ?string
     {
-        return '/admin/orders/'.$this->order->id;
+        return '/admin/orders/'.$this->order->order_number;
     }
 }

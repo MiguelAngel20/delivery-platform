@@ -11,7 +11,6 @@ use App\Enums\OrderStatus;
 use App\Enums\OrderType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ConfirmPlatformOrderRequest;
-use App\Http\Requests\Admin\IndexAdminInboxRequest;
 use App\Http\Requests\Admin\ProposeOrderQuoteRequest;
 use App\Http\Requests\Admin\RejectPlatformOrderRequest;
 use App\Models\Incident;
@@ -21,81 +20,37 @@ use App\Support\OrderData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class OrderController extends Controller
 {
-    public function inbox(IndexAdminInboxRequest $request): Response
+    public function inbox(Request $request): RedirectResponse
     {
-        $filters = $request->validated();
+        $this->authorize('viewAny', Order::class);
 
-        $from = Carbon::parse($filters['from'])->startOfDay();
-        $to = Carbon::parse($filters['to'])->endOfDay();
+        $status = $request->string('status')->toString();
 
-        $orders = Order::query()
-            ->where('type', OrderType::Business)
-            ->where('operation_mode', BusinessOperationMode::PlatformOperated)
-            ->whereBetween('created_at', [$from, $to])
-            ->with(['branch.business', 'customer.user', 'items.options'])
-            ->when(
-                filled($filters['search'] ?? null),
-                function (Builder $query) use ($filters): void {
-                    $search = $filters['search'];
-                    $query->where(function (Builder $inner) use ($search): void {
-                        $inner->where('order_number', 'like', "%{$search}%")
-                            ->orWhere('merchant_name_snapshot', 'like', "%{$search}%")
-                            ->orWhereHas('customer.user', fn (Builder $userQuery) => $userQuery
-                                ->where('name', 'like', "%{$search}%"))
-                            ->orWhereHas('branch.business', fn (Builder $businessQuery) => $businessQuery
-                                ->where('name', 'like', "%{$search}%"));
-                    });
-                },
-            )
-            ->when(
-                filled($filters['status'] ?? null),
-                fn (Builder $query) => $query->where('order_status', $filters['status']),
-            )
-            ->orderByBusinessListPriority()
-            ->latest('created_at')
-            ->paginate(20)
-            ->withQueryString()
-            ->through(fn (Order $order): array => OrderData::forBusiness($order));
-
-        $newCount = Order::query()
-            ->where('type', OrderType::Business)
-            ->where('operation_mode', BusinessOperationMode::PlatformOperated)
-            ->where('order_status', OrderStatus::PendingPlatform)
-            ->count();
-
-        return Inertia::render('admin/orders/inbox', [
-            'orders' => $orders,
-            'newCount' => $newCount,
-            'filters' => [
-                'search' => $filters['search'] ?? '',
-                'status' => $filters['status'] ?? '',
-                'from' => $filters['from'],
-                'to' => $filters['to'],
-            ],
-            'statusOptions' => collect([
-                OrderStatus::PendingPlatform,
-                OrderStatus::Preparing,
-                OrderStatus::ReadyForPickup,
-                OrderStatus::SearchingDriver,
-                OrderStatus::DriverAssigned,
-                OrderStatus::DriverAtBusiness,
-                OrderStatus::PickedUp,
-                OrderStatus::OnTheWay,
-                OrderStatus::Delivered,
-                OrderStatus::Cancelled,
-                OrderStatus::Rejected,
-            ])->map(fn (OrderStatus $status): array => [
-                'value' => $status->value,
-                'label' => $status->label(),
-            ])->all(),
-            'preparationOptions' => [10, 15, 20, 25, 30, 45],
-        ]);
+        return redirect()->route('admin.orders.index', array_filter([
+            'search' => $request->string('search')->toString() ?: null,
+            'filter' => $request->string('filter')->toString() ?: match ($status) {
+                'pending_platform',
+                'pending_business',
+                'pending_customer_confirmation' => 'pending',
+                'preparing',
+                'ready_for_pickup',
+                'accepted',
+                'searching_driver' => 'preparing',
+                'driver_assigned',
+                'driver_at_business',
+                'picked_up',
+                'on_the_way' => 'delivery',
+                'delivered' => 'completed',
+                'cancelled',
+                'rejected' => 'cancelled',
+                default => null,
+            },
+        ], fn (?string $value): bool => filled($value)));
     }
 
     public function index(Request $request): Response
@@ -123,7 +78,9 @@ class OrderController extends Controller
 
         $this->applyFilter($query, $filter);
 
-        $orders = $query->latest()
+        $orders = $query
+            ->orderByAdminListPriority()
+            ->latest()
             ->paginate(20)
             ->withQueryString()
             ->through(fn (Order $order): array => OrderData::listRow($order));

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useBusinessOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
+import { formatOrderItemLine } from '@/lib/order-item-line';
 import business from '@/routes/business';
 import { index, show } from '@/routes/business/orders';
 import type { Auth } from '@/types';
@@ -26,6 +27,7 @@ type OrderRow = {
     items: Array<{
         product_name: string;
         quantity: string;
+        line_label?: string;
         options: Array<{ display: string }>;
         notes?: string | null;
     }>;
@@ -262,15 +264,8 @@ export default function BusinessOrdersIndex({
                                 {order.items.map((item, index) => (
                                     <li key={`${order.order_number}-${index}`}>
                                         <p className="text-foreground">
-                                            {item.quantity}x {item.product_name}
+                                            {formatOrderItemLine(item)}
                                         </p>
-                                        {item.options.length > 0 ? (
-                                            <p className="text-xs text-muted-foreground">
-                                                {item.options
-                                                    .map((option) => option.display)
-                                                    .join(' · ')}
-                                            </p>
-                                        ) : null}
                                         {item.notes ? (
                                             <p className="text-xs text-muted-foreground">
                                                 Nota: {item.notes}

@@ -3,6 +3,7 @@ import { StatusBadge } from '@/components/data-display/status-badge';
 import { ContentCard, PageContainer } from '@/components/layout/page';
 import { BackButton } from '@/components/navigation/back-button';
 import { formatMoney } from '@/lib/money';
+import { formatOrderItemLine } from '@/lib/order-item-line';
 import { home } from '@/routes/driver';
 
 type OrderDetail = {
@@ -34,6 +35,7 @@ type OrderDetail = {
         quantity: string;
         subtotal: string;
         notes?: string | null;
+        line_label?: string;
         options: Array<{ display: string }>;
     }>;
     notes?: string | null;
@@ -166,25 +168,13 @@ export default function DriverOrderShow({ order }: Props) {
                                 className="space-y-1 px-4 py-3 md:px-5"
                             >
                                 <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="font-medium text-navy">
-                                            {item.product_name}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Cantidad: {item.quantity}
-                                        </p>
-                                    </div>
+                                    <p className="font-medium text-navy">
+                                        {formatOrderItemLine(item)}
+                                    </p>
                                     <span className="shrink-0 text-sm font-medium text-navy">
                                         {formatMoney(item.subtotal)}
                                     </span>
                                 </div>
-                                {item.options.length > 0 ? (
-                                    <ul className="text-sm text-muted-foreground">
-                                        {item.options.map((option, index) => (
-                                            <li key={index}>{option.display}</li>
-                                        ))}
-                                    </ul>
-                                ) : null}
                                 {item.notes ? (
                                     <p className="text-sm text-muted-foreground">
                                         Notas: {item.notes}

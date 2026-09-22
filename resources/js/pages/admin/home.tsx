@@ -118,7 +118,7 @@ export default function AdminHome({ operation, loyaltyLaunch }: Props) {
 
                 <div className="flex flex-wrap gap-3">
                     <Button asChild>
-                        <Link href={admin.orders.inbox()}>Ver comandas</Link>
+                        <Link href={admin.orders.index()}>Ver pedidos</Link>
                     </Button>
                     <Button variant="outline" asChild>
                         <Link href={admin.customOrders.index()}>

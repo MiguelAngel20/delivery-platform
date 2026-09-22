@@ -48,6 +48,6 @@ final class PlatformOrderPendingNotification extends RideNotification
 
     public function clickPath(): ?string
     {
-        return '/admin/orders/'.$this->order->id;
+        return '/admin/orders?search='.rawurlencode((string) $this->order->order_number).'&filter=pending';
     }
 }

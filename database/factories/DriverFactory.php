@@ -29,9 +29,19 @@ class DriverFactory extends Factory
             'availability_status' => DriverAvailabilityStatus::Offline,
             'driver_scope' => DriverScope::Platform,
             'payment_model' => DriverPaymentModel::PlatformRate,
+            'pays_commission' => false,
+            'commission_per_order' => 0,
             'approved_by_user_id' => null,
             'approved_at' => null,
         ];
+    }
+
+    public function withCommission(float|string $amount = 5): static
+    {
+        return $this->state(fn (): array => [
+            'pays_commission' => true,
+            'commission_per_order' => number_format((float) $amount, 2, '.', ''),
+        ]);
     }
 
     public function approved(?User $approvedBy = null): static

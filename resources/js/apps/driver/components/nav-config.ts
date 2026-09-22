@@ -1,6 +1,5 @@
 import {
     CircleDollarSign,
-    ClipboardList,
     Home,
     ShoppingBag,
     UserRound,
@@ -23,11 +22,6 @@ export const driverNavItems: NavItem[] = [
         title: 'Ganancias',
         href: driver.earnings.index(),
         icon: CircleDollarSign,
-    },
-    {
-        title: 'Historial',
-        href: driver.history.index(),
-        icon: ClipboardList,
     },
     {
         title: 'Perfil',

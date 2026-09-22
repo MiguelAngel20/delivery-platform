@@ -48,11 +48,6 @@ export const adminNavItems: NavItem[] = [
         icon: Users,
     },
     {
-        title: 'Comandas',
-        href: admin.orders.inbox(),
-        icon: ClipboardList,
-    },
-    {
         title: 'Pedidos',
         href: admin.orders.index(),
         icon: Package,

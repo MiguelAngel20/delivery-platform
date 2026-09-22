@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useBusinessOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
+import { formatOrderItemLine } from '@/lib/order-item-line';
 import business from '@/routes/business';
 import {
     accept,
@@ -53,6 +54,7 @@ type OrderDetail = {
         quantity: string;
         subtotal: string;
         notes?: string | null;
+        line_label?: string;
         options: Array<{ display: string }>;
     }>;
     financial?: {
@@ -168,20 +170,12 @@ export default function BusinessOrderShow({
                                 <li key={item.id} className="space-y-1">
                                     <div className="flex justify-between gap-3">
                                         <span>
-                                            {item.quantity}x {item.product_name}
+                                            {formatOrderItemLine(item)}
                                         </span>
                                         <span>
                                             {formatMoney(item.subtotal)}
                                         </span>
                                     </div>
-                                    {item.options.map((option, index) => (
-                                        <p
-                                            key={`${item.id}-${index}`}
-                                            className="text-xs font-medium text-primary"
-                                        >
-                                            {option.display}
-                                        </p>
-                                    ))}
                                     {item.notes ? (
                                         <p className="text-xs text-muted-foreground">
                                             Nota: {item.notes}

@@ -44,7 +44,8 @@ enum OrderStatus: string
     public function driverLabel(): string
     {
         return match ($this) {
-            self::DriverAssigned, self::ReadyForPickup => 'Ve al establecimiento',
+            self::DriverAssigned => 'Ve al establecimiento',
+            self::ReadyForPickup => 'Listo para recoger',
             self::DriverAtBusiness => 'En el establecimiento',
             self::PickedUp => 'En camino al cliente',
             self::OnTheWay => 'Afuera del domicilio',
@@ -63,7 +64,7 @@ enum OrderStatus: string
             self::SearchingDriver,
             self::ReadyForPickup,
             self::DriverAssigned,
-            self::DriverAtBusiness => 'Pedido recibido',
+            self::DriverAtBusiness => 'Tu pedido se está preparando',
             self::PickedUp => 'Tu pedido va en camino',
             self::OnTheWay => 'Tu pedido ya está afuera de tu domicilio',
             self::Delivered => 'Entregado',
@@ -127,6 +128,30 @@ enum OrderStatus: string
             self::Rejected => 3,
             self::Delivered => 4,
             self::Cancelled => 5,
+        };
+    }
+
+    /**
+     * Lower values appear first in the admin orders list.
+     * Pending → in kitchen / in progress → delivered → cancelled.
+     */
+    public function adminListSortPriority(): int
+    {
+        return match ($this) {
+            self::PendingBusiness,
+            self::PendingPlatform,
+            self::PendingCustomerConfirmation => 0,
+            self::Accepted,
+            self::Preparing,
+            self::ReadyForPickup,
+            self::SearchingDriver,
+            self::DriverAssigned,
+            self::DriverAtBusiness,
+            self::PickedUp,
+            self::OnTheWay => 1,
+            self::Delivered => 2,
+            self::Rejected,
+            self::Cancelled => 3,
         };
     }
 }

@@ -5,6 +5,7 @@ use App\Enums\PromotionStatus;
 use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Models\Customer;
+use App\Models\Driver;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductPrice;
@@ -188,6 +189,28 @@ test('customer can open order tracking', function () {
     $this->actingAs($user)
         ->get(route('customer.orders.show', $order))
         ->assertOk();
+});
+
+test('customer order tracking masks the driver full name', function () {
+    $user = User::factory()->customer()->create();
+    $customer = Customer::factory()->for($user)->create();
+    $driverUser = User::factory()->driver()->create([
+        'first_name' => 'Miguel Angel',
+        'last_name' => 'Santiz Rodriguez',
+    ]);
+    $driver = Driver::factory()->forUser($driverUser)->create();
+    $order = Order::factory()->create([
+        'customer_id' => $customer->id,
+        'assigned_driver_id' => $driver->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('customer.orders.show', $order))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('customer/orders/show')
+            ->where('order.driver.name', 'Miguel A.')
+            ->whereNot('order.driver.name', $driverUser->name));
 });
 
 test('driver cannot open customer checkout', function () {

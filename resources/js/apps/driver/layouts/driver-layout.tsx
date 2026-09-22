@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { DriverAvailabilityControl } from '@/apps/driver/components/driver-availability-control';
+import { CommissionDebtModal } from '@/apps/driver/components/commission-debt-modal';
 import { DriverInstallAppBanner } from '@/apps/driver/components/driver-install-app-banner';
 import { driverNavItems } from '@/apps/driver/components/nav-config';
 import { MobileShell } from '@/components/layout/mobile-shell';
@@ -43,6 +44,7 @@ export default function DriverLayout({ children }: { children: ReactNode }) {
             >
                 {children}
             </MobileShell>
+            <CommissionDebtModal />
         </>
     );
 }

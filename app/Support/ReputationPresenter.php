@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\CustomerTrustLevel;
+use App\Enums\UserRole;
 use App\Models\Customer;
 use App\Models\CustomerMetric;
 use App\Models\Driver;
@@ -122,14 +123,23 @@ final class ReputationPresenter
         return [
             'id' => $driver->id,
             'name' => $driver->user?->name,
+            'first_name' => $driver->user?->first_name,
+            'last_name' => $driver->user?->last_name,
             'email' => $driver->user?->email,
             'phone' => $driver->user?->phone,
+            'email_verified' => $driver->user?->email_verified_at !== null,
+            'role' => UserRole::Driver->value,
+            'role_label' => 'Repartidor',
             'user_status' => $driver->user?->status->value,
             'user_status_label' => $driver->user?->status->label(),
             'approval_status' => $driver->approval_status->value,
             'approval_status_label' => $driver->approval_status->label(),
             'availability_status' => $driver->availability_status->value,
             'availability_status_label' => $driver->availability_status->label(),
+            'driver_scope' => $driver->driver_scope->value,
+            'driver_scope_label' => $driver->driver_scope->label(),
+            'pays_commission' => (bool) $driver->pays_commission,
+            'commission_per_order' => number_format((float) $driver->commission_per_order, 2, '.', ''),
             'offered_orders' => $metrics?->offered_orders ?? 0,
             'accepted_orders' => $metrics?->accepted_orders ?? 0,
             'rejected_orders' => $metrics?->rejected_orders ?? 0,
@@ -156,6 +166,36 @@ final class ReputationPresenter
         $lastInitial = isset($parts[1]) ? mb_strtoupper(mb_substr($parts[1], 0, 1)).'.' : '';
 
         return trim($first.' '.$lastInitial);
+    }
+
+    /**
+     * Privacy-safe driver label for customers.
+     * Two given names → "Miguel A."; one given name → "Miguel S." (first surname initial).
+     */
+    public static function driverPublicName(string $firstName, string $lastName = ''): string
+    {
+        $givenNames = preg_split('/\s+/u', trim($firstName)) ?: [];
+        $givenNames = array_values(array_filter($givenNames, fn (string $part): bool => $part !== ''));
+
+        if ($givenNames === []) {
+            return 'Repartidor';
+        }
+
+        $primary = $givenNames[0];
+
+        if (isset($givenNames[1])) {
+            return $primary.' '.mb_strtoupper(mb_substr($givenNames[1], 0, 1)).'.';
+        }
+
+        $surnames = preg_split('/\s+/u', trim($lastName)) ?: [];
+        $surnames = array_values(array_filter($surnames, fn (string $part): bool => $part !== ''));
+        $surname = $surnames[0] ?? '';
+
+        if ($surname === '') {
+            return $primary;
+        }
+
+        return $primary.' '.mb_strtoupper(mb_substr($surname, 0, 1)).'.';
     }
 
     private static function customerMetrics(Customer $customer): ?CustomerMetric

@@ -10,6 +10,7 @@ use App\Enums\DriverScope;
 use App\Enums\UserStatus;
 use App\Models\Driver;
 use App\Models\Order;
+use App\Services\Drivers\DriverCommissionService;
 use App\Support\OrderActiveStatuses;
 use Illuminate\Validation\ValidationException;
 
@@ -17,6 +18,7 @@ final class DriverEligibilityService
 {
     public function __construct(
         private readonly DriverActiveOrderService $activeOrders,
+        private readonly DriverCommissionService $commissions,
     ) {}
 
     public function isDriverEligibleForOrder(Driver $driver, Order $order): bool
@@ -46,6 +48,8 @@ final class DriverEligibilityService
                 'driver' => 'La cuenta del repartidor no está activa.',
             ]);
         }
+
+        $this->commissions->assertCanAcceptOrders($driver);
 
         if (in_array($driver->availability_status, [
             DriverAvailabilityStatus::Offline,

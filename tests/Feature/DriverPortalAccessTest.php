@@ -19,7 +19,6 @@ test('driver can open all driver portal pages', function (string $routeName) {
     'home' => 'driver.home',
     'orders' => 'driver.orders.index',
     'earnings' => 'driver.earnings.index',
-    'history' => 'driver.history.index',
     'profile' => 'driver.profile.index',
 ]);
 

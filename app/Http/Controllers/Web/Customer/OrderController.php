@@ -59,7 +59,7 @@ class OrderController extends Controller
         $this->authorize('view', $order);
 
         return Inertia::render('customer/orders/show', [
-            'order' => OrderData::transform($order),
+            'order' => OrderData::forCustomer($order),
         ]);
     }
 

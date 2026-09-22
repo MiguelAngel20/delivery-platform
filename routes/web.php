@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Web\Auth\DriverEmailVerificationController;
 use App\Http\Controllers\Web\Auth\ForcePasswordChangeController;
 use App\Http\Controllers\Web\Auth\LoginPageController;
 use App\Models\User;
@@ -81,6 +82,8 @@ Portal::routes(Portal::BUSINESS, function () {
 Portal::routes(Portal::DRIVER, function () {
     Route::middleware('guest')->group(function () {
         Route::get('driver/login', [LoginPageController::class, 'driver'])->name('driver.login');
+        Route::get('driver/verificar-correo/{id}/{hash}', DriverEmailVerificationController::class)
+            ->name('driver.verification.verify');
     });
 
     require __DIR__.'/driver.php';

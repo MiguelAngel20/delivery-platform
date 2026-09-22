@@ -27,7 +27,7 @@ class HomeController extends Controller
             ->where('order_status', OrderStatus::Delivered)
             ->whereNotNull('delivered_at')
             ->whereBetween('delivered_at', [$from, $to])
-            ->with(['branch.business', 'financial', 'driverRating'])
+            ->with(['branch.business', 'financial', 'driverRating', 'items.options', 'addresses'])
             ->latest('delivered_at')
             ->limit(30)
             ->get()

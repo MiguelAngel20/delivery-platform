@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -21,6 +22,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $customer_total
  * @property string $business_amount
  * @property string $driver_earning
+ * @property string $driver_commission
+ * @property Carbon|null $commission_settled_at
+ * @property int|null $commission_settled_by
  * @property string $platform_earning
  * @property PaymentMethod $payment_method
  * @property CollectionParty $collection_party
@@ -35,6 +39,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'customer_total',
     'business_amount',
     'driver_earning',
+    'driver_commission',
+    'commission_settled_at',
+    'commission_settled_by',
     'platform_earning',
     'payment_method',
     'collection_party',
@@ -58,6 +65,8 @@ class OrderFinancial extends Model
             'customer_total' => 'decimal:2',
             'business_amount' => 'decimal:2',
             'driver_earning' => 'decimal:2',
+            'driver_commission' => 'decimal:2',
+            'commission_settled_at' => 'datetime',
             'platform_earning' => 'decimal:2',
             'payment_method' => PaymentMethod::class,
             'collection_party' => CollectionParty::class,

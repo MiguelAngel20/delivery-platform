@@ -254,4 +254,17 @@ class Order extends Model
 
         $query->orderByRaw("case order_status {$cases} else 2 end");
     }
+
+    public function scopeOrderByAdminListPriority(Builder $query): void
+    {
+        $cases = collect(OrderStatus::cases())
+            ->map(fn (OrderStatus $status): string => sprintf(
+                "when '%s' then %d",
+                $status->value,
+                $status->adminListSortPriority(),
+            ))
+            ->implode(' ');
+
+        $query->orderByRaw("case order_status {$cases} else 2 end");
+    }
 }

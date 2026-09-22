@@ -214,7 +214,13 @@ test('platform order notifies system admin', function () {
 
     app(RideNotificationDispatcher::class)->orderCreated($order);
 
-    Notification::assertSentTo($admin, PlatformOrderPendingNotification::class);
+    Notification::assertSentTo($admin, PlatformOrderPendingNotification::class, function (PlatformOrderPendingNotification $notification) use ($order): bool {
+        expect($notification->clickPath())->toBe(
+            '/admin/orders?search='.rawurlencode((string) $order->order_number).'&filter=pending'
+        );
+
+        return true;
+    });
 });
 
 test('custom request notifies system admin', function () {

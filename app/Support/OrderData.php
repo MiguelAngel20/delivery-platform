@@ -80,26 +80,39 @@ final class OrderData
             ],
             'customer' => self::customerSummary($order),
             'driver' => self::driverSummary($order),
-            'items' => $order->items->map(fn ($item): array => [
-                'id' => $item->id,
-                'product_id' => $item->product_id,
-                'product_name' => $item->product_name,
-                'quantity' => (string) $item->quantity,
-                'unit_final_price' => (string) $item->unit_final_price,
-                'unit_acquisition_cost' => $item->unit_acquisition_cost !== null
-                    ? (string) $item->unit_acquisition_cost
-                    : null,
-                'subtotal' => (string) $item->subtotal,
-                'notes' => $item->notes,
-                'options' => $item->options->map(fn ($option): array => [
+            'items' => $order->items->map(function ($item): array {
+                $options = $item->options->map(fn ($option): array => [
                     'id' => $option->id,
                     'option_name' => $option->option_name,
                     'option_type' => $option->option_type->value,
                     'price_modifier' => (string) $option->price_modifier,
                     'selection_action' => $option->selection_action?->value,
-                    'display' => self::optionDisplay($option->option_name, $option->option_type->value, $option->selection_action?->value),
-                ])->values()->all(),
-            ])->values()->all(),
+                    'display' => self::optionDisplay(
+                        $option->option_name,
+                        $option->option_type->value,
+                        $option->selection_action?->value,
+                    ),
+                ])->values()->all();
+
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'quantity' => (string) $item->quantity,
+                    'unit_final_price' => (string) $item->unit_final_price,
+                    'unit_acquisition_cost' => $item->unit_acquisition_cost !== null
+                        ? (string) $item->unit_acquisition_cost
+                        : null,
+                    'subtotal' => (string) $item->subtotal,
+                    'notes' => $item->notes,
+                    'options' => $options,
+                    'line_label' => self::itemLineLabel(
+                        (string) $item->quantity,
+                        $item->product_name,
+                        array_column($options, 'display'),
+                    ),
+                ];
+            })->values()->all(),
             'delivery_address' => $delivery ? [
                 'address_text' => $delivery->address_text,
                 'reference' => $delivery->reference,
@@ -213,10 +226,38 @@ final class OrderData
             return null;
         }
 
+        $user = $order->assignedDriver->user;
+
         return [
             'id' => $order->assignedDriver->id,
-            'name' => $order->assignedDriver->user->name,
+            'name' => $user->name,
+            'phone' => $user->phone,
         ];
+    }
+
+    /**
+     * Customer order detail: mask driver identity in the shared transform payload.
+     *
+     * @return array<string, mixed>
+     */
+    public static function forCustomer(Order $order): array
+    {
+        $data = self::transform($order);
+
+        if ($data['driver'] === null) {
+            return $data;
+        }
+
+        $order->loadMissing('assignedDriver.user');
+        $user = $order->assignedDriver?->user;
+
+        $data['driver']['name'] = ReputationPresenter::driverPublicName(
+            (string) ($user?->first_name ?? ''),
+            (string) ($user?->last_name ?? ''),
+        );
+        $data['driver']['phone'] = null;
+
+        return $data;
     }
 
     /**
@@ -359,7 +400,19 @@ final class OrderData
      */
     public static function driverCompletedCard(Order $order): array
     {
-        $order->loadMissing(['branch.business', 'financial', 'driverRating']);
+        $order->loadMissing([
+            'branch.business',
+            'financial',
+            'driverRating',
+            'items.options',
+            'addresses',
+        ]);
+
+        $data = self::transform($order);
+        $payment = self::driverPaymentSummary($order);
+        $commission = (string) ($order->financial?->driver_commission ?? '0.00');
+        $net = (string) ($order->financial?->driver_earning ?? '0.00');
+        $gross = bcadd($net, $commission, 2);
 
         return [
             'id' => $order->id,
@@ -367,10 +420,25 @@ final class OrderData
             'business_name' => $order->branch?->business?->name ?? '—',
             'branch_name' => $order->branch?->name,
             'delivered_at' => $order->delivered_at?->toIso8601String(),
-            'driver_earning' => (string) ($order->financial?->driver_earning ?? '0.00'),
+            'driver_earning' => $net,
+            'gross_earning' => $gross,
+            'driver_commission' => number_format((float) $commission, 2, '.', ''),
             'status_label' => $order->order_status->label(),
             'has_rating' => $order->driverRating !== null,
             'overall_rating' => $order->driverRating?->overall_rating,
+            'pickup_address' => $data['pickup_address'],
+            'delivery_address' => $data['delivery_address'],
+            'payment' => $payment,
+            'items' => collect($data['items'])
+                ->map(fn (array $item): array => [
+                    'id' => $item['id'],
+                    'line_label' => $item['line_label'],
+                    'subtotal' => $item['subtotal'],
+                    'notes' => $item['notes'],
+                ])
+                ->values()
+                ->all(),
+            'notes' => $data['notes'],
         ];
     }
 
@@ -409,13 +477,14 @@ final class OrderData
     public static function driverActiveCard(Order $order): array
     {
         $data = self::transform($order);
+        $driverStatusLabel = self::driverFacingStatusLabel($order);
 
         return [
             'id' => $data['id'],
             'order_number' => $data['order_number'],
             'order_status' => $data['order_status'],
-            'driver_status_label' => $order->order_status->driverLabel(),
-            'business_status_label' => $order->order_status->driverLabel(),
+            'driver_status_label' => $driverStatusLabel,
+            'business_status_label' => $driverStatusLabel,
             'service_fee' => $data['service_fee'],
             'payment' => self::driverPaymentSummary($order),
             'ready_at' => $data['ready_at'],
@@ -435,6 +504,18 @@ final class OrderData
             'cannot_continue_reasons' => CancellationReasonCode::options(CancellationReasonCode::forDriver()),
             'incident_types' => IncidentType::options(IncidentType::forDriver()),
         ];
+    }
+
+    public static function driverFacingStatusLabel(Order $order): string
+    {
+        if (
+            $order->ready_at !== null
+            && $order->order_status === OrderStatus::DriverAssigned
+        ) {
+            return OrderStatus::ReadyForPickup->driverLabel();
+        }
+
+        return $order->order_status->driverLabel();
     }
 
     /**
@@ -488,6 +569,13 @@ final class OrderData
                 && $order->order_status === OrderStatus::PendingPlatform,
             'admin_can_reject' => $order->isPlatformManaged()
                 && $order->order_status === OrderStatus::PendingPlatform,
+            'admin_can_mark_ready' => $order->isPlatformManaged()
+                && in_array($order->order_status, [
+                    OrderStatus::Preparing,
+                    OrderStatus::SearchingDriver,
+                    OrderStatus::DriverAssigned,
+                    OrderStatus::DriverAtBusiness,
+                ], true),
             'customer_can_accept_quote' => $order->order_status === OrderStatus::PendingCustomerConfirmation,
             'admin_can_cancel' => $cancellations->adminCanCancel($order),
             'customer_cancel_reasons' => CancellationReasonCode::options(CancellationReasonCode::forCustomer()),
@@ -590,6 +678,7 @@ final class OrderData
 
         $milestones = [
             ['key' => 'received', 'label' => 'Pedido recibido'],
+            ['key' => 'preparing', 'label' => 'Tu pedido se está preparando'],
             ['key' => 'on_the_way', 'label' => 'Tu pedido va en camino'],
             ['key' => 'at_door', 'label' => 'Tu pedido ya está afuera de tu domicilio'],
             ['key' => 'delivered', 'label' => 'Entregado'],
@@ -600,7 +689,7 @@ final class OrderData
 
         return collect($milestones)->map(function (array $milestone, int $index) use ($currentIndex, $isDelivered, $order): array {
             $isCurrent = ! $isDelivered && $index === $currentIndex;
-            $isDone = $isDelivered || $index < $currentIndex;
+            $isDone = $isDelivered || $index <= $currentIndex;
 
             return [
                 'key' => $milestone['key'],
@@ -633,16 +722,16 @@ final class OrderData
     {
         return match ($status) {
             OrderStatus::PendingBusiness,
-            OrderStatus::PendingPlatform,
+            OrderStatus::PendingPlatform => 0,
             OrderStatus::Accepted,
             OrderStatus::Preparing,
             OrderStatus::SearchingDriver,
             OrderStatus::ReadyForPickup,
             OrderStatus::DriverAssigned,
-            OrderStatus::DriverAtBusiness => 0,
-            OrderStatus::PickedUp => 1,
-            OrderStatus::OnTheWay => 2,
-            OrderStatus::Delivered => 3,
+            OrderStatus::DriverAtBusiness => 1,
+            OrderStatus::PickedUp => 2,
+            OrderStatus::OnTheWay => 3,
+            OrderStatus::Delivered => 4,
             default => 0,
         };
     }
@@ -654,6 +743,8 @@ final class OrderData
             0 => [
                 OrderStatus::PendingBusiness,
                 OrderStatus::PendingPlatform,
+            ],
+            1 => [
                 OrderStatus::Accepted,
                 OrderStatus::Preparing,
                 OrderStatus::SearchingDriver,
@@ -661,9 +752,9 @@ final class OrderData
                 OrderStatus::DriverAssigned,
                 OrderStatus::DriverAtBusiness,
             ],
-            1 => [OrderStatus::PickedUp],
-            2 => [OrderStatus::OnTheWay],
-            3 => [OrderStatus::Delivered],
+            2 => [OrderStatus::PickedUp],
+            3 => [OrderStatus::OnTheWay],
+            4 => [OrderStatus::Delivered],
             default => [],
         };
 
@@ -686,6 +777,19 @@ final class OrderData
             'selected' => mb_strtoupper($name),
             default => mb_strtoupper($name),
         };
+    }
+
+    /**
+     * @param  list<string>  $optionDisplays
+     */
+    public static function itemLineLabel(string $quantity, string $productName, array $optionDisplays = []): string
+    {
+        $parts = array_values(array_filter(
+            [$productName, ...$optionDisplays],
+            static fn (?string $part): bool => filled($part),
+        ));
+
+        return trim($quantity).' - '.implode(' -> ', $parts);
     }
 
     /**
@@ -713,7 +817,8 @@ final class OrderData
             'estimated_preparation_minutes' => $data['estimated_preparation_minutes'],
             'is_active' => $data['is_active'],
             'items_summary' => collect($data['items'])
-                ->map(fn (array $item): string => $item['quantity'].'x '.$item['product_name'])
+                ->map(fn (array $item): string => (string) ($item['line_label'] ?? ''))
+                ->filter()
                 ->implode(', '),
         ];
     }

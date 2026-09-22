@@ -128,6 +128,13 @@ Route::middleware([
         });
 
         Route::get('drivers', [DriverController::class, 'index'])->name('drivers.index');
+        Route::post('drivers', [DriverController::class, 'store'])->name('drivers.store');
+        Route::put('drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
+        Route::put('drivers/{driver}/commission', [DriverController::class, 'updateCommission'])
+            ->name('drivers.commission.update');
+        Route::post('drivers/{driver}/commission/mark-paid', [DriverController::class, 'markCommissionPaid'])
+            ->name('drivers.commission.mark-paid');
+        Route::delete('drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
         Route::get('drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
         Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
         Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');

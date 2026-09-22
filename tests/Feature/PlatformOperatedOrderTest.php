@@ -149,16 +149,15 @@ test('platform-operated order goes to system admin not business queue', function
 
     $this->actingAs($admin)
         ->get(route('admin.orders.inbox'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('admin/orders/inbox')
-            ->where('newCount', 1)
-            ->has('orders.data', 1));
+        ->assertRedirect(route('admin.orders.index'));
 
     $this->actingAs($admin)
         ->get(route('admin.orders.index', ['filter' => 'pending']))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('orders.data', 1));
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/orders/index')
+            ->where('queue.pending_platform', 1)
+            ->has('orders.data', 1));
 });
 
 test('admin confirms platform order and it enters dispatch', function () {
@@ -189,6 +188,20 @@ test('admin confirms platform order and it enters dispatch', function () {
 
     expect($order->order_status)->toBe(OrderStatus::Preparing)
         ->and($order->estimated_preparation_minutes)->toBe(25);
+
+    $this->actingAs($admin)
+        ->get(route('admin.orders.show', $order))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/orders/show')
+            ->where('order.order_status', OrderStatus::Preparing->value)
+            ->where('order.actions.admin_can_mark_ready', true));
+
+    $this->actingAs($admin)
+        ->post(route('admin.orders.ready', $order))
+        ->assertRedirect();
+
+    expect($order->fresh()->order_status)->toBe(OrderStatus::ReadyForPickup);
 
     $driverUser = User::factory()->driver()->create();
     $driver = Driver::factory()->approved()->forUser($driverUser)->create([

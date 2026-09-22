@@ -1,8 +1,8 @@
 import { router } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormField } from '@/components/forms/form-field';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { home } from '@/routes/driver';
 
 type DriverDateRangeFilterProps = {
@@ -10,64 +10,87 @@ type DriverDateRangeFilterProps = {
         from: string;
         to: string;
     };
+    /** Destination URL builder; defaults to driver home. */
+    actionUrl?: (query: { from?: string; to?: string }) => string;
     className?: string;
 };
 
 export function DriverDateRangeFilter({
     filters,
+    actionUrl = (query) => home.url({ query }),
     className,
 }: DriverDateRangeFilterProps) {
     const [from, setFrom] = useState(filters.from);
     const [to, setTo] = useState(filters.to);
-    const [filtering, setFiltering] = useState(false);
+    const skipNextSync = useRef(false);
 
     useEffect(() => {
+        if (skipNextSync.current) {
+            skipNextSync.current = false;
+            return;
+        }
+
         setFrom(filters.from);
         setTo(filters.to);
     }, [filters.from, filters.to]);
 
-    const applyFilters = () => {
-        setFiltering(true);
+    const visitRange = (nextFrom: string, nextTo: string) => {
+        if (nextFrom.trim() === '' || nextTo.trim() === '') {
+            return;
+        }
+
+        if (nextFrom === filters.from && nextTo === filters.to) {
+            return;
+        }
+
+        skipNextSync.current = true;
         router.get(
-            home.url({
-                query: { from, to },
+            actionUrl({
+                from: nextFrom,
+                to: nextTo,
             }),
             {},
             {
                 preserveState: true,
+                preserveScroll: true,
                 replace: true,
-                onFinish: () => setFiltering(false),
             },
         );
     };
 
     return (
-        <div className={className}>
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                <FormField label="Desde">
+        <div className={cn(className)}>
+            <div className="grid grid-cols-2 gap-2">
+                <FormField
+                    label="Desde"
+                    className="gap-1 [&_label]:text-[11px] sm:[&_label]:text-xs"
+                >
                     <Input
                         type="date"
                         value={from}
-                        onChange={(event) => setFrom(event.target.value)}
+                        className="h-9 px-2 text-xs sm:h-10 sm:px-3 sm:text-sm"
+                        onChange={(event) => {
+                            const nextFrom = event.target.value;
+                            setFrom(nextFrom);
+                            visitRange(nextFrom, to);
+                        }}
                     />
                 </FormField>
-                <FormField label="Hasta">
+                <FormField
+                    label="Hasta"
+                    className="gap-1 [&_label]:text-[11px] sm:[&_label]:text-xs"
+                >
                     <Input
                         type="date"
                         value={to}
-                        onChange={(event) => setTo(event.target.value)}
+                        className="h-9 px-2 text-xs sm:h-10 sm:px-3 sm:text-sm"
+                        onChange={(event) => {
+                            const nextTo = event.target.value;
+                            setTo(nextTo);
+                            visitRange(from, nextTo);
+                        }}
                     />
                 </FormField>
-                <div className="flex items-end">
-                    <Button
-                        type="button"
-                        className="min-h-12 w-full"
-                        loading={filtering}
-                        onClick={applyFilters}
-                    >
-                        Filtrar
-                    </Button>
-                </div>
             </div>
         </div>
     );

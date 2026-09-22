@@ -55,7 +55,6 @@ test('guests are redirected from driver pages', function (string $routeName) {
 })->with([
     'orders' => 'driver.orders.index',
     'earnings' => 'driver.earnings.index',
-    'history' => 'driver.history.index',
     'profile' => 'driver.profile.index',
 ]);
 

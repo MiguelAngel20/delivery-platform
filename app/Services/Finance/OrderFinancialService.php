@@ -47,6 +47,7 @@ final class OrderFinancialService
                 'customer_total' => $order->total,
                 'business_amount' => $allocated['business_amount'],
                 'driver_earning' => $allocated['driver_earning'],
+                'driver_commission' => '0.00',
                 'platform_earning' => $allocated['platform_earning'],
                 'payment_method' => $order->payment_method,
                 'collection_party' => $allocated['collection_party'],

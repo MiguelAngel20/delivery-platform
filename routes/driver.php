@@ -41,7 +41,6 @@ Route::middleware([
         Route::post('location', [LocationController::class, 'update'])->name('location.update');
 
         Route::get('earnings', [EarningsController::class, 'index'])->name('earnings.index');
-        Route::inertia('history', 'driver/history/index')->name('history.index');
         Route::get('profile', ProfileController::class)->name('profile.index');
         Route::get('profile/notifications', [NotificationPreferencesController::class, 'edit'])
             ->name('profile.notifications.edit');

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Actions\Fortify\ResetUserPassword;
+use App\Enums\UserRole;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
 use App\Models\User;
@@ -65,6 +66,12 @@ class FortifyServiceProvider extends ServiceProvider
             if (! Portal::allowsRole($portal, $user->role)) {
                 throw ValidationException::withMessages([
                     Fortify::username() => __('Estas credenciales no corresponden a este portal.'),
+                ]);
+            }
+
+            if ($user->role === UserRole::Driver && $user->email_verified_at === null) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => __('Debes verificar tu correo antes de iniciar sesión. Revisa tu bandeja de entrada.'),
                 ]);
             }
 

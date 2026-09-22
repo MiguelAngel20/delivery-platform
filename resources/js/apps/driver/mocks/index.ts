@@ -69,15 +69,6 @@ export type MockEarningMovement = {
     tone: 'credit' | 'debit';
 };
 
-export type MockHistoryOrder = {
-    id: string;
-    code: string;
-    business: string;
-    date: string;
-    earnings: string;
-    status: 'Entregado' | 'Cancelado';
-};
-
 export type MockDriverProfile = {
     name: string;
     email: string;
@@ -183,41 +174,6 @@ export const driverEarningsMocks = {
         },
     ] satisfies MockEarningMovement[],
 } as const;
-
-export const mockHistoryOrders: MockHistoryOrder[] = [
-    {
-        id: 'mock-hist-1',
-        code: 'CHIS-1050',
-        business: 'Pizza Roma',
-        date: '12 Ago 2026',
-        earnings: '$50',
-        status: 'Entregado',
-    },
-    {
-        id: 'mock-hist-2',
-        code: 'CHIS-1048',
-        business: 'Burger House',
-        date: '12 Ago 2026',
-        earnings: '$55',
-        status: 'Entregado',
-    },
-    {
-        id: 'mock-hist-3',
-        code: 'CHIS-1044',
-        business: 'Sushi Go',
-        date: '11 Ago 2026',
-        earnings: '$0',
-        status: 'Cancelado',
-    },
-    {
-        id: 'mock-hist-4',
-        code: 'CHIS-1040',
-        business: 'Pizza Roma',
-        date: '11 Ago 2026',
-        earnings: '$48',
-        status: 'Entregado',
-    },
-];
 
 export const mockDriverProfile: MockDriverProfile = {
     name: 'Miguel Rivera',

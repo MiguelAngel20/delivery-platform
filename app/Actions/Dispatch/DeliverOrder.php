@@ -8,6 +8,7 @@ use App\Models\Driver;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Dispatch\DriverActiveOrderService;
+use App\Services\Drivers\DriverCommissionService;
 use App\Services\Finance\OrderFinancialService;
 use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderStateService;
@@ -22,6 +23,7 @@ final class DeliverOrder
         private readonly OrderStateService $stateService,
         private readonly DriverActiveOrderService $activeOrders,
         private readonly OrderFinancialService $financials,
+        private readonly DriverCommissionService $commissions,
         private readonly OrderRealtimePublisher $realtime,
         private readonly ReputationRecalculator $reputation,
         private readonly CustomerLoyaltyService $loyalty,
@@ -71,6 +73,11 @@ final class DeliverOrder
                 $delivered->fresh(['financial', 'payment', 'branch.business']),
                 $driver,
                 $actor,
+            );
+
+            $this->commissions->applyOnDelivery(
+                $delivered->fresh(['financial']),
+                $driver,
             );
 
             $this->loyalty->handleOrderDelivered($delivered);

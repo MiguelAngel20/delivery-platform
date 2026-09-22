@@ -50,6 +50,31 @@ export function resolveNotificationPath(
 ): string | null {
     const fromPayload = safeInternalPath(notification.click_path);
 
+    // Platform pending orders: open Pedidos (accept queue), not order show.
+    if (
+        role === 'system_admin' &&
+        notification.type === 'PlatformOrderPendingNotification'
+    ) {
+        if (fromPayload?.startsWith('/admin/orders/inbox')) {
+            return fromPayload.replace('/admin/orders/inbox', '/admin/orders');
+        }
+
+        if (fromPayload?.startsWith('/admin/orders')) {
+            return fromPayload;
+        }
+
+        return '/admin/orders?filter=pending';
+    }
+
+    // Legacy payloads used numeric order id; route key is order_number → 404.
+    if (
+        role === 'system_admin' &&
+        fromPayload &&
+        /^\/admin\/orders\/\d+$/.test(fromPayload)
+    ) {
+        return '/admin/orders?filter=pending';
+    }
+
     if (fromPayload) {
         return fromPayload;
     }
@@ -67,7 +92,7 @@ export function resolveNotificationPath(
         }
 
         if (role === 'system_admin') {
-            return `/admin/orders/${targetId}`;
+            return '/admin/orders?filter=pending';
         }
     }
 

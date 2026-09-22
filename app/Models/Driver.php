@@ -24,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property DriverAvailabilityStatus $availability_status
  * @property DriverScope $driver_scope
  * @property DriverPaymentModel $payment_model
+ * @property bool $pays_commission
+ * @property string $commission_per_order
  * @property int|null $approved_by_user_id
  * @property Carbon|null $approved_at
  * @property Carbon|null $created_at
@@ -36,6 +38,8 @@ use Illuminate\Support\Carbon;
     'availability_status',
     'driver_scope',
     'payment_model',
+    'pays_commission',
+    'commission_per_order',
     'approved_by_user_id',
     'approved_at',
 ])]
@@ -54,6 +58,8 @@ class Driver extends Model
             'availability_status' => DriverAvailabilityStatus::class,
             'driver_scope' => DriverScope::class,
             'payment_model' => DriverPaymentModel::class,
+            'pays_commission' => 'boolean',
+            'commission_per_order' => 'decimal:2',
             'approved_at' => 'datetime',
         ];
     }

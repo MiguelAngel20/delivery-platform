@@ -4,6 +4,7 @@ import {
     AffiliatedPartnersCarousel,
     type AffiliatedPartner,
 } from '@/apps/storefront/components/affiliated-partners-carousel';
+import { CustomOrderEntry } from '@/apps/storefront/components/custom-order-entry';
 import { MobilePromotionsCarousel } from '@/apps/storefront/components/mobile-promotions-carousel';
 import { PromotionsCarousel } from '@/apps/storefront/components/promotions-carousel';
 import { RestaurantsGrid } from '@/apps/storefront/components/restaurants-grid';
@@ -69,6 +70,8 @@ export default function PublicHome({
                     emptyIcon={<Store />}
                     showViewAll={restaurants.length > 0}
                 />
+
+                <CustomOrderEntry />
             </PageContainer>
         </>
     );

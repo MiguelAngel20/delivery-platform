@@ -10,6 +10,7 @@ import { OrderActionDialog } from '@/components/orders/order-action-dialog';
 import { Button } from '@/components/ui/button';
 import { useCustomerOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
+import { formatOrderItemLine } from '@/lib/order-item-line';
 import { cancel as cancelOrder, index } from '@/routes/customer/orders';
 import { accept as acceptQuote } from '@/routes/customer/orders/quotes';
 import { store as storeIncident } from '@/routes/customer/orders/incidents';
@@ -34,6 +35,7 @@ type OrderDetail = {
         quantity: string;
         subtotal: string;
         notes?: string | null;
+        line_label?: string;
         options: Array<{ display: string }>;
     }>;
     customer_timeline: Array<{
@@ -164,21 +166,12 @@ export default function CustomerOrderShow({ order }: Props) {
                             <li key={item.id} className="space-y-1">
                                 <div className="flex justify-between gap-3">
                                     <span className="text-navy">
-                                        {item.quantity}x {item.product_name}
+                                        {formatOrderItemLine(item)}
                                     </span>
                                     <span className="font-medium text-navy">
                                         {formatMoney(item.subtotal)}
                                     </span>
                                 </div>
-                                {item.options.length > 0 ? (
-                                    <ul className="text-xs text-muted-foreground">
-                                        {item.options.map((option, index) => (
-                                            <li key={`${item.id}-${index}`}>
-                                                {option.display}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : null}
                                 {item.notes ? (
                                     <p className="text-xs text-muted-foreground">
                                         Nota: {item.notes}

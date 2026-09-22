@@ -30,6 +30,7 @@ class OrderFinancialFactory extends Factory
             'customer_total' => 250,
             'business_amount' => 200,
             'driver_earning' => 50,
+            'driver_commission' => 0,
             'platform_earning' => 0,
             'payment_method' => PaymentMethod::Cash,
             'collection_party' => CollectionParty::Driver,

@@ -11,6 +11,7 @@ use App\Models\BusinessUser;
 use App\Models\Driver;
 use App\Models\ServiceFeeDistanceSetting;
 use App\Services\Dispatch\DriverActiveOrderService;
+use App\Services\Drivers\DriverCommissionService;
 use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Platform\PlatformActivitySuspensionService;
 use App\Support\BusinessAccess;
@@ -116,7 +117,7 @@ class HandleInertiaRequests extends Middleware
         return [
             'whatsapp_url' => $digits !== ''
                 ? 'https://wa.me/'.$digits.'?text='.rawurlencode(
-                    'Hola, quiero hacer un pedido personalizado.',
+                    'Hola, no encontré lo que buscaba en la app y quiero hacer un pedido por WhatsApp.',
                 )
                 : null,
             'whatsapp_label' => (string) config(
@@ -362,7 +363,11 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array{availabilityStatus: string, hasActiveOrders: bool}|null
+     * @return array{
+     *     availabilityStatus: string,
+     *     hasActiveOrders: bool,
+     *     commissionDebt: array{blocked: bool, amount: string, message: string}|null
+     * }|null
      */
     private function driverContext(Request $request): ?array
     {
@@ -389,6 +394,7 @@ class HandleInertiaRequests extends Middleware
         return [
             'availabilityStatus' => $driver->availability_status->value,
             'hasActiveOrders' => $activeOrders->activeCount($driver) > 0,
+            'commissionDebt' => app(DriverCommissionService::class)->debtPayload($driver),
         ];
     }
 }

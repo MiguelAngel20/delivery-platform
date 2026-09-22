@@ -28,6 +28,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Dispatch\AvailableOrdersQuery;
 use App\Services\Dispatch\DriverEligibilityService;
+use App\Support\OrderData;
 use Illuminate\Validation\ValidationException;
 
 function seedDispatchBusiness(BusinessDeliveryMode $mode = BusinessDeliveryMode::Hybrid): array
@@ -113,6 +114,28 @@ test('platform driver sees eligible platform and hybrid orders', function () {
         ->and($ids)->not->toContain(
             Order::query()->where('branch_id', $ownBranch->id)->value('id'),
         );
+});
+
+test('driver active card shows listo para recoger after admin marks ready', function () {
+    ['branch' => $branch] = seedDispatchBusiness();
+    ['user' => $user, 'driver' => $driver] = seedPlatformDriver();
+    $order = seedDispatchOrder($branch);
+
+    app(AcceptDeliveryOrder::class)->handle($order, $driver, $user);
+
+    $before = OrderData::driverActiveCard($order->fresh());
+
+    expect($before['driver_status_label'])->toBe('Ve al establecimiento')
+        ->and($before['order_status'])->toBe(OrderStatus::DriverAssigned->value);
+
+    app(MarkOrderReady::class)->handle($order->fresh(), $user);
+
+    $after = OrderData::driverActiveCard($order->fresh());
+
+    expect($after['order_status'])->toBe(OrderStatus::ReadyForPickup->value)
+        ->and($after['driver_status_label'])->toBe('Listo para recoger')
+        ->and($after['business_status_label'])->toBe('Listo para recoger')
+        ->and(OrderStatus::PickedUp->driverLabel())->toBe('En camino al cliente');
 });
 
 test('own drivers mode excludes platform driver', function () {
