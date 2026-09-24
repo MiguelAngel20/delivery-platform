@@ -308,7 +308,13 @@ final class CreateOrder
             'subtotal' => $subtotal,
             'notes' => $notes ?: null,
             'options' => $optionRows,
-            'metadata' => null,
+            'metadata' => [
+                'category_name' => $product->category?->rootName(),
+                'subcategory_name' => $product->category?->isSubcategory()
+                    ? $product->category->name
+                    : null,
+                'product_display_name' => $product->name,
+            ],
         ];
     }
 

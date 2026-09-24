@@ -168,7 +168,8 @@ test('order stores price and product name snapshots', function () {
 
     expect($item?->product_name)->toBe('Hamburguesa clásica')
         ->and((string) $item?->unit_list_price)->toBe('105.00')
-        ->and((string) $item?->unit_final_price)->toBe('120.00');
+        ->and((string) $item?->unit_final_price)->toBe('120.00')
+        ->and($item?->metadata['product_display_name'] ?? null)->toBe('Hamburguesa clásica');
 });
 
 test('order stores option snapshots', function () {

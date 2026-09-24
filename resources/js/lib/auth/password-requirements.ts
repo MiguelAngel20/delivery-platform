@@ -18,11 +18,11 @@ export function validatePasswordStrength(password: string): string | undefined {
     }
 
     if (!HAS_SPECIAL.test(password)) {
-        return 'La contraseña debe incluir al menos un carácter especial (ej. #, $, %).';
+        return 'La contraseña debe incluir al menos un carácter especial (ej. @, #, $, %, !).';
     }
 
     return undefined;
 }
 
 export const PASSWORD_REQUIREMENTS_HINT =
-    'Mínimo 8 caracteres, con mayúscula, número y carácter especial (#, $, %, etc.).';
+    'Mínimo 8 caracteres, con mayúscula, número y un carácter especial (@, #, $, %, !, etc.).';

@@ -7,12 +7,13 @@ import { FormField } from '@/components/forms/form-field';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { BackButton } from '@/components/navigation/back-button';
 import { OrderActionDialog } from '@/components/orders/order-action-dialog';
+import { OrderCustomerPanel } from '@/components/orders/order-customer-panel';
+import { OrderDetailPanel } from '@/components/orders/order-detail-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useBusinessOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
-import { formatOrderItemLine } from '@/lib/order-item-line';
 import business from '@/routes/business';
 import {
     accept,
@@ -34,6 +35,7 @@ type OrderDetail = {
     subtotal_after_discount?: string;
     service_fee?: string;
     payment_method_label?: string;
+    estimated_preparation_minutes?: number | null;
     customer: {
         name?: string | null;
         phone?: string | null;
@@ -43,14 +45,26 @@ type OrderDetail = {
         is_frequent?: boolean;
     };
     driver?: { name?: string | null; phone?: string | null } | null;
-    restaurant: { branch_name?: string | null };
+    restaurant: {
+        name?: string | null;
+        branch_name?: string | null;
+        phone?: string | null;
+    };
+    pickup_address?: {
+        address_text?: string | null;
+        google_maps_url?: string | null;
+    } | null;
     delivery_address?: {
         address_text: string;
         reference?: string | null;
+        google_maps_url?: string | null;
     } | null;
     items: Array<{
         id: number;
         product_name: string;
+        display_name?: string | null;
+        category_name?: string | null;
+        subcategory_name?: string | null;
         quantity: string;
         subtotal: string;
         notes?: string | null;
@@ -127,13 +141,18 @@ export default function BusinessOrderShow({
         });
     };
 
+    const businessName = order.restaurant.name?.trim() || 'Negocio';
+    const branchName = order.restaurant.branch_name?.trim() || null;
+    const showBranchName =
+        branchName !== null &&
+        branchName.toLocaleLowerCase() !== businessName.toLocaleLowerCase();
+
     return (
         <>
             <Head title={`Pedido ${order.order_number}`} />
             <PageContainer>
                 <PageHeader
                     title={`#${order.order_number}`}
-                    description={`${order.customer.name ?? 'Cliente'} · ${order.restaurant.branch_name ?? ''}`}
                     actions={<BackButton href={index.url()} />}
                 />
 
@@ -160,141 +179,149 @@ export default function BusinessOrderShow({
                     </section>
                 ) : null}
 
-                <div className="grid gap-4 lg:grid-cols-2">
-                    <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
-                        <h2 className="font-semibold text-foreground">
-                            Productos
-                        </h2>
-                        <ul className="space-y-3 text-sm">
-                            {order.items.map((item) => (
-                                <li key={item.id} className="space-y-1">
-                                    <div className="flex justify-between gap-3">
+                <div className="grid items-start gap-4 lg:grid-cols-2">
+                    <OrderDetailPanel
+                        orderNumber={order.order_number}
+                        businessName={
+                            showBranchName
+                                ? `${businessName} · ${branchName}`
+                                : businessName
+                        }
+                        businessPhone={order.restaurant.phone}
+                        items={order.items}
+                        pickupAddress={order.pickup_address}
+                        footer={
+                            <>
+                                <p className="border-t border-border pt-3 text-sm text-foreground">
+                                    <span className="flex justify-between gap-3">
+                                        <span>Productos</span>
                                         <span>
-                                            {formatOrderItemLine(item)}
+                                            {formatMoney(
+                                                order.financial
+                                                    ?.products_amount ??
+                                                    order.subtotal_after_discount ??
+                                                    0,
+                                            )}
                                         </span>
+                                    </span>
+                                    <span className="mt-1 flex justify-between gap-3">
+                                        <span>Servicio ChisDrive</span>
                                         <span>
-                                            {formatMoney(item.subtotal)}
+                                            {formatMoney(
+                                                order.financial?.service_fee ??
+                                                    order.service_fee ??
+                                                    0,
+                                            )}
                                         </span>
-                                    </div>
-                                    {item.notes ? (
-                                        <p className="text-xs text-muted-foreground">
-                                            Nota: {item.notes}
-                                        </p>
-                                    ) : null}
-                                </li>
-                            ))}
-                        </ul>
-                        <p className="border-t border-border pt-3 text-sm text-foreground">
-                            <span className="flex justify-between gap-3">
-                                <span>Productos</span>
-                                <span>
-                                    {formatMoney(
-                                        order.financial?.products_amount ??
-                                            order.subtotal_after_discount ??
-                                            0,
-                                    )}
-                                </span>
-                            </span>
-                            <span className="mt-1 flex justify-between gap-3">
-                                <span>Servicio ChisDrive</span>
-                                <span>
-                                    {formatMoney(
-                                        order.financial?.service_fee ??
-                                            order.service_fee ??
-                                            0,
-                                    )}
-                                </span>
-                            </span>
-                            <span className="mt-2 flex justify-between gap-3 text-base font-semibold">
-                                <span>Total cliente</span>
-                                <span>
-                                    {formatMoney(
-                                        order.financial?.customer_total ??
-                                            order.total,
-                                    )}
-                                </span>
-                            </span>
-                        </p>
-                        <div className="space-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
-                            <p>
-                                Pago:{' '}
-                                {order.financial?.payment_method_label ??
-                                    order.payment_method_label ??
-                                    'Efectivo'}
-                            </p>
-                            <p>
-                                Pago al establecimiento:{' '}
-                                {order.financial?.driver_paid_business
-                                    ? 'Registrado'
-                                    : 'Pendiente'}
-                            </p>
-                        </div>
-                    </section>
+                                    </span>
+                                    <span className="mt-2 flex justify-between gap-3 text-base font-semibold">
+                                        <span>Total cliente</span>
+                                        <span>
+                                            {formatMoney(
+                                                order.financial
+                                                    ?.customer_total ??
+                                                    order.total,
+                                            )}
+                                        </span>
+                                    </span>
+                                </p>
+                                <div className="space-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
+                                    <p>
+                                        Pago:{' '}
+                                        {order.financial
+                                            ?.payment_method_label ??
+                                            order.payment_method_label ??
+                                            'Efectivo'}
+                                    </p>
+                                    <p>
+                                        Pago al establecimiento:{' '}
+                                        {order.financial?.driver_paid_business
+                                            ? 'Registrado'
+                                            : 'Pendiente'}
+                                    </p>
+                                </div>
+                            </>
+                        }
+                    />
 
                     <section className="space-y-4 rounded-xl border border-border bg-surface p-4">
                         <div className="space-y-3">
                             <h2 className="font-semibold text-foreground">
-                                Cliente
+                                Operación
                             </h2>
-                            <div className="space-y-1 text-sm">
-                                <p className="font-medium text-foreground">
-                                    {order.customer.name ?? 'Cliente'}
-                                </p>
-                                <p className="text-muted-foreground">
-                                    Tel: {order.customer.phone ?? '—'}
-                                </p>
-                                <div className="flex flex-wrap items-center gap-2 pt-1">
-                                    <StatusBadge
-                                        tone={
-                                            order.customer.reputation_tone ??
-                                            'neutral'
-                                        }
-                                    >
-                                        {order.customer.reputation_label ??
-                                            'Sin reputación'}
-                                    </StatusBadge>
-                                    {order.customer.is_frequent ? (
+                            <dl className="space-y-2 text-sm">
+                                <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-3">
+                                    <dt className="text-muted-foreground">
+                                        Estado
+                                    </dt>
+                                    <dd className="sm:text-right">
                                         <StatusBadge tone="primary">
-                                            Cliente frecuente
+                                            {order.business_status_label}
                                         </StatusBadge>
-                                    ) : null}
-                                    <span className="text-xs text-muted-foreground">
-                                        {order.customer.completed_orders ?? 0}{' '}
-                                        pedidos completados
-                                    </span>
+                                    </dd>
                                 </div>
-                            </div>
+                                <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-3">
+                                    <dt className="text-muted-foreground">
+                                        Tiempo al cliente
+                                    </dt>
+                                    <dd className="font-medium text-foreground sm:text-right">
+                                        {order.estimated_preparation_minutes !=
+                                        null
+                                            ? `${order.estimated_preparation_minutes} minutos`
+                                            : 'Aún no asignado'}
+                                    </dd>
+                                </div>
+                                <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-3">
+                                    <dt className="text-muted-foreground">
+                                        Repartidor
+                                    </dt>
+                                    <dd className="font-medium text-foreground sm:text-right">
+                                        {order.driver?.name ?? 'Sin asignar'}
+                                    </dd>
+                                </div>
+                                {order.driver?.phone ? (
+                                    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-3">
+                                        <dt className="text-muted-foreground">
+                                            Tel. repartidor
+                                        </dt>
+                                        <dd className="font-medium text-foreground sm:text-right">
+                                            {order.driver.phone}
+                                        </dd>
+                                    </div>
+                                ) : null}
+                            </dl>
                         </div>
 
-                        <div>
-                            <h2 className="font-semibold text-foreground">
-                                Dirección de entrega
-                            </h2>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                {order.delivery_address?.address_text ?? '—'}
-                            </p>
-                            {order.delivery_address?.reference ? (
-                                <p className="text-sm text-muted-foreground">
-                                    Ref: {order.delivery_address.reference}
-                                </p>
-                            ) : null}
-                            {order.driver ? (
-                                <div className="mt-3 space-y-1 rounded-lg border border-border bg-background/60 p-3 text-sm">
-                                    <p className="font-semibold text-foreground">
-                                        Repartidor asignado
-                                    </p>
-                                    <p className="text-foreground">
-                                        {order.driver.name ?? 'Repartidor'}
-                                    </p>
-                                    <p className="text-muted-foreground">
-                                        Tel: {order.driver.phone ?? '—'}
-                                    </p>
-                                </div>
-                            ) : (
-                                <p className="mt-2 text-sm text-muted-foreground">
-                                    Sin repartidor asignado
-                                </p>
-                            )}
+                        <div className="space-y-3 border-t border-border pt-4">
+                            <OrderCustomerPanel
+                                customer={order.customer}
+                                deliveryAddress={order.delivery_address}
+                                orderNumber={order.order_number}
+                                footer={
+                                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                                        <StatusBadge
+                                            tone={
+                                                order.customer
+                                                    .reputation_tone ??
+                                                'neutral'
+                                            }
+                                        >
+                                            {order.customer.reputation_label ??
+                                                'Sin reputación'}
+                                        </StatusBadge>
+                                        {order.customer.is_frequent ? (
+                                            <StatusBadge tone="primary">
+                                                Cliente frecuente
+                                            </StatusBadge>
+                                        ) : null}
+                                        <span className="text-xs text-muted-foreground">
+                                            {order.customer.completed_orders ??
+                                                0}{' '}
+                                            pedidos completados
+                                        </span>
+                                    </div>
+                                }
+                            />
                         </div>
 
                         {order.order_status === 'pending_business' &&

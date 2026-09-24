@@ -101,7 +101,7 @@ class RegisterCustomerRequest extends FormRequest
             'password.letters' => 'La contraseña debe incluir al menos una letra.',
             'password.mixed' => 'La contraseña debe incluir mayúsculas y minúsculas.',
             'password.numbers' => 'La contraseña debe incluir al menos un número.',
-            'password.symbols' => 'La contraseña debe incluir al menos un carácter especial (ej. #, $, %).',
+            'password.symbols' => 'La contraseña debe incluir al menos un carácter especial (ej. @, #, $, %, !).',
             'password.regex' => 'La contraseña debe incluir al menos una letra mayúscula.',
             'password.uncompromised' => 'Esa contraseña apareció en una filtración de datos. Elige otra.',
             'address_label.max' => 'La etiqueta no puede superar :max caracteres.',

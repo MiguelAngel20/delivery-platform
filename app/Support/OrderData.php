@@ -10,6 +10,7 @@ use App\Enums\OrderAddressType;
 use App\Enums\OrderQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Services\Finance\RevenueAllocationService;
 use App\Services\Orders\OrderCancellationService;
 
@@ -22,6 +23,7 @@ final class OrderData
     {
         $order->loadMissing([
             'items.options',
+            'items.product.category.parent',
             'addresses',
             'statusHistory',
             'branch.business',
@@ -77,6 +79,8 @@ final class OrderData
                 'name' => $order->merchantDisplayName(),
                 'slug' => $order->branch?->business?->slug,
                 'branch_name' => $order->branch?->name,
+                'phone' => $order->branch?->phone
+                    ?: $order->branch?->business?->phone,
             ],
             'customer' => self::customerSummary($order),
             'driver' => self::driverSummary($order),
@@ -94,10 +98,15 @@ final class OrderData
                     ),
                 ])->values()->all();
 
+                $category = self::itemCategoryContext($item);
+
                 return [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
                     'product_name' => $item->product_name,
+                    'display_name' => $category['display_name'],
+                    'category_name' => $category['category_name'],
+                    'subcategory_name' => $category['subcategory_name'],
                     'quantity' => (string) $item->quantity,
                     'unit_final_price' => (string) $item->unit_final_price,
                     'unit_acquisition_cost' => $item->unit_acquisition_cost !== null
@@ -292,6 +301,7 @@ final class OrderData
             $data['delivery_address'] = [
                 'address_text' => $data['delivery_address']['address_text'],
                 'reference' => $data['delivery_address']['reference'] ?? null,
+                'google_maps_url' => $data['delivery_address']['google_maps_url'] ?? null,
             ];
         }
 
@@ -777,6 +787,57 @@ final class OrderData
             'selected' => mb_strtoupper($name),
             default => mb_strtoupper($name),
         };
+    }
+
+    /**
+     * @return array{category_name: string|null, subcategory_name: string|null, display_name: string}
+     */
+    public static function itemCategoryContext(OrderItem $item): array
+    {
+        $metadata = is_array($item->metadata) ? $item->metadata : [];
+
+        if (filled($metadata['category_name'] ?? null) || filled($metadata['product_display_name'] ?? null)) {
+            return [
+                'category_name' => filled($metadata['category_name'] ?? null)
+                    ? (string) $metadata['category_name']
+                    : null,
+                'subcategory_name' => filled($metadata['subcategory_name'] ?? null)
+                    ? (string) $metadata['subcategory_name']
+                    : null,
+                'display_name' => filled($metadata['product_display_name'] ?? null)
+                    ? (string) $metadata['product_display_name']
+                    : $item->product_name,
+            ];
+        }
+
+        if ($item->product_id !== null) {
+            $item->loadMissing('product.category.parent');
+            $category = $item->product?->category;
+
+            if ($category !== null) {
+                return [
+                    'category_name' => $category->rootName(),
+                    'subcategory_name' => $category->isSubcategory() ? $category->name : null,
+                    'display_name' => $item->product?->name ?? $item->product_name,
+                ];
+            }
+        }
+
+        if (str_contains($item->product_name, ' · ')) {
+            [$categoryName, $displayName] = explode(' · ', $item->product_name, 2);
+
+            return [
+                'category_name' => $categoryName !== '' ? $categoryName : null,
+                'subcategory_name' => null,
+                'display_name' => $displayName !== '' ? $displayName : $item->product_name,
+            ];
+        }
+
+        return [
+            'category_name' => null,
+            'subcategory_name' => null,
+            'display_name' => $item->product_name,
+        ];
     }
 
     /**

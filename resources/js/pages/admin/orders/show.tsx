@@ -4,12 +4,13 @@ import { StatusBadge } from '@/components/data-display/status-badge';
 import { FormField } from '@/components/forms/form-field';
 import { ContentCard, PageContainer, PageHeader } from '@/components/layout/page';
 import { BackButton } from '@/components/navigation/back-button';
+import { OrderCustomerPanel } from '@/components/orders/order-customer-panel';
+import { OrderDetailPanel } from '@/components/orders/order-detail-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAdminOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
-import { formatOrderItemLine } from '@/lib/order-item-line';
 import admin from '@/routes/admin';
 import { confirm, ready, reject } from '@/routes/admin/orders';
 import { store as storeQuote } from '@/routes/admin/orders/quotes';
@@ -36,11 +37,18 @@ type OrderDetail = {
     notes?: string | null;
     estimated_preparation_minutes?: number | null;
     customer: { name?: string | null; phone?: string | null };
-    restaurant: { name?: string | null; branch_name?: string | null };
+    restaurant: {
+        name?: string | null;
+        branch_name?: string | null;
+        phone?: string | null;
+    };
     driver?: { name?: string | null; phone?: string | null } | null;
     items: Array<{
         id: number;
         product_name: string;
+        display_name?: string | null;
+        category_name?: string | null;
+        subcategory_name?: string | null;
         quantity: string;
         unit_final_price: string;
         unit_acquisition_cost?: string | null;
@@ -49,8 +57,15 @@ type OrderDetail = {
         line_label?: string;
         options?: Array<{ display: string }>;
     }>;
-    delivery_address?: { address_text: string } | null;
-    pickup_address?: { address_text: string } | null;
+    delivery_address?: {
+        address_text: string;
+        reference?: string | null;
+        google_maps_url?: string | null;
+    } | null;
+    pickup_address?: {
+        address_text: string;
+        google_maps_url?: string | null;
+    } | null;
     pending_quote?: {
         total: string;
         items: QuoteItem[];
@@ -110,6 +125,10 @@ export default function AdminOrderShow({ order, preparationOptions }: Props) {
     const businessName =
         order.restaurant.name ??
         (order.is_custom ? 'Pedido personalizado' : 'Negocio');
+    const branchName = order.restaurant.branch_name?.trim() || null;
+    const showBranchName =
+        branchName !== null &&
+        branchName.toLocaleLowerCase() !== businessName.toLocaleLowerCase();
 
     return (
         <>
@@ -134,146 +153,142 @@ export default function AdminOrderShow({ order, preparationOptions }: Props) {
                     ) : null}
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-2">
-                    <ContentCard title="Detalle">
-                        <p className="mb-3 text-base font-bold text-navy">
-                            {businessName}
-                            {order.restaurant.branch_name
-                                ? ` · ${order.restaurant.branch_name}`
-                                : ''}
-                        </p>
-                        <ul className="space-y-2 text-sm">
-                            {order.items.map((item) => (
-                                <li
-                                    key={item.id}
-                                    className="flex justify-between gap-3"
-                                >
-                                    <span>{formatOrderItemLine(item)}</span>
-                                    <span>{formatMoney(item.subtotal)}</span>
-                                </li>
-                            ))}
-                        </ul>
-                        <p className="mt-3 text-sm text-muted-foreground">
-                            Cliente: {order.customer.name ?? '—'}
-                            {order.customer.phone
-                                ? ` · ${order.customer.phone}`
-                                : ''}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                            Recogida:{' '}
-                            {order.pickup_address?.address_text ?? '—'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                            Entrega:{' '}
-                            {order.delivery_address?.address_text ?? '—'}
-                        </p>
-                        {order.notes ? (
-                            <p className="mt-2 text-sm">{order.notes}</p>
-                        ) : null}
-                        <p className="mt-3 text-base font-semibold">
-                            Total {formatMoney(order.total)}
-                        </p>
-                    </ContentCard>
+                <div className="grid items-start gap-4 lg:grid-cols-2">
+                    <OrderDetailPanel
+                        orderNumber={order.order_number}
+                        businessName={
+                            showBranchName
+                                ? `${businessName} · ${branchName}`
+                                : businessName
+                        }
+                        businessPhone={order.restaurant.phone}
+                        items={order.items}
+                        pickupAddress={order.pickup_address}
+                        notes={order.notes}
+                        footer={
+                            <p className="border-t border-border pt-3 text-base font-semibold">
+                                Total {formatMoney(order.total)}
+                            </p>
+                        }
+                    />
 
-                    <ContentCard title="Operación">
-                        <dl className="space-y-3 text-sm">
-                            <DetailRow label="Estado">
-                                <StatusBadge tone="primary">
-                                    {order.business_status_label}
-                                </StatusBadge>
-                            </DetailRow>
-                            <DetailRow label="Tiempo al cliente">
-                                {order.estimated_preparation_minutes != null
-                                    ? `${order.estimated_preparation_minutes} minutos`
-                                    : 'Aún no asignado'}
-                            </DetailRow>
-                            <DetailRow label="Repartidor">
-                                {order.driver?.name ?? 'Sin asignar'}
-                            </DetailRow>
-                            {order.driver?.phone ? (
-                                <DetailRow label="Tel. repartidor">
-                                    {order.driver.phone}
+                    <div className="space-y-4">
+                        <ContentCard>
+                            <OrderCustomerPanel
+                                customer={order.customer}
+                                deliveryAddress={order.delivery_address}
+                                orderNumber={order.order_number}
+                            />
+                        </ContentCard>
+
+                        <ContentCard title="Operación">
+                            <dl className="space-y-3 text-sm">
+                                <DetailRow label="Estado">
+                                    <StatusBadge tone="primary">
+                                        {order.business_status_label}
+                                    </StatusBadge>
                                 </DetailRow>
-                            ) : null}
-                        </dl>
+                                <DetailRow label="Tiempo al cliente">
+                                    {order.estimated_preparation_minutes != null
+                                        ? `${order.estimated_preparation_minutes} minutos`
+                                        : 'Aún no asignado'}
+                                </DetailRow>
+                                <DetailRow label="Repartidor">
+                                    {order.driver?.name ?? 'Sin asignar'}
+                                </DetailRow>
+                                {order.driver?.phone ? (
+                                    <DetailRow label="Tel. repartidor">
+                                        {order.driver.phone}
+                                    </DetailRow>
+                                ) : null}
+                            </dl>
 
-                        {hasActions ? (
-                            <div className="mt-4 space-y-3 border-t border-border pt-4">
-                                {order.actions.admin_can_confirm ? (
-                                    <Form
-                                        {...confirm.form(order.order_number)}
-                                        className="space-y-3"
-                                    >
-                                        <FormField label="Tiempo estimado (min)">
-                                            <select
-                                                name="estimated_preparation_minutes"
-                                                value={minutes}
-                                                onChange={(event) =>
-                                                    setMinutes(
-                                                        Number(
-                                                            event.target.value,
+                            {hasActions ? (
+                                <div className="mt-4 space-y-3 border-t border-border pt-4">
+                                    {order.actions.admin_can_confirm ? (
+                                        <Form
+                                            {...confirm.form(order.order_number)}
+                                            className="space-y-3"
+                                        >
+                                            <FormField label="Tiempo estimado (min)">
+                                                <select
+                                                    name="estimated_preparation_minutes"
+                                                    value={minutes}
+                                                    onChange={(event) =>
+                                                        setMinutes(
+                                                            Number(
+                                                                event.target
+                                                                    .value,
+                                                            ),
+                                                        )
+                                                    }
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                                >
+                                                    {preparationOptions.map(
+                                                        (option) => (
+                                                            <option
+                                                                key={option}
+                                                                value={option}
+                                                            >
+                                                                {option} minutos
+                                                            </option>
                                                         ),
-                                                    )
-                                                }
-                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                            >
-                                                {preparationOptions.map(
-                                                    (option) => (
-                                                        <option
-                                                            key={option}
-                                                            value={option}
-                                                        >
-                                                            {option} minutos
-                                                        </option>
+                                                    )}
+                                                </select>
+                                            </FormField>
+                                            <Button type="submit">
+                                                Confirmar pedido
+                                            </Button>
+                                        </Form>
+                                    ) : null}
+
+                                    {order.actions.admin_can_mark_ready ? (
+                                        <Form
+                                            {...ready.form(order.order_number)}
+                                        >
+                                            <Button type="submit">
+                                                Marcar listo para recoger
+                                            </Button>
+                                        </Form>
+                                    ) : null}
+
+                                    {order.actions.admin_can_reject ? (
+                                        <form
+                                            className="space-y-3"
+                                            onSubmit={(event) => {
+                                                event.preventDefault();
+                                                rejectForm.post(
+                                                    reject.url(
+                                                        order.order_number,
                                                     ),
-                                                )}
-                                            </select>
-                                        </FormField>
-                                        <Button type="submit">
-                                            Confirmar pedido
-                                        </Button>
-                                    </Form>
-                                ) : null}
-
-                                {order.actions.admin_can_mark_ready ? (
-                                    <Form
-                                        {...ready.form(order.order_number)}
-                                    >
-                                        <Button type="submit">
-                                            Marcar listo para recoger
-                                        </Button>
-                                    </Form>
-                                ) : null}
-
-                                {order.actions.admin_can_reject ? (
-                                    <form
-                                        className="space-y-3"
-                                        onSubmit={(event) => {
-                                            event.preventDefault();
-                                            rejectForm.post(
-                                                reject.url(order.order_number),
-                                            );
-                                        }}
-                                    >
-                                        <FormField label="Motivo de rechazo">
-                                            <Textarea
-                                                value={rejectForm.data.reason}
-                                                onChange={(event) =>
-                                                    rejectForm.setData(
-                                                        'reason',
-                                                        event.target.value,
-                                                    )
-                                                }
-                                            />
-                                        </FormField>
-                                        <Button type="submit" variant="outline">
-                                            Rechazar
-                                        </Button>
-                                    </form>
-                                ) : null}
-                            </div>
-                        ) : null}
-                    </ContentCard>
+                                                );
+                                            }}
+                                        >
+                                            <FormField label="Motivo de rechazo">
+                                                <Textarea
+                                                    value={
+                                                        rejectForm.data.reason
+                                                    }
+                                                    onChange={(event) =>
+                                                        rejectForm.setData(
+                                                            'reason',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
+                                            <Button
+                                                type="submit"
+                                                variant="outline"
+                                            >
+                                                Rechazar
+                                            </Button>
+                                        </form>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </ContentCard>
+                    </div>
                 </div>
 
                 {order.is_platform_managed &&

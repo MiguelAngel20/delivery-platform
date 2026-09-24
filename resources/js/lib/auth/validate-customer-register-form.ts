@@ -32,6 +32,20 @@ export function resolveFieldError(
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function emailValidationMessage(email: string): string {
+    if (!email.includes('@')) {
+        return 'El correo debe incluir @ (ej. tucorreo@gmail.com).';
+    }
+
+    const [, domain = ''] = email.split('@');
+
+    if (domain === '' || !domain.includes('.')) {
+        return 'Completa el correo después del @ (ej. gmail.com).';
+    }
+
+    return 'El correo no es válido. Usa el formato tucorreo@ejemplo.com.';
+}
+
 export function validateCustomerRegisterForm(
     input: CustomerRegisterFormInput,
     dialCodes: CustomerRegisterDialCode[],
@@ -61,7 +75,7 @@ export function validateCustomerRegisterForm(
     } else if (email.length > 255) {
         errors.email = 'El correo electrónico no puede superar 255 caracteres.';
     } else if (!EMAIL_PATTERN.test(email)) {
-        errors.email = 'El correo electrónico no es válido.';
+        errors.email = emailValidationMessage(email);
     }
 
     const dial = dialCodes.find((item) => item.dial === input.phone_dial_code);

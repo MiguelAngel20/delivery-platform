@@ -229,6 +229,7 @@ export default function CustomerRegister({
                             label="Correo electrónico"
                             htmlFor="email"
                             required
+                            hint="Formato completo: tucorreo@ejemplo.com (el @ es obligatorio)."
                             error={fieldError('email')}
                         >
                             <Input
@@ -248,6 +249,7 @@ export default function CustomerRegister({
                             label="Teléfono"
                             htmlFor="phone_national"
                             required
+                            hint="Solo dígitos del número local (sin espacios ni guiones)."
                             error={
                                 fieldError('phone_national') ??
                                 fieldError('phone') ??
