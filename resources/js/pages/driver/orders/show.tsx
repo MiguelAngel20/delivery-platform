@@ -4,6 +4,7 @@ import { ContentCard, PageContainer } from '@/components/layout/page';
 import { BackButton } from '@/components/navigation/back-button';
 import { formatMoney } from '@/lib/money';
 import { formatOrderItemLine } from '@/lib/order-item-line';
+import { resolveRestaurantLabel } from '@/lib/restaurant-label';
 import { home } from '@/routes/driver';
 
 type OrderDetail = {
@@ -78,11 +79,11 @@ export default function DriverOrderShow({ order }: Props) {
                             {order.business_status_label}
                         </StatusBadge>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                        {order.restaurant.name}
-                        {order.restaurant.branch_name
-                            ? ` · ${order.restaurant.branch_name}`
-                            : ''}
+                    <p className="text-sm break-words text-muted-foreground">
+                        {resolveRestaurantLabel(
+                            order.restaurant.name,
+                            order.restaurant.branch_name,
+                        )}
                     </p>
                     <p className="text-sm text-muted-foreground">
                         Entregado: {formatDeliveredAt(order.delivered_at)}

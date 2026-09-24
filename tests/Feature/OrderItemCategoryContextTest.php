@@ -48,6 +48,37 @@ test('admin order show exposes restaurant phone for contact actions', function (
             ->where('order.restaurant.phone', '9639998877'));
 });
 
+test('order data omits branch name when it matches business ignoring accents', function () {
+    $business = Business::factory()->create(['name' => 'Taquería Yalchivol']);
+    $branch = BusinessBranch::factory()->for($business)->create([
+        'name' => 'Taqueria Yalchivol',
+    ]);
+    $order = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'merchant_name_snapshot' => 'Taquería Yalchivol',
+    ]);
+
+    $data = OrderData::transform($order->fresh(['branch.business']));
+
+    expect($data['restaurant']['name'])->toBe('Taquería Yalchivol')
+        ->and($data['restaurant']['branch_name'])->toBeNull();
+});
+
+test('order data keeps branch name when it differs from business', function () {
+    $business = Business::factory()->create(['name' => 'Sushi House']);
+    $branch = BusinessBranch::factory()->for($business)->create([
+        'name' => 'Sucursal Centro',
+    ]);
+    $order = Order::factory()->create([
+        'branch_id' => $branch->id,
+        'merchant_name_snapshot' => 'Sushi House',
+    ]);
+
+    $data = OrderData::transform($order->fresh(['branch.business']));
+
+    expect($data['restaurant']['branch_name'])->toBe('Sucursal Centro');
+});
+
 test('admin order show exposes grouped item category fields', function () {
     $admin = User::factory()->systemAdmin()->create();
     $root = ProductCategory::factory()->create(['name' => 'Tacos']);

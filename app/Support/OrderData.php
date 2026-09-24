@@ -78,7 +78,10 @@ final class OrderData
             'restaurant' => [
                 'name' => $order->merchantDisplayName(),
                 'slug' => $order->branch?->business?->slug,
-                'branch_name' => $order->branch?->name,
+                'branch_name' => self::distinctBranchName(
+                    $order->merchantDisplayName(),
+                    $order->branch?->name,
+                ),
                 'phone' => $order->branch?->phone
                     ?: $order->branch?->business?->phone,
             ],
@@ -428,7 +431,10 @@ final class OrderData
             'id' => $order->id,
             'order_number' => $order->order_number,
             'business_name' => $order->branch?->business?->name ?? '—',
-            'branch_name' => $order->branch?->name,
+            'branch_name' => self::distinctBranchName(
+                $order->branch?->business?->name,
+                $order->branch?->name,
+            ),
             'delivered_at' => $order->delivered_at?->toIso8601String(),
             'driver_earning' => $net,
             'gross_earning' => $gross,
@@ -851,6 +857,46 @@ final class OrderData
         ));
 
         return trim($quantity).' - '.implode(' -> ', $parts);
+    }
+
+    /**
+     * Omit the branch label when it is the same as the business name
+     * ignoring case and accents (e.g. "Taquería" vs "Taqueria").
+     */
+    public static function distinctBranchName(
+        ?string $businessName,
+        ?string $branchName,
+    ): ?string {
+        $branch = filled($branchName) ? trim($branchName) : null;
+
+        if ($branch === null) {
+            return null;
+        }
+
+        $business = filled($businessName) ? trim($businessName) : null;
+
+        if ($business === null) {
+            return $branch;
+        }
+
+        if (self::normalizeComparableText($business) === self::normalizeComparableText($branch)) {
+            return null;
+        }
+
+        return $branch;
+    }
+
+    public static function normalizeComparableText(string $value): string
+    {
+        $normalized = \Normalizer::normalize($value, \Normalizer::FORM_D);
+
+        if ($normalized === false) {
+            $normalized = $value;
+        }
+
+        $withoutMarks = preg_replace('/\p{M}/u', '', $normalized) ?? $normalized;
+
+        return mb_strtolower(preg_replace('/\s+/u', ' ', trim($withoutMarks)) ?? '', 'UTF-8');
     }
 
     /**

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useBusinessOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
+import { resolveRestaurantLabel } from '@/lib/restaurant-label';
 import business from '@/routes/business';
 import {
     accept,
@@ -141,11 +142,10 @@ export default function BusinessOrderShow({
         });
     };
 
-    const businessName = order.restaurant.name?.trim() || 'Negocio';
-    const branchName = order.restaurant.branch_name?.trim() || null;
-    const showBranchName =
-        branchName !== null &&
-        branchName.toLocaleLowerCase() !== businessName.toLocaleLowerCase();
+    const restaurantLabel = resolveRestaurantLabel(
+        order.restaurant.name,
+        order.restaurant.branch_name,
+    );
 
     return (
         <>
@@ -179,14 +179,10 @@ export default function BusinessOrderShow({
                     </section>
                 ) : null}
 
-                <div className="grid items-start gap-4 lg:grid-cols-2">
+                <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
                     <OrderDetailPanel
                         orderNumber={order.order_number}
-                        businessName={
-                            showBranchName
-                                ? `${businessName} · ${branchName}`
-                                : businessName
-                        }
+                        businessName={restaurantLabel}
                         businessPhone={order.restaurant.phone}
                         items={order.items}
                         pickupAddress={order.pickup_address}

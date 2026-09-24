@@ -11,6 +11,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { formatMoney } from '@/lib/money';
+import { resolveRestaurantLabel } from '@/lib/restaurant-label';
 import { cn } from '@/lib/utils';
 
 export type DriverCompletedOrder = {
@@ -62,9 +63,11 @@ export function CompletedOrderCard({
     className,
 }: CompletedOrderCardProps) {
     const [open, setOpen] = useState(false);
-    const businessLabel = [order.business_name, order.branch_name]
-        .filter(Boolean)
-        .join(' · ');
+    const businessLabel = resolveRestaurantLabel(
+        order.business_name,
+        order.branch_name,
+        '—',
+    );
     const commission = Number(order.driver_commission ?? 0);
 
     return (

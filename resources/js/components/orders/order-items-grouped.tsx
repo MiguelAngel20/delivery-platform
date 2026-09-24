@@ -184,7 +184,7 @@ export function OrderItemsGrouped({
     const groups = groupOrderItems(items);
 
     return (
-        <div className={cn('space-y-3', className)}>
+        <div className={cn('min-w-0 space-y-3', className)}>
             {showCopyButton ? (
                 <div className="flex justify-end">
                     <CopyOrderItemsButton
@@ -195,32 +195,32 @@ export function OrderItemsGrouped({
             ) : null}
 
             {groups.map((group) => (
-                <div key={group.key} className="space-y-2">
+                <div key={group.key} className="min-w-0 space-y-2">
                     {group.title ? (
-                        <h3 className="text-sm font-bold text-navy">
+                        <h3 className="text-sm font-bold break-words text-navy">
                             {group.title}
                         </h3>
                     ) : null}
-                    <ul className="space-y-2 text-sm">
+                    <ul className="min-w-0 space-y-2 text-sm">
                         {group.items.map((item) => {
                             const name =
                                 item.display_name?.trim() ||
                                 item.product_name;
 
                             return (
-                                <li key={item.id} className="space-y-1">
-                                    <div className="flex justify-between gap-3">
-                                        <span className="text-foreground">
+                                <li key={item.id} className="min-w-0 space-y-1">
+                                    <div className="flex min-w-0 items-start justify-between gap-3">
+                                        <span className="min-w-0 flex-1 break-words text-foreground">
                                             {formatPieces(item.quantity)} {name}
                                         </span>
                                         {showPrices ? (
-                                            <span className="shrink-0 font-medium">
+                                            <span className="shrink-0 tabular-nums font-medium">
                                                 {formatMoney(item.subtotal)}
                                             </span>
                                         ) : null}
                                     </div>
                                     {(item.options ?? []).length > 0 ? (
-                                        <ul className="space-y-0.5 pl-3 text-xs text-muted-foreground">
+                                        <ul className="space-y-0.5 pl-3 text-xs break-words text-muted-foreground">
                                             {(item.options ?? []).map(
                                                 (option, index) => (
                                                     <li
@@ -233,7 +233,7 @@ export function OrderItemsGrouped({
                                         </ul>
                                     ) : null}
                                     {item.notes ? (
-                                        <p className="pl-3 text-xs text-muted-foreground">
+                                        <p className="pl-3 text-xs break-words text-muted-foreground">
                                             Nota: {item.notes}
                                         </p>
                                     ) : null}

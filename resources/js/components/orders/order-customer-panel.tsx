@@ -56,9 +56,9 @@ export function OrderCustomerPanel({
         : undefined;
 
     return (
-        <div className={cn('space-y-3', className)}>
-            <div className="flex items-start justify-between gap-3">
-                <h2 className="font-semibold text-foreground">{title}</h2>
+        <div className={cn('min-w-0 space-y-3', className)}>
+            <div className="flex min-w-0 items-start justify-between gap-2">
+                <h2 className="min-w-0 font-semibold text-foreground">{title}</h2>
                 <OrderCopyMapActions
                     mapsUrl={deliveryAddress?.google_maps_url}
                     mapsLabel="Abrir ubicación del cliente"
@@ -71,11 +71,11 @@ export function OrderCustomerPanel({
             </div>
 
             <div className="space-y-1 text-sm">
-                <p className="font-medium text-foreground">
+                <p className="font-medium break-words text-foreground">
                     {customer.name?.trim() || 'Cliente'}
                 </p>
-                <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-muted-foreground">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <p className="break-all text-muted-foreground">
                         Tel: {customer.phone?.trim() || '—'}
                     </p>
                     <OrderContactLinks
@@ -85,15 +85,15 @@ export function OrderCustomerPanel({
                 </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
                 <h3 className="text-sm font-semibold text-foreground">
                     Dirección de entrega
                 </h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm break-words text-muted-foreground">
                     {deliveryAddress?.address_text?.trim() || '—'}
                 </p>
                 {deliveryAddress?.reference?.trim() ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm break-words text-muted-foreground">
                         Ref: {deliveryAddress.reference.trim()}
                     </p>
                 ) : null}

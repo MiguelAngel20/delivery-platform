@@ -30,6 +30,7 @@ export function OrderCopyButton({
             size="sm"
             className={cn('gap-1.5', className)}
             aria-label={ariaLabel}
+            title={ariaLabel}
             onClick={() => {
                 void copy(getCopyText()).then((copied) => {
                     if (copied) {
@@ -47,7 +48,9 @@ export function OrderCopyButton({
             ) : (
                 <Copy className="size-4" />
             )}
-            {justCopied ? 'Copiado' : label}
+            <span className="hidden sm:inline">
+                {justCopied ? 'Copiado' : label}
+            </span>
         </Button>
     );
 }

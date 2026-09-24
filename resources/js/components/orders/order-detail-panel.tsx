@@ -56,20 +56,20 @@ export function OrderDetailPanel({
     return (
         <section
             className={cn(
-                'rounded-xl border border-border bg-surface text-foreground shadow-sm',
+                'min-w-0 overflow-hidden rounded-xl border border-border bg-surface text-foreground shadow-sm',
                 className,
             )}
         >
-            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-4 md:px-5">
-                <div className="min-w-0 space-y-1">
+            <div className="flex min-w-0 items-start justify-between gap-2 border-b border-border px-4 py-4 md:gap-3 md:px-5">
+                <div className="min-w-0 flex-1 space-y-1">
                     <h2 className="text-base font-semibold text-foreground">
                         Detalle
                     </h2>
-                    <p className="truncate text-sm font-bold text-navy">
+                    <p className="text-sm font-bold break-words text-navy">
                         {businessName}
                     </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm text-muted-foreground">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <p className="text-sm break-all text-muted-foreground">
                             Tel: {businessPhone?.trim() || '—'}
                         </p>
                         <OrderContactLinks
@@ -94,9 +94,9 @@ export function OrderDetailPanel({
                 />
             </div>
 
-            <div className="space-y-3 p-4 md:p-5">
-                <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-foreground">
+            <div className="min-w-0 space-y-3 p-4 md:p-5">
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                    <h3 className="min-w-0 flex-1 text-sm font-semibold break-all text-foreground">
                         Pedido #{orderNumber}
                     </h3>
                     <OrderCopyButton
@@ -110,13 +110,15 @@ export function OrderDetailPanel({
                 <OrderItemsGrouped items={items} showCopyButton={false} />
 
                 {pickupAddress?.address_text?.trim() ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm break-words text-muted-foreground">
                         Recogida: {pickupAddress.address_text.trim()}
                     </p>
                 ) : null}
 
                 {notes?.trim() ? (
-                    <p className="text-sm text-foreground">{notes.trim()}</p>
+                    <p className="text-sm break-words text-foreground">
+                        {notes.trim()}
+                    </p>
                 ) : null}
 
                 {footer}

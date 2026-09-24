@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAdminOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
+import { resolveRestaurantLabel } from '@/lib/restaurant-label';
 import admin from '@/routes/admin';
 import { confirm, ready, reject } from '@/routes/admin/orders';
 import { store as storeQuote } from '@/routes/admin/orders/quotes';
@@ -122,13 +123,11 @@ export default function AdminOrderShow({ order, preparationOptions }: Props) {
         order.actions.admin_can_mark_ready ||
         order.actions.admin_can_reject;
 
-    const businessName =
-        order.restaurant.name ??
-        (order.is_custom ? 'Pedido personalizado' : 'Negocio');
-    const branchName = order.restaurant.branch_name?.trim() || null;
-    const showBranchName =
-        branchName !== null &&
-        branchName.toLocaleLowerCase() !== businessName.toLocaleLowerCase();
+    const restaurantLabel = resolveRestaurantLabel(
+        order.restaurant.name,
+        order.restaurant.branch_name,
+        order.is_custom ? 'Pedido personalizado' : 'Negocio',
+    );
 
     return (
         <>
@@ -153,14 +152,10 @@ export default function AdminOrderShow({ order, preparationOptions }: Props) {
                     ) : null}
                 </div>
 
-                <div className="grid items-start gap-4 lg:grid-cols-2">
+                <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
                     <OrderDetailPanel
                         orderNumber={order.order_number}
-                        businessName={
-                            showBranchName
-                                ? `${businessName} · ${branchName}`
-                                : businessName
-                        }
+                        businessName={restaurantLabel}
                         businessPhone={order.restaurant.phone}
                         items={order.items}
                         pickupAddress={order.pickup_address}
