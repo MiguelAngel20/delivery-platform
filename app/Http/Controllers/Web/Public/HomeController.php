@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Web\Public;
 use App\Enums\BranchStatus;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
-use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\Promotion;
@@ -97,7 +96,7 @@ class HomeController extends Controller
             ->all();
 
         $promotions = Promotion::query()
-            ->where('status', PromotionStatus::Active)
+            ->currentlyAvailable()
             ->whereHas('branch', fn ($query) => $query->where('status', BranchStatus::Active))
             ->whereHas('branch.business', fn ($query) => $query
                 ->where('status', BusinessStatus::Active)
@@ -105,6 +104,7 @@ class HomeController extends Controller
             ->with(['branch.business', 'items'])
             ->latest()
             ->get()
+            ->filter(fn (Promotion $promotion): bool => $promotion->isCurrentlyAvailable())
             ->sortBy(function (Promotion $promotion): array {
                 $isPartner = $promotion->branch?->business?->operation_mode
                     === BusinessOperationMode::Partner;

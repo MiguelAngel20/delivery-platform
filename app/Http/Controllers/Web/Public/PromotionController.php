@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Web\Public;
 use App\Enums\BranchStatus;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
-use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Promotion;
 use Inertia\Inertia;
@@ -16,7 +15,7 @@ class PromotionController extends Controller
     public function __invoke(): Response
     {
         $promotions = Promotion::query()
-            ->where('status', PromotionStatus::Active)
+            ->currentlyAvailable()
             ->whereHas('branch', fn ($query) => $query->where('status', BranchStatus::Active))
             ->whereHas('branch.business', fn ($query) => $query
                 ->where('status', BusinessStatus::Active)
@@ -24,6 +23,7 @@ class PromotionController extends Controller
             ->with(['branch.business', 'items'])
             ->latest()
             ->get()
+            ->filter(fn (Promotion $promotion): bool => $promotion->isCurrentlyAvailable())
             ->sortBy(function (Promotion $promotion): array {
                 $isPartner = $promotion->branch?->business?->operation_mode
                     === BusinessOperationMode::Partner;

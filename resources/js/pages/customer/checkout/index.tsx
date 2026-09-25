@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Banknote, CheckCircle2, CreditCard, MapPin } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     markCartPendingClear,
     useStorefrontCart,
@@ -23,6 +23,7 @@ import {
     type LoyaltyProgress,
 } from '@/apps/customer/components/loyalty-progress-card';
 import { notify } from '@/components/feedback/toast';
+import { LoadingDialog } from '@/components/feedback/loading-dialog';
 import { ProcessingOverlay } from '@/components/feedback/processing-overlay';
 import { EmptyState } from '@/components/feedback/empty-state';
 import InputError from '@/components/input-error';
@@ -47,6 +48,8 @@ type Address = {
 
 type Props = {
     addresses: Address[];
+    hasCompletedOrder: boolean;
+    canUseTemporaryAddress: boolean;
     loyalty?: LoyaltyProgress | null;
     orderSettings: {
         service_fee: number;
@@ -74,7 +77,12 @@ function isAddressValid(
     );
 }
 
-export default function CustomerCheckout({ addresses, loyalty }: Props) {
+export default function CustomerCheckout({
+    addresses,
+    hasCompletedOrder,
+    canUseTemporaryAddress,
+    loyalty,
+}: Props) {
     const { cart: bag, clear } = useStorefrontCart();
     const page = usePage();
     const pageErrors = page.props.errors ?? {};
@@ -85,24 +93,31 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
     const {
         status: branchOrdering,
         isLoading: branchOrderingLoading,
+        waitUntilReady: waitForBranchOrdering,
     } = useBranchOrderingStatus(bag.branchId);
     const branchClosed = branchOrdering?.open === false;
     const branchClosedMessage =
         branchOrdering?.closedMessage ?? BRANCH_CLOSED_FALLBACK;
-    const branchOrderingPending =
-        bag.branchId != null && branchOrderingLoading;
-    const orderingBlocked =
-        orderingSuspended || branchClosed || branchOrderingPending;
+    const orderingBlocked = orderingSuspended || branchClosed;
     const [step, setStep] = useState<CheckoutWizardStep>(2);
     const [processing, setProcessing] = useState(false);
+    const [checkingBranchHours, setCheckingBranchHours] = useState(false);
     const [mode, setMode] = useState<'saved' | 'temporary'>(
-        addresses.length > 0 ? 'saved' : 'temporary',
+        canUseTemporaryAddress && addresses.length === 0
+            ? 'temporary'
+            : 'saved',
     );
     const [addressId, setAddressId] = useState(
         addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id,
     );
     const [temporary, setTemporary] = useState<Partial<AddressValue>>({});
     const [paymentMethod] = useState<'cash'>('cash');
+
+    useEffect(() => {
+        if (!canUseTemporaryAddress && mode === 'temporary') {
+            setMode('saved');
+        }
+    }, [canUseTemporaryAddress, mode]);
 
     const selectedSaved = useMemo(
         () => addresses.find((address) => address.id === addressId),
@@ -246,29 +261,62 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
         };
     };
 
-    const submit = () => {
+    const ensureBranchCanOrder = async (): Promise<boolean> => {
+        if (orderingSuspended) {
+            notify.error(
+                activitySuspension?.footnote ??
+                    'Por el momento no es posible realizar pedidos nuevos.',
+            );
+
+            return false;
+        }
+
+        let isClosed = branchClosed;
+        let closedMessage = branchClosedMessage;
+
+        if (
+            bag.branchId != null &&
+            (branchOrderingLoading || branchOrdering == null)
+        ) {
+            setCheckingBranchHours(true);
+
+            try {
+                const status = await waitForBranchOrdering();
+                isClosed = status?.open === false;
+                closedMessage =
+                    status?.closedMessage ?? BRANCH_CLOSED_FALLBACK;
+            } finally {
+                setCheckingBranchHours(false);
+            }
+        }
+
+        if (isClosed) {
+            notify.error(closedMessage);
+
+            return false;
+        }
+
+        return true;
+    };
+
+    const submit = async () => {
         if (
             !bag.branchId ||
             processing ||
+            checkingBranchHours ||
             !addressReady ||
-            outsideCoverage ||
-            orderingBlocked
+            outsideCoverage
         ) {
-            if (orderingSuspended) {
-                notify.error(
-                    activitySuspension?.footnote ??
-                        'Por el momento no es posible realizar pedidos nuevos.',
-                );
-            } else if (branchOrderingPending) {
-                return;
-            } else if (branchClosed) {
-                notify.error(branchClosedMessage);
-            } else if (outsideCoverage) {
+            if (outsideCoverage) {
                 notify.error(
                     feeQuote?.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
                 );
             }
 
+            return;
+        }
+
+        if (!(await ensureBranchCanOrder())) {
             return;
         }
 
@@ -306,29 +354,14 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
         );
     };
 
-    const goNext = () => {
+    const goNext = async () => {
+        if (checkingBranchHours) {
+            return;
+        }
+
         if (step === 2) {
             if (!addressReady) {
                 notify.error('Selecciona o ingresa una dirección de entrega.');
-
-                return;
-            }
-
-            if (orderingSuspended) {
-                notify.error(
-                    activitySuspension?.footnote ??
-                        'Por el momento no es posible realizar pedidos nuevos.',
-                );
-
-                return;
-            }
-
-            if (branchOrderingPending) {
-                return;
-            }
-
-            if (branchClosed) {
-                notify.error(branchClosedMessage);
 
                 return;
             }
@@ -341,24 +374,17 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                 return;
             }
 
+            if (!(await ensureBranchCanOrder())) {
+                return;
+            }
+
             setStep(3);
 
             return;
         }
 
         if (step === 3) {
-            if (branchOrderingPending) {
-                return;
-            }
-
-            if (orderingBlocked) {
-                notify.error(
-                    orderingSuspended
-                        ? (activitySuspension?.footnote ??
-                          'Por el momento no es posible realizar pedidos nuevos.')
-                        : branchClosedMessage,
-                );
-
+            if (!(await ensureBranchCanOrder())) {
                 return;
             }
 
@@ -464,18 +490,33 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                                 disabled={addresses.length === 0}
                                 onClick={() => setMode('saved')}
                             >
-                                Dirección guardada
+                                {hasCompletedOrder
+                                    ? 'Dirección guardada'
+                                    : 'Mi dirección'}
                             </Button>
-                            <Button
-                                type="button"
-                                variant={
-                                    mode === 'temporary' ? 'default' : 'outline'
-                                }
-                                onClick={() => setMode('temporary')}
-                            >
-                                Otra ubicación
-                            </Button>
+                            {canUseTemporaryAddress ? (
+                                <Button
+                                    type="button"
+                                    variant={
+                                        mode === 'temporary'
+                                            ? 'default'
+                                            : 'outline'
+                                    }
+                                    onClick={() => setMode('temporary')}
+                                >
+                                    Otra ubicación
+                                </Button>
+                            ) : null}
                         </div>
+
+                        {!canUseTemporaryAddress ? (
+                            <p className="text-sm text-muted-foreground">
+                                Para tu primer pedido usamos la dirección que
+                                registraste. Después de completarlo podrás
+                                elegir otra ubicación o agregar más en tu
+                                perfil.
+                            </p>
+                        ) : null}
 
                         {mode === 'saved' ? (
                             <div className="space-y-3">
@@ -582,11 +623,6 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                             <p className="text-sm text-muted-foreground">
                                 {selectedAddress?.line}
                             </p>
-                            {selectedAddress?.reference ? (
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    Ref: {selectedAddress.reference}
-                                </p>
-                            ) : null}
                         </div>
 
                         <div className="rounded-2xl border border-border bg-surface p-4">
@@ -635,16 +671,29 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                     primaryLabel={
                         step === 4 ? 'Confirmar pedido' : 'Continuar'
                     }
-                    onPrimary={step === 4 ? submit : goNext}
+                    onPrimary={() => {
+                        if (step === 4) {
+                            void submit();
+                        } else {
+                            void goNext();
+                        }
+                    }}
                     primaryDisabled={
                         orderingBlocked ||
+                        checkingBranchHours ||
                         (step === 2 && (!addressReady || outsideCoverage)) ||
                         (step === 4 && (!bag.branchId || outsideCoverage))
                     }
-                    primaryLoading={processing}
+                    primaryLoading={processing || checkingBranchHours}
                     onBack={goBack}
                 />
             </PageContainer>
+
+            <LoadingDialog
+                open={checkingBranchHours}
+                title="Verificando horario…"
+                description="Estamos comprobando si la sucursal puede recibir tu pedido."
+            />
 
             <ProcessingOverlay
                 open={processing}

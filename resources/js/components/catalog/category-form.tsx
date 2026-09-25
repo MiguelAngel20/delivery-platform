@@ -1,6 +1,10 @@
 import { Form } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import {
+    PromotionRecurringHoursFields,
+    type PromotionRecurringHour,
+} from '@/components/catalog/promotion-recurring-hours-fields';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +33,19 @@ export type CatalogFormOptions = {
     product_images?: Array<{ path: string; url: string }>;
     option_group_types: Array<{ value: string; label: string }>;
     promotion_statuses: Array<{ value: string; label: string }>;
+    weekdays?: Array<{ value: string; label: string }>;
+    default_recurring_hours?: Array<{
+        day: string;
+        is_open: boolean;
+        opens_at: string | null;
+        closes_at: string | null;
+    }>;
+    default_schedule_hours?: Array<{
+        day: string;
+        is_open: boolean;
+        opens_at: string | null;
+        closes_at: string | null;
+    }>;
 };
 
 export type CategoryFormValues = {
@@ -39,6 +56,8 @@ export type CategoryFormValues = {
     description?: string | null;
     sort_order?: number;
     is_active?: boolean;
+    has_schedule?: boolean;
+    schedule_hours?: PromotionRecurringHour[];
 };
 
 type CategoryFormProps = {
@@ -65,6 +84,9 @@ export function CategoryForm({
         {},
     );
     const [branchId, setBranchId] = useState(category?.branch_id ?? '');
+    const [hasSchedule, setHasSchedule] = useState(
+        category?.has_schedule ?? false,
+    );
     const formRef = useRef<{ getData: () => Record<string, unknown> } | null>(
         null,
     );
@@ -72,7 +94,8 @@ export function CategoryForm({
     useEffect(() => {
         setClientErrors({});
         setBranchId(category?.branch_id ?? '');
-    }, [category?.id, category?.branch_id]);
+        setHasSchedule(category?.has_schedule ?? false);
+    }, [category?.id, category?.branch_id, category?.has_schedule]);
 
     const parentOptions = useMemo(() => {
         const parents = options.parent_categories ?? [];
@@ -89,6 +112,10 @@ export function CategoryForm({
             return String(parent.branch_id) === branchId;
         });
     }, [options.parent_categories, branchId, category?.id]);
+
+    const weekdays = options.weekdays ?? [];
+    const defaultScheduleHours =
+        options.default_schedule_hours ?? options.default_recurring_hours ?? [];
 
     function validateBeforeSubmit(): boolean {
         const data = formRef.current?.getData() ?? {};
@@ -166,7 +193,8 @@ export function CategoryForm({
                                     </option>
                                 ))}
                             </select>
-                            {(lockBranch || category?.id) && category?.branch_id ? (
+                            {(lockBranch || category?.id) &&
+                            category?.branch_id ? (
                                 <input
                                     type="hidden"
                                     name="branch_id"
@@ -178,7 +206,11 @@ export function CategoryForm({
                             label="Nombre"
                             htmlFor="name"
                             required
-                            error={resolveFieldError('name', clientErrors, errors)}
+                            error={resolveFieldError(
+                                'name',
+                                clientErrors,
+                                errors,
+                            )}
                         >
                             <Input
                                 id="name"
@@ -260,6 +292,11 @@ export function CategoryForm({
                         <FormField label="Estado" htmlFor="is_active">
                             <label className="flex min-h-10 items-center gap-2 text-sm text-foreground">
                                 <input
+                                    type="hidden"
+                                    name="is_active"
+                                    value="0"
+                                />
+                                <input
                                     id="is_active"
                                     name="is_active"
                                     type="checkbox"
@@ -269,6 +306,63 @@ export function CategoryForm({
                                 Activa
                             </label>
                         </FormField>
+                        {variant === 'principal' ? (
+                            <FormField
+                                label="Horario programado"
+                                htmlFor="has_schedule"
+                                className="md:col-span-2"
+                                error={resolveFieldError(
+                                    'has_schedule',
+                                    clientErrors,
+                                    errors,
+                                )}
+                            >
+                                <input
+                                    type="hidden"
+                                    name="has_schedule"
+                                    value="0"
+                                />
+                                <label className="flex items-start gap-2 text-sm text-foreground">
+                                    <input
+                                        id="has_schedule"
+                                        name="has_schedule"
+                                        type="checkbox"
+                                        value="1"
+                                        checked={hasSchedule}
+                                        onChange={(event) =>
+                                            setHasSchedule(
+                                                event.target.checked,
+                                            )
+                                        }
+                                        className="mt-0.5"
+                                    />
+                                    <span>
+                                        Limitar visibilidad a un horario
+                                        <span className="mt-1 block text-xs text-muted-foreground">
+                                            Opcional. Si no lo activas, la
+                                            categoría se muestra siempre
+                                            (mientras esté activa).
+                                        </span>
+                                    </span>
+                                </label>
+                            </FormField>
+                        ) : null}
+                        {variant === 'principal' &&
+                        hasSchedule &&
+                        weekdays.length > 0 &&
+                        defaultScheduleHours.length > 0 ? (
+                            <div className="md:col-span-2">
+                                <PromotionRecurringHoursFields
+                                    weekdays={weekdays}
+                                    defaultHours={defaultScheduleHours}
+                                    value={category?.schedule_hours}
+                                    errors={errors}
+                                    fieldName="schedule_hours"
+                                    title="Días y horarios de la categoría"
+                                    description="La categoría y sus productos solo se mostrarán en el menú dentro de estos horarios (por ejemplo Desayuno 08:00–13:00)."
+                                />
+                            </div>
+                        ) : null}
                     </div>
                     <div className="flex flex-wrap gap-3">
                         <Button type="submit" disabled={processing}>

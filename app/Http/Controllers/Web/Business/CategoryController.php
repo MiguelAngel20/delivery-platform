@@ -10,6 +10,7 @@ use App\Models\Business;
 use App\Models\ProductCategory;
 use App\Support\Catalog\CatalogListPagination;
 use App\Support\CatalogData;
+use App\Support\CategorySchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -79,11 +80,12 @@ class CategoryController extends Controller
         $branch = $this->resolveBranch($request, $business, $request->validated('branch_id'));
 
         ProductCategory::query()->create([
-            ...$request->safe()->except(['branch_id', 'parent_id']),
+            ...$request->safe()->except(['branch_id', 'parent_id', 'has_schedule', 'schedule_hours']),
             'branch_id' => $branch->id,
             'parent_id' => null,
             'is_active' => $request->boolean('is_active', true),
             'sort_order' => $request->integer('sort_order', 0),
+            ...CategorySchedule::attributesFromValidated($request->validated(), allowSchedule: true),
         ]);
 
         Inertia::flash('toast', [
@@ -120,8 +122,9 @@ class CategoryController extends Controller
         $category->update([
             ...$request->safe()->only(['name', 'description', 'sort_order', 'is_active']),
             'parent_id' => null,
-            'is_active' => $request->boolean('is_active', $category->is_active),
+            'is_active' => $request->boolean('is_active'),
             'sort_order' => $request->integer('sort_order', $category->sort_order),
+            ...CategorySchedule::attributesFromValidated($request->validated(), allowSchedule: true),
         ]);
 
         Inertia::flash('toast', [

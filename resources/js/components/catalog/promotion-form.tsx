@@ -13,8 +13,13 @@ import {
     PromotionItemDialog,
     PromotionItemList,
 } from '@/components/catalog/promotion-item-dialog';
+import {
+    PromotionRecurringHoursFields,
+    type PromotionRecurringHour,
+} from '@/components/catalog/promotion-recurring-hours-fields';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -42,6 +47,10 @@ export type PromotionFormValues = {
     promotion_price: string;
     starts_at?: string | null;
     ends_at?: string | null;
+    is_recurring?: boolean;
+    recurrence_starts_on?: string | null;
+    recurrence_ends_on?: string | null;
+    recurring_hours?: PromotionRecurringHour[];
     status: string;
     image_url?: string | null;
     items?: PromotionItemDraft[];
@@ -85,6 +94,9 @@ export function PromotionForm({
     );
     const [clientErrors, setClientErrors] = useState<PromotionFormClientErrors>(
         {},
+    );
+    const [isRecurring, setIsRecurring] = useState(
+        Boolean(promotion?.is_recurring),
     );
     const [itemDialogOpen, setItemDialogOpen] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -156,6 +168,10 @@ export function PromotionForm({
             status: String(data.status ?? ''),
             startsAt: String(data.starts_at ?? ''),
             endsAt: String(data.ends_at ?? ''),
+            isRecurring,
+            recurrenceStartsOn: String(data.recurrence_starts_on ?? ''),
+            recurrenceEndsOn: String(data.recurrence_ends_on ?? ''),
+            recurringHoursRaw: String(data.recurring_hours ?? ''),
             isEditing: Boolean(promotion?.id),
             items,
         });
@@ -357,58 +373,178 @@ export function PromotionForm({
                         <FormField
                             label="Imagen"
                             htmlFor="image"
+                            hint="Cuadrada recomendada: 1080×1080 px (mín. 800×800). Se muestra a recorte cuadrado en la app. JPG, PNG o WebP. Máx. 2 MB."
                             error={resolveFieldError('image', clientErrors, errors)}
                         >
                             <Input id="image" name="image" type="file" accept="image/*" />
                         </FormField>
 
-                        <FormField
-                            label="Inicio"
-                            htmlFor="starts_at"
-                            error={resolveFieldError(
-                                'starts_at',
-                                clientErrors,
-                                errors,
-                            )}
-                        >
-                            <Input
-                                id="starts_at"
-                                name="starts_at"
-                                type="datetime-local"
-                                defaultValue={
-                                    promotion?.starts_at
-                                        ? promotion.starts_at.slice(0, 16)
-                                        : ''
-                                }
-                                onChange={() => {
-                                    clearFieldError('starts_at');
-                                    clearFieldError('ends_at');
-                                }}
-                                className="bg-background scheme-light dark:scheme-dark"
+                        <div className="md:col-span-2 space-y-4 rounded-lg border border-border p-4">
+                            <input
+                                type="hidden"
+                                name="is_recurring"
+                                value={isRecurring ? '1' : '0'}
                             />
-                        </FormField>
-                        <FormField
-                            label="Fin"
-                            htmlFor="ends_at"
-                            error={resolveFieldError(
-                                'ends_at',
-                                clientErrors,
-                                errors,
+                            <label className="flex items-start gap-3">
+                                <Checkbox
+                                    checked={isRecurring}
+                                    onCheckedChange={(checked) => {
+                                        setIsRecurring(checked === true);
+                                        clearFieldError('is_recurring');
+                                        clearFieldError('starts_at');
+                                        clearFieldError('ends_at');
+                                        clearFieldError('recurrence_starts_on');
+                                        clearFieldError('recurrence_ends_on');
+                                        clearFieldError('recurring_hours');
+                                    }}
+                                />
+                                <span className="space-y-0.5">
+                                    <span className="block text-sm font-medium">
+                                        Programación recurrente
+                                    </span>
+                                    <span className="block text-sm text-muted-foreground">
+                                        Se muestra en días y horarios que tú
+                                        elijas, de forma repetida cada semana.
+                                    </span>
+                                </span>
+                            </label>
+
+                            {!isRecurring ? (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        label="Inicio"
+                                        htmlFor="starts_at"
+                                        error={resolveFieldError(
+                                            'starts_at',
+                                            clientErrors,
+                                            errors,
+                                        )}
+                                    >
+                                        <Input
+                                            id="starts_at"
+                                            name="starts_at"
+                                            type="datetime-local"
+                                            defaultValue={
+                                                promotion?.starts_at
+                                                    ? promotion.starts_at.slice(
+                                                          0,
+                                                          16,
+                                                      )
+                                                    : ''
+                                            }
+                                            onChange={() => {
+                                                clearFieldError('starts_at');
+                                                clearFieldError('ends_at');
+                                            }}
+                                            className="bg-background scheme-light dark:scheme-dark"
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Fin"
+                                        htmlFor="ends_at"
+                                        error={resolveFieldError(
+                                            'ends_at',
+                                            clientErrors,
+                                            errors,
+                                        )}
+                                    >
+                                        <Input
+                                            id="ends_at"
+                                            name="ends_at"
+                                            type="datetime-local"
+                                            defaultValue={
+                                                promotion?.ends_at
+                                                    ? promotion.ends_at.slice(
+                                                          0,
+                                                          16,
+                                                      )
+                                                    : ''
+                                            }
+                                            onChange={() =>
+                                                clearFieldError('ends_at')
+                                            }
+                                            className="bg-background scheme-light dark:scheme-dark"
+                                        />
+                                    </FormField>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        label="Inicio de recurrencia"
+                                        htmlFor="recurrence_starts_on"
+                                        required
+                                        error={resolveFieldError(
+                                            'recurrence_starts_on',
+                                            clientErrors,
+                                            errors,
+                                        )}
+                                    >
+                                        <Input
+                                            id="recurrence_starts_on"
+                                            name="recurrence_starts_on"
+                                            type="date"
+                                            defaultValue={
+                                                promotion?.recurrence_starts_on ??
+                                                ''
+                                            }
+                                            onChange={() => {
+                                                clearFieldError(
+                                                    'recurrence_starts_on',
+                                                );
+                                                clearFieldError(
+                                                    'recurrence_ends_on',
+                                                );
+                                            }}
+                                        />
+                                    </FormField>
+                                    <FormField
+                                        label="Fin de recurrencia (opcional)"
+                                        htmlFor="recurrence_ends_on"
+                                        hint="Si lo dejas vacío, continúa hasta que la desactives."
+                                        error={resolveFieldError(
+                                            'recurrence_ends_on',
+                                            clientErrors,
+                                            errors,
+                                        )}
+                                    >
+                                        <Input
+                                            id="recurrence_ends_on"
+                                            name="recurrence_ends_on"
+                                            type="date"
+                                            defaultValue={
+                                                promotion?.recurrence_ends_on ??
+                                                ''
+                                            }
+                                            onChange={() =>
+                                                clearFieldError(
+                                                    'recurrence_ends_on',
+                                                )
+                                            }
+                                        />
+                                    </FormField>
+
+                                    {(options.weekdays?.length ?? 0) > 0 ? (
+                                        <PromotionRecurringHoursFields
+                                            weekdays={options.weekdays ?? []}
+                                            defaultHours={
+                                                options.default_recurring_hours ??
+                                                []
+                                            }
+                                            value={promotion?.recurring_hours}
+                                            errors={{
+                                                ...errors,
+                                                ...clientErrors,
+                                            }}
+                                        />
+                                    ) : (
+                                        <p className="text-sm text-destructive md:col-span-2">
+                                            No se pudieron cargar los días de la
+                                            semana.
+                                        </p>
+                                    )}
+                                </div>
                             )}
-                        >
-                            <Input
-                                id="ends_at"
-                                name="ends_at"
-                                type="datetime-local"
-                                defaultValue={
-                                    promotion?.ends_at
-                                        ? promotion.ends_at.slice(0, 16)
-                                        : ''
-                                }
-                                onChange={() => clearFieldError('ends_at')}
-                                className="bg-background scheme-light dark:scheme-dark"
-                            />
-                        </FormField>
+                        </div>
                     </div>
 
                     <PromotionItemList

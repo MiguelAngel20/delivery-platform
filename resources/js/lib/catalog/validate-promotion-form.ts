@@ -98,6 +98,10 @@ export function validatePromotionForm(input: {
     status: string;
     startsAt: string;
     endsAt: string;
+    isRecurring?: boolean;
+    recurrenceStartsOn?: string;
+    recurrenceEndsOn?: string;
+    recurringHoursRaw?: string;
     isEditing: boolean;
     items: PromotionItemDraft[];
 }): PromotionFormClientErrors {
@@ -132,25 +136,84 @@ export function validatePromotionForm(input: {
         }
     }
 
-    const startsAt = parseDateTime(input.startsAt);
-    const endsAt = parseDateTime(input.endsAt);
+    if (input.isRecurring) {
+        const startsOn = input.recurrenceStartsOn?.trim() ?? '';
+        const endsOn = input.recurrenceEndsOn?.trim() ?? '';
 
-    if (input.startsAt.trim() !== '' && startsAt === null) {
-        errors.starts_at = 'La fecha de inicio no es válida.';
-    }
+        if (startsOn === '') {
+            errors.recurrence_starts_on =
+                'Indica desde cuándo inicia la recurrencia.';
+        }
 
-    if (input.endsAt.trim() !== '' && endsAt === null) {
-        errors.ends_at = 'La fecha de fin no es válida.';
-    }
+        if (startsOn !== '' && endsOn !== '' && endsOn < startsOn) {
+            errors.recurrence_ends_on =
+                'La fecha de fin de recurrencia debe ser posterior o igual al inicio.';
+        }
 
-    if (startsAt !== null && endsAt !== null && endsAt < startsAt) {
-        errors.ends_at =
-            'La fecha de fin debe ser posterior o igual al inicio.';
+        let hours: Array<{
+            day?: string;
+            is_open?: boolean;
+            opens_at?: string | null;
+            closes_at?: string | null;
+        }> = [];
+
+        try {
+            const parsed = JSON.parse(input.recurringHoursRaw ?? '[]');
+            hours = Array.isArray(parsed) ? parsed : [];
+        } catch {
+            errors.recurring_hours = 'Los horarios recurrentes no son válidos.';
+        }
+
+        const openDays = hours.filter((row) => Boolean(row.is_open));
+
+        if (!errors.recurring_hours && openDays.length === 0) {
+            errors.recurring_hours =
+                'Selecciona al menos un día con horario para la promoción recurrente.';
+        }
+
+        hours.forEach((row, index) => {
+            if (!row.is_open) {
+                return;
+            }
+
+            if (!row.opens_at) {
+                errors[`recurring_hours.${index}.opens_at`] =
+                    'Indica la hora de inicio.';
+            }
+
+            if (!row.closes_at) {
+                errors[`recurring_hours.${index}.closes_at`] =
+                    'Indica la hora de fin.';
+            }
+
+            if (
+                row.opens_at &&
+                row.closes_at &&
+                String(row.closes_at) <= String(row.opens_at)
+            ) {
+                errors[`recurring_hours.${index}.closes_at`] =
+                    'La hora de fin debe ser posterior a la de inicio.';
+            }
+        });
+    } else {
+        const startsAt = parseDateTime(input.startsAt);
+        const endsAt = parseDateTime(input.endsAt);
+
+        if (input.startsAt.trim() !== '' && startsAt === null) {
+            errors.starts_at = 'La fecha de inicio no es válida.';
+        }
+
+        if (input.endsAt.trim() !== '' && endsAt === null) {
+            errors.ends_at = 'La fecha de fin no es válida.';
+        }
+
+        if (startsAt !== null && endsAt !== null && endsAt < startsAt) {
+            errors.ends_at =
+                'La fecha de fin debe ser posterior o igual al inicio.';
+        }
     }
 
     if (input.items.length === 0) {
-        errors.items = 'Agrega al menos un ítem a la promoción.';
-
         return errors;
     }
 

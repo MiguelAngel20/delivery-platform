@@ -30,7 +30,7 @@ class StoreOrderRequest extends FormRequest
             'items.*.selected_options' => ['nullable', 'array'],
             'items.*.selected_options.*.option_id' => ['required', 'integer'],
             'items.*.selected_options.*.action' => ['required', 'string', Rule::in(['removed', 'added', 'selected'])],
-            'items.*.promotion_items' => ['required_with:items.*.promotion_id', 'array'],
+            'items.*.promotion_items' => ['nullable', 'array'],
             'items.*.promotion_items.*.promotion_item_id' => ['required', 'integer'],
             'items.*.promotion_items.*.special_instructions' => ['nullable', 'string', 'max:500'],
             'items.*.promotion_items.*.selected_options' => ['nullable', 'array'],

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Web\Public;
 
 use App\Enums\BranchStatus;
 use App\Enums\BusinessStatus;
-use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessBranch;
 use App\Models\Product;
@@ -14,6 +13,7 @@ use App\Support\BusinessLogoStorage;
 use App\Support\StorefrontProductData;
 use App\Support\StorefrontPromotionData;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
@@ -47,12 +47,17 @@ class CartController extends Controller
                 ->orderBy('sort_order'),
             'currentPrice',
             'category',
+            'category.parent',
             'branch.business',
         ]);
 
         abort_if(! $product->is_active || ! $product->is_available, 404);
         abort_if($product->branch->status !== BranchStatus::Active, 404);
         abort_if($product->branch->business->status !== BusinessStatus::Active, 404);
+        abort_if(
+            $product->category !== null && ! $product->category->isVisibleNow(),
+            404,
+        );
 
         $business = $product->branch->business;
 
@@ -78,17 +83,9 @@ class CartController extends Controller
             'branch.business',
         ]);
 
-        abort_if($promotion->status !== PromotionStatus::Active, 404);
+        abort_unless($promotion->isCurrentlyAvailable(), 404);
         abort_if($promotion->branch->status !== BranchStatus::Active, 404);
         abort_if($promotion->branch->business->status !== BusinessStatus::Active, 404);
-
-        if ($promotion->starts_at !== null && $promotion->starts_at->isFuture()) {
-            abort(404);
-        }
-
-        if ($promotion->ends_at !== null && $promotion->ends_at->isPast()) {
-            abort(404);
-        }
 
         $business = $promotion->branch->business;
 
@@ -100,6 +97,62 @@ class CartController extends Controller
                 'slug' => $business->slug,
                 'mode' => $business->operation_mode->value,
             ],
+        ]);
+    }
+
+    public function promotionsAvailability(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'max:50'],
+            'ids.*' => ['integer', 'distinct'],
+        ]);
+
+        /** @var list<int> $ids */
+        $ids = array_values(array_map('intval', $validated['ids']));
+
+        $availableIds = Promotion::query()
+            ->currentlyAvailable()
+            ->whereIn('id', $ids)
+            ->whereHas('branch', fn ($query) => $query->where('status', BranchStatus::Active))
+            ->whereHas('branch.business', fn ($query) => $query->where('status', BusinessStatus::Active))
+            ->get()
+            ->filter(fn (Promotion $promotion): bool => $promotion->isCurrentlyAvailable())
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        return response()->json([
+            'available_ids' => $availableIds,
+        ]);
+    }
+
+    public function productsAvailability(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'max:50'],
+            'ids.*' => ['integer', 'distinct'],
+        ]);
+
+        /** @var list<int> $ids */
+        $ids = array_values(array_map('intval', $validated['ids']));
+
+        $availableIds = Product::query()
+            ->whereIn('id', $ids)
+            ->where('is_active', true)
+            ->where('is_available', true)
+            ->whereHas('branch', fn ($query) => $query->where('status', BranchStatus::Active))
+            ->whereHas('branch.business', fn ($query) => $query->where('status', BusinessStatus::Active))
+            ->with(['category.parent'])
+            ->get()
+            ->filter(fn (Product $product): bool => $product->category === null || $product->category->isVisibleNow())
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        return response()->json([
+            'available_ids' => $availableIds,
         ]);
     }
 }

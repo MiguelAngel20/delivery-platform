@@ -11,7 +11,6 @@ use App\Enums\OrderType;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\ProductOptionGroupType;
-use App\Enums\PromotionStatus;
 use App\Models\BusinessBranch;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
@@ -59,6 +58,18 @@ final class CreateOrder
     public function handle(Customer $customer, User $actor, array $payload): Order
     {
         $this->activitySuspension->assertOrderingAllowed();
+
+        $delivery = $payload['delivery'] ?? [];
+        $deliverySource = OrderAddressSource::tryFrom((string) ($delivery['source'] ?? ''));
+
+        if (
+            $deliverySource === OrderAddressSource::Temporary
+            && ! $this->loyalty->hasCompletedOrder($customer)
+        ) {
+            throw ValidationException::withMessages([
+                'delivery.source' => 'Usa tu dirección registrada. Podrás elegir otra ubicación después de completar tu primer pedido.',
+            ]);
+        }
 
         $order = DB::transaction(function () use ($customer, $actor, $payload): Order {
             $branch = BusinessBranch::query()
@@ -255,6 +266,12 @@ final class CreateOrder
             ]);
         }
 
+        if ($product->category !== null && ! $product->category->isVisibleNow()) {
+            throw ValidationException::withMessages([
+                "items.{$index}.product_id" => "El producto {$product->name} no está disponible en este horario.",
+            ]);
+        }
+
         $listPrice = $product->currentPrice?->list_price;
 
         if ($listPrice === null) {
@@ -330,24 +347,12 @@ final class CreateOrder
             ])
             ->whereKey($itemInput['promotion_id'] ?? null)
             ->where('branch_id', $branch->id)
-            ->where('status', PromotionStatus::Active)
+            ->currentlyAvailable()
             ->first();
 
-        if ($promotion === null) {
+        if ($promotion === null || ! $promotion->isCurrentlyAvailable()) {
             throw ValidationException::withMessages([
                 "items.{$index}.promotion_id" => 'La promoción no está disponible en esta sucursal.',
-            ]);
-        }
-
-        if ($promotion->starts_at !== null && $promotion->starts_at->isFuture()) {
-            throw ValidationException::withMessages([
-                "items.{$index}.promotion_id" => 'La promoción aún no está vigente.',
-            ]);
-        }
-
-        if ($promotion->ends_at !== null && $promotion->ends_at->isPast()) {
-            throw ValidationException::withMessages([
-                "items.{$index}.promotion_id" => 'La promoción ya no está vigente.',
             ]);
         }
 

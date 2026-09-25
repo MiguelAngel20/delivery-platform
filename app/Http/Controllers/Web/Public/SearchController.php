@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Web\Public;
 
 use App\Enums\BranchStatus;
 use App\Enums\BusinessStatus;
-use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\Product;
@@ -87,10 +86,11 @@ class SearchController extends Controller
             ->all();
 
         $promotions = Promotion::query()
-            ->where('status', PromotionStatus::Active)
+            ->currentlyAvailable()
             ->with(['branch.business:id,slug', 'items'])
             ->latest()
             ->get()
+            ->filter(fn (Promotion $promotion): bool => $promotion->isCurrentlyAvailable())
             ->map(fn (Promotion $promotion): array => [
                 'id' => (string) $promotion->id,
                 'restaurantSlug' => $promotion->branch?->business?->slug,

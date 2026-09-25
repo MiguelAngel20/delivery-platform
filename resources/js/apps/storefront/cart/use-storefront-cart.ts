@@ -161,6 +161,180 @@ export function consumePendingCartClear(): boolean {
     return true;
 }
 
+function csrfToken(): string {
+    const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+let purgePromotionsInFlight: Promise<number> | null = null;
+let purgeProductsInFlight: Promise<number> | null = null;
+
+/**
+ * Drops promotion lines that are no longer orderable (inactive, not started, or ended).
+ * Safe for guests and logged-in customers (cart lives in localStorage).
+ */
+export async function purgeUnavailablePromotionLines(): Promise<number> {
+    if (typeof window === 'undefined') {
+        return 0;
+    }
+
+    if (purgePromotionsInFlight) {
+        return purgePromotionsInFlight;
+    }
+
+    purgePromotionsInFlight = (async () => {
+        const current = readCart();
+        const promotionIds = Array.from(
+            new Set(
+                current.lines
+                    .filter(isPromotionCartLine)
+                    .map((line) => Number(line.promotionId))
+                    .filter((id) => Number.isFinite(id) && id > 0),
+            ),
+        );
+
+        if (promotionIds.length === 0) {
+            return 0;
+        }
+
+        try {
+            const response = await fetch('/cart/promotions/availability', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN': csrfToken(),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ ids: promotionIds }),
+            });
+
+            if (!response.ok) {
+                return 0;
+            }
+
+            const data = (await response.json()) as {
+                available_ids?: number[];
+            };
+            const available = new Set(
+                (data.available_ids ?? []).map((id) => String(id)),
+            );
+
+            const nextLines = current.lines.filter(
+                (line) =>
+                    !isPromotionCartLine(line) ||
+                    available.has(String(line.promotionId)),
+            );
+            const removed = current.lines.length - nextLines.length;
+
+            if (removed === 0) {
+                return 0;
+            }
+
+            writeCart(
+                nextLines.length === 0
+                    ? emptyCart
+                    : {
+                          ...current,
+                          lines: nextLines,
+                      },
+            );
+
+            return removed;
+        } catch {
+            return 0;
+        } finally {
+            purgePromotionsInFlight = null;
+        }
+    })();
+
+    return purgePromotionsInFlight;
+}
+
+/**
+ * Drops product lines whose category is outside its optional schedule window.
+ */
+export async function purgeUnavailableProductLines(): Promise<number> {
+    if (typeof window === 'undefined') {
+        return 0;
+    }
+
+    if (purgeProductsInFlight) {
+        return purgeProductsInFlight;
+    }
+
+    purgeProductsInFlight = (async () => {
+        const current = readCart();
+        const productIds = Array.from(
+            new Set(
+                current.lines
+                    .filter((line) => !isPromotionCartLine(line))
+                    .map((line) => Number(line.productId))
+                    .filter((id) => Number.isFinite(id) && id > 0),
+            ),
+        );
+
+        if (productIds.length === 0) {
+            return 0;
+        }
+
+        try {
+            const response = await fetch('/cart/products/availability', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN': csrfToken(),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ ids: productIds }),
+            });
+
+            if (!response.ok) {
+                return 0;
+            }
+
+            const data = (await response.json()) as {
+                available_ids?: number[];
+            };
+            const available = new Set(
+                (data.available_ids ?? []).map((id) => String(id)),
+            );
+
+            const nextLines = current.lines.filter(
+                (line) =>
+                    isPromotionCartLine(line) ||
+                    available.has(String(line.productId)),
+            );
+            const removed = current.lines.length - nextLines.length;
+
+            if (removed === 0) {
+                return 0;
+            }
+
+            writeCart(
+                nextLines.length === 0
+                    ? emptyCart
+                    : {
+                          ...current,
+                          lines: nextLines,
+                      },
+            );
+
+            return removed;
+        } catch {
+            return 0;
+        } finally {
+            purgeProductsInFlight = null;
+        }
+    })();
+
+    return purgeProductsInFlight;
+}
+
 function subscribe(listener: () => void): () => void {
     listeners.add(listener);
 

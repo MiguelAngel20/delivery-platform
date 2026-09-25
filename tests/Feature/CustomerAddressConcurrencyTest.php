@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\OrderStatus;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
+use App\Models\Order;
 use App\Models\User;
 use App\Services\Customers\CustomerAddressService;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -158,6 +160,11 @@ test('unique default_customer_slot rejects a second active default at the databa
 test('http store still enforces max addresses', function () {
     $user = User::factory()->customer()->create();
     $customer = Customer::factory()->forUser($user)->create();
+    Order::factory()->create([
+        'customer_id' => $customer->id,
+        'order_status' => OrderStatus::Delivered,
+        'delivered_at' => now(),
+    ]);
 
     CustomerAddress::factory()->count(4)->create([
         'customer_id' => $customer->id,

@@ -443,6 +443,11 @@ final class CustomerLoyaltyService
             ->exists();
     }
 
+    public function hasCompletedOrder(Customer $customer): bool
+    {
+        return $this->customerHasCompletedOrder($customer->id);
+    }
+
     private function launchSlotsRemaining(): int
     {
         $max = (int) config('business.loyalty.launch.max_customers', 25);

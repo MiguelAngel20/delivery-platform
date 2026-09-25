@@ -5,6 +5,8 @@ import {
     COVERAGE_UNAVAILABLE_MESSAGE,
     checkDeliveryCoverage,
 } from '@/apps/storefront/lib/check-delivery-coverage';
+import { LoadingDialog } from '@/components/feedback/loading-dialog';
+import { notify } from '@/components/feedback/toast';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer } from '@/components/layout/page';
 import { AddressPicker } from '@/components/maps/address-picker';
@@ -12,7 +14,6 @@ import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Spinner } from '@/components/ui/spinner';
 import {
     resolveFieldError,
     validateCustomerRegisterForm,
@@ -29,6 +30,65 @@ type Props = {
     defaultDialCode: string;
     passwordRules: string;
 };
+
+const REGISTER_FIELD_ORDER = [
+    'first_name',
+    'last_name',
+    'email',
+    'phone_national',
+    'phone_dial_code',
+    'password',
+    'password_confirmation',
+    'address_label',
+    'address_text',
+    'reference',
+    'latitude',
+    'longitude',
+] as const;
+
+const FIELD_ELEMENT_IDS: Record<string, string> = {
+    first_name: 'first_name',
+    last_name: 'last_name',
+    email: 'email',
+    phone_national: 'phone_national',
+    phone_dial_code: 'phone_dial_code',
+    password: 'password',
+    password_confirmation: 'password_confirmation',
+    address_label: 'address_label',
+    address_text: 'register-address-section',
+    reference: 'address_reference',
+    latitude: 'register-address-section',
+    longitude: 'register-address-section',
+};
+
+function focusFirstRegisterError(
+    errors: CustomerRegisterClientErrors | Record<string, string>,
+): void {
+    const firstKey = REGISTER_FIELD_ORDER.find((key) => Boolean(errors[key]));
+
+    if (!firstKey) {
+        return;
+    }
+
+    const elementId = FIELD_ELEMENT_IDS[firstKey] ?? firstKey;
+    const element = document.getElementById(elementId);
+
+    if (!element) {
+        return;
+    }
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    if (
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLTextAreaElement ||
+        element instanceof HTMLSelectElement
+    ) {
+        window.setTimeout(() => {
+            element.focus({ preventScroll: true });
+        }, 280);
+    }
+}
 
 export default function CustomerRegister({
     dialCodes,
@@ -87,6 +147,7 @@ export default function CustomerRegister({
         clearFieldError('address_text');
         clearFieldError('latitude');
         clearFieldError('longitude');
+        clearFieldError('reference');
         setCoverageError(null);
 
         void (async () => {
@@ -123,6 +184,7 @@ export default function CustomerRegister({
                 password_confirmation: form.data.password_confirmation,
                 address_label: form.data.address_label,
                 address_text: form.data.address_text,
+                reference: form.data.reference,
                 latitude: form.data.latitude,
                 longitude: form.data.longitude,
             },
@@ -131,14 +193,27 @@ export default function CustomerRegister({
 
         if (Object.keys(validationErrors).length > 0) {
             setClientErrors(validationErrors);
+            notify.error(
+                'Faltan datos por completar. Revisa los campos marcados.',
+            );
+            window.setTimeout(
+                () => focusFirstRegisterError(validationErrors),
+                50,
+            );
 
             return false;
         }
 
         if (coverageError) {
-            setClientErrors({
+            const coverageErrors = {
                 latitude: coverageError,
-            });
+            };
+            setClientErrors(coverageErrors);
+            notify.error(coverageError);
+            window.setTimeout(
+                () => focusFirstRegisterError(coverageErrors),
+                50,
+            );
 
             return false;
         }
@@ -147,6 +222,14 @@ export default function CustomerRegister({
 
         return true;
     };
+
+    const blockingMessages = Array.from(
+        new Set(
+            REGISTER_FIELD_ORDER.map((key) => fieldError(key)).filter(
+                (message): message is string => Boolean(message),
+            ),
+        ),
+    );
 
     return (
         <>
@@ -168,15 +251,32 @@ export default function CustomerRegister({
                             return;
                         }
 
-                        form.post(store.url());
+                        form.post(store.url(), {
+                            onError: (errors) => {
+                                notify.error(
+                                    'No se pudo completar el registro. Revisa los campos marcados.',
+                                );
+                                window.setTimeout(
+                                    () => focusFirstRegisterError(errors),
+                                    50,
+                                );
+                            },
+                        });
                     }}
                 >
-                    {Object.keys(clientErrors).length > 0 ? (
+                    {blockingMessages.length > 0 ? (
                         <div
                             role="alert"
                             className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
                         >
-                            Revisa los campos marcados antes de continuar.
+                            <p className="font-medium">
+                                Revisa estos puntos antes de continuar:
+                            </p>
+                            <ul className="mt-2 list-disc space-y-1 pl-5">
+                                {blockingMessages.map((message) => (
+                                    <li key={message}>{message}</li>
+                                ))}
+                            </ul>
                         </div>
                     ) : null}
 
@@ -258,6 +358,7 @@ export default function CustomerRegister({
                         >
                             <div className="flex gap-2">
                                 <select
+                                    id="phone_dial_code"
                                     className="border-input flex h-9 w-[4.25rem] shrink-0 rounded-md border bg-background px-1 text-sm font-medium tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                     value={form.data.phone_dial_code}
                                     onChange={(event) => {
@@ -354,10 +455,21 @@ export default function CustomerRegister({
                         </div>
                     </section>
 
-                    <section className="space-y-4 rounded-2xl border border-border bg-surface p-4 shadow-sm md:p-5">
-                        <h2 className="font-semibold text-navy">
-                            Dirección de entrega
-                        </h2>
+                    <section
+                        id="register-address-section"
+                        className="space-y-4 rounded-2xl border border-border bg-surface p-4 shadow-sm md:p-5"
+                    >
+                        <div className="space-y-2">
+                            <h2 className="font-semibold text-navy">
+                                Dirección de entrega
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                Esta ubicación se guarda para tus entregas y la
+                                usaremos en tu primer pedido. Después de
+                                completar un pedido podrás agregar hasta 3
+                                direcciones más desde tu perfil.
+                            </p>
+                        </div>
                         <FormField
                             label="Etiqueta"
                             htmlFor="address_label"
@@ -380,12 +492,31 @@ export default function CustomerRegister({
                             error={
                                 fieldError('address_text') ??
                                 fieldError('latitude') ??
-                                fieldError('longitude')
+                                fieldError('longitude') ??
+                                fieldError('reference')
                             }
                         >
                             <AddressPicker
+                                value={{
+                                    address_text: form.data.address_text,
+                                    formatted_address:
+                                        form.data.formatted_address || null,
+                                    reference: form.data.reference || null,
+                                    latitude:
+                                        form.data.latitude === ''
+                                            ? undefined
+                                            : Number(form.data.latitude),
+                                    longitude:
+                                        form.data.longitude === ''
+                                            ? undefined
+                                            : Number(form.data.longitude),
+                                    place_id: form.data.place_id || null,
+                                    google_maps_url:
+                                        form.data.google_maps_url || null,
+                                }}
                                 showReference
-                                showCurrentLocation
+                                referenceRequired
+                                currentLocationOnly
                                 onChange={onAddressChange}
                             />
                         </FormField>
@@ -404,12 +535,27 @@ export default function CustomerRegister({
                         ) : null}
                     </section>
 
+                    {blockingMessages.length > 0 ? (
+                        <div
+                            role="alert"
+                            className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                        >
+                            <p className="font-medium">
+                                No puedes terminar el registro todavía:
+                            </p>
+                            <ul className="mt-2 list-disc space-y-1 pl-5">
+                                {blockingMessages.map((message) => (
+                                    <li key={message}>{message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
+
                     <Button
                         type="submit"
                         className="h-11 w-full"
                         disabled={form.processing || Boolean(coverageError)}
                     >
-                        {form.processing ? <Spinner /> : null}
                         Terminar registro
                     </Button>
 
@@ -419,6 +565,12 @@ export default function CustomerRegister({
                     </p>
                 </form>
             </PageContainer>
+
+            <LoadingDialog
+                open={form.processing}
+                title="Creando tu cuenta…"
+                description="Estamos terminando tu registro. No cierres esta ventana."
+            />
         </>
     );
 }

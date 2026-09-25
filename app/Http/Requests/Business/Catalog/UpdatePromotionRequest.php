@@ -6,6 +6,7 @@ use App\Enums\ProductOptionGroupType;
 use App\Enums\PromotionStatus;
 use App\Models\Promotion;
 use App\Support\Catalog\PromotionFormValidation;
+use App\Support\PromotionSchedule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,6 +30,16 @@ class UpdatePromotionRequest extends FormRequest
                 'items' => is_array($decoded) ? $decoded : [],
             ]);
         }
+
+        if ($this->has('recurring_hours')) {
+            $this->merge([
+                'recurring_hours' => PromotionSchedule::prepareInput($this->input('recurring_hours')),
+            ]);
+        }
+
+        $this->merge([
+            'is_recurring' => filter_var($this->input('is_recurring'), FILTER_VALIDATE_BOOLEAN),
+        ]);
     }
 
     /**
@@ -39,17 +50,17 @@ class UpdatePromotionRequest extends FormRequest
         /** @var Promotion $promotion */
         $promotion = $this->route('promotion');
         $branchId = $promotion->branch_id;
+        $isRecurring = (bool) $this->input('is_recurring');
 
-        return [
+        $rules = [
             'name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'promotion_price' => ['required', 'numeric', 'min:0'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'is_recurring' => ['required', 'boolean'],
             'status' => ['required', Rule::enum(PromotionStatus::class)],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.is_external_item' => ['required', 'boolean'],
+            'items' => ['nullable', 'array'],
+            'items.*.is_external_item' => ['required_with:items', 'boolean'],
             'items.*.product_id' => [
                 'nullable',
                 'integer',
@@ -77,10 +88,30 @@ class UpdatePromotionRequest extends FormRequest
             'items.*.option_groups.*.options.*.is_available' => ['sometimes', 'boolean'],
             'items.*.option_groups.*.options.*.sort_order' => ['nullable', 'integer', 'min:0'],
         ];
+
+        if ($isRecurring) {
+            $rules['starts_at'] = ['nullable'];
+            $rules['ends_at'] = ['nullable'];
+            $rules['recurrence_starts_on'] = ['required', 'date'];
+            $rules['recurrence_ends_on'] = ['nullable', 'date', 'after_or_equal:recurrence_starts_on'];
+            $rules = [...$rules, ...PromotionSchedule::validationRules(required: true)];
+        } else {
+            $rules['starts_at'] = ['nullable', 'date'];
+            $rules['ends_at'] = ['nullable', 'date', 'after_or_equal:starts_at'];
+            $rules['recurrence_starts_on'] = ['nullable'];
+            $rules['recurrence_ends_on'] = ['nullable'];
+            $rules['recurring_hours'] = ['nullable'];
+        }
+
+        return $rules;
     }
 
     public function withValidator($validator): void
     {
         $this->appendPromotionItemRules($validator);
+
+        foreach (PromotionSchedule::afterValidation() as $callback) {
+            $validator->after($callback);
+        }
     }
 }

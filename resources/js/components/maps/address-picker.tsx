@@ -1,5 +1,6 @@
 import { Crosshair, MapPin, Maximize2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { LoadingDialog } from '@/components/feedback/loading-dialog';
 import { FormField } from '@/components/forms/form-field';
 import {
     AddressMapView,
@@ -31,8 +32,18 @@ type AddressPickerProps = {
     value?: Partial<AddressValue> | null;
     onChange: (value: AddressValue) => void;
     showReference?: boolean;
+    /** Marks the reference field as required in the label/hint. */
+    referenceRequired?: boolean;
     showCurrentLocation?: boolean;
     showFullscreenAdjust?: boolean;
+    /**
+     * Registration mode: hide search / map drag / fullscreen adjust.
+     * Only "Usar mi ubicación actual" can set coordinates.
+     */
+    currentLocationOnly?: boolean;
+    /** Optional copy for the locating overlay. */
+    locatingTitle?: string;
+    locatingDescription?: string;
     mapHeightClassName?: string;
     disabled?: boolean;
     /** Draws a coverage circle around the pin (admin zones). */
@@ -73,8 +84,12 @@ export function AddressPicker({
     value,
     onChange,
     showReference = true,
+    referenceRequired = false,
     showCurrentLocation = false,
     showFullscreenAdjust = true,
+    currentLocationOnly = false,
+    locatingTitle = 'Buscando tu ubicación…',
+    locatingDescription = 'No cierres esta ventana. Estamos detectando tu ubicación actual.',
     mapHeightClassName = 'h-[min(50vh,24rem)] md:h-96',
     disabled = false,
     radiusMeters = null,
@@ -101,6 +116,22 @@ export function AddressPicker({
     const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
     const [highlightIndex, setHighlightIndex] = useState(0);
     const [fullscreenOpen, setFullscreenOpen] = useState(false);
+    const [locating, setLocating] = useState(false);
+    const [resolvedLocation, setResolvedLocation] = useState<{
+        latitude: number;
+        longitude: number;
+        address_text: string;
+        formatted_address?: string | null;
+    } | null>(() =>
+        value?.latitude != null && value?.longitude != null
+            ? {
+                  latitude: Number(value.latitude),
+                  longitude: Number(value.longitude),
+                  address_text: value.address_text ?? '',
+                  formatted_address: value.formatted_address ?? null,
+              }
+            : null,
+    );
     const skipPredictionsRef = useRef(false);
 
     onChangeRef.current = onChange;
@@ -109,8 +140,14 @@ export function AddressPicker({
     referenceRef.current = reference;
 
     const mapCenter = {
-        lat: value?.latitude ?? defaultCenter.latitude,
-        lng: value?.longitude ?? defaultCenter.longitude,
+        lat:
+            resolvedLocation?.latitude ??
+            value?.latitude ??
+            defaultCenter.latitude,
+        lng:
+            resolvedLocation?.longitude ??
+            value?.longitude ??
+            defaultCenter.longitude,
     };
 
     const emit = (
@@ -131,43 +168,67 @@ export function AddressPicker({
             ),
         };
 
+        setResolvedLocation({
+            latitude: next.latitude,
+            longitude: next.longitude,
+            address_text: next.address_text,
+            formatted_address: next.formatted_address,
+        });
+
         onChangeRef.current(next);
     };
 
-    const reverseGeocode = (lat: number, lng: number) => {
-        if (!geocoderRef.current) {
-            if (!googleApi) {
-                return;
+    const reverseGeocode = (lat: number, lng: number): Promise<void> => {
+        return new Promise((resolve) => {
+            if (!geocoderRef.current) {
+                if (!googleApi) {
+                    emit({
+                        latitude: lat,
+                        longitude: lng,
+                        address_text: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+                    });
+                    resolve();
+
+                    return;
+                }
+
+                geocoderRef.current = new googleApi.maps.Geocoder();
             }
 
-            geocoderRef.current = new googleApi.maps.Geocoder();
-        }
+            geocoderRef.current.geocode(
+                { location: { lat, lng } },
+                (results, status) => {
+                    emit({
+                        latitude: lat,
+                        longitude: lng,
+                        address_text:
+                            searchRef.current ||
+                            `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+                    });
 
-        geocoderRef.current.geocode({ location: { lat, lng } }, (results, status) => {
-            emit({
-                latitude: lat,
-                longitude: lng,
-                address_text:
-                    searchRef.current || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-            });
+                    if (status !== 'OK' || !results?.[0]) {
+                        resolve();
 
-            if (status !== 'OK' || !results?.[0]) {
-                return;
-            }
+                        return;
+                    }
 
-            const result = results[0];
-            const formatted = result.formatted_address ?? searchRef.current;
+                    const result = results[0];
+                    const formatted =
+                        result.formatted_address ?? searchRef.current;
 
-            setSearch(formatted);
-            setSuggestions([]);
-            skipPredictionsRef.current = true;
-            emit({
-                latitude: lat,
-                longitude: lng,
-                address_text: formatted,
-                formatted_address: formatted,
-                place_id: result.place_id ?? null,
-            });
+                    setSearch(formatted);
+                    setSuggestions([]);
+                    skipPredictionsRef.current = true;
+                    emit({
+                        latitude: lat,
+                        longitude: lng,
+                        address_text: formatted,
+                        formatted_address: formatted,
+                        place_id: result.place_id ?? null,
+                    });
+                    resolve();
+                },
+            );
         });
     };
 
@@ -176,11 +237,11 @@ export function AddressPicker({
         fullscreenMapRef.current?.recenter(lat, lng, zoom);
     };
 
-    const applyCoordinates = (
+    const applyCoordinates = async (
         lat: number,
         lng: number,
         partial?: Partial<AddressValue>,
-    ) => {
+    ): Promise<void> => {
         moveMapsTo(lat, lng);
         setLocalError(null);
 
@@ -197,7 +258,7 @@ export function AddressPicker({
             return;
         }
 
-        reverseGeocode(lat, lng);
+        await reverseGeocode(lat, lng);
     };
 
     const applyResolvedPlace = (
@@ -215,7 +276,7 @@ export function AddressPicker({
         const formatted =
             place.formattedAddress ?? place.displayName ?? fallback;
 
-        applyCoordinates(coordinates.lat, coordinates.lng, {
+        void applyCoordinates(coordinates.lat, coordinates.lng, {
             address_text: formatted,
             formatted_address: formatted,
             place_id: place.id ?? null,
@@ -233,13 +294,20 @@ export function AddressPicker({
     };
 
     const useCurrentLocation = async () => {
-        const point = await requestCurrentPosition();
+        setLocating(true);
+        setLocalError(null);
 
-        if (!point) {
-            return;
+        try {
+            const point = await requestCurrentPosition();
+
+            if (!point) {
+                return;
+            }
+
+            await applyCoordinates(point.lat, point.lng);
+        } finally {
+            setLocating(false);
         }
-
-        applyCoordinates(point.lat, point.lng);
     };
 
     const recenterOnSaved = () => {
@@ -251,7 +319,7 @@ export function AddressPicker({
     };
 
     const onMapCenterSettled = (lat: number, lng: number) => {
-        reverseGeocode(lat, lng);
+        void reverseGeocode(lat, lng);
     };
 
     useEffect(() => {
@@ -388,7 +456,22 @@ export function AddressPicker({
         return () => window.clearTimeout(timer);
     }, [fullscreenOpen]);
 
-    const mapBlockInteraction = suggestions.length > 0;
+    const allowMapInteraction = !currentLocationOnly;
+    const showSearch = !currentLocationOnly;
+    const showFullscreen = showFullscreenAdjust && allowMapInteraction;
+    const showLocateButton = showCurrentLocation || currentLocationOnly;
+    const mapBlockInteraction =
+        currentLocationOnly || suggestions.length > 0;
+    const hasResolvedLocation =
+        resolvedLocation != null ||
+        (value?.latitude != null && value?.longitude != null);
+    const showMap = !currentLocationOnly || hasResolvedLocation;
+    const resolvedAddressLabel =
+        resolvedLocation?.address_text?.trim() ||
+        resolvedLocation?.formatted_address?.trim() ||
+        value?.address_text?.trim() ||
+        value?.formatted_address?.trim() ||
+        'Ubicación detectada';
 
     const searchField = (
         <FormField
@@ -491,29 +574,50 @@ export function AddressPicker({
 
     const mapHint = (
         <p className="text-xs text-muted-foreground">
-            {radiusMeters != null && radiusMeters > 0
-                ? `Mueve el mapa para centrar la zona. El círculo naranja muestra el radio (${(radiusMeters / 1000).toFixed(1)} km).`
-                : 'Mueve el mapa para colocar el pin en tu ubicación exacta.'}
+            {currentLocationOnly
+                ? hasResolvedLocation
+                    ? 'Ubicación detectada. El mapa es solo de consulta; si no es correcta, vuelve a usar tu ubicación actual.'
+                    : 'Para continuar, comparte tu ubicación actual. El mapa aparecerá cuando se detecte.'
+                : radiusMeters != null && radiusMeters > 0
+                  ? `Mueve el mapa para centrar la zona. El círculo naranja muestra el radio (${(radiusMeters / 1000).toFixed(1)} km).`
+                  : 'Mueve el mapa para colocar el pin en tu ubicación exacta.'}
         </p>
     );
 
     const locationActions = (
         <div className="flex flex-wrap gap-2">
-            {showCurrentLocation ? (
+            {showLocateButton ? (
                 <Button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    className="min-h-10 flex-1"
-                    disabled={disabled || geoLoading || !ready}
+                    variant={
+                        currentLocationOnly ? 'default' : 'outline'
+                    }
+                    size={
+                        currentLocationOnly && !hasResolvedLocation
+                            ? 'default'
+                            : 'sm'
+                    }
+                    className={cn(
+                        'min-h-10',
+                        currentLocationOnly ? 'w-full' : 'flex-1',
+                        currentLocationOnly &&
+                            !hasResolvedLocation &&
+                            'min-h-12 text-base',
+                        currentLocationOnly &&
+                            'bg-navy text-navy-foreground hover:bg-navy/90 hover:text-navy-foreground focus-visible:ring-navy/40',
+                    )}
+                    disabled={disabled || geoLoading || locating || !ready}
                     onClick={() => void useCurrentLocation()}
                 >
+                    <Crosshair className="size-4 text-navy-foreground" />
                     {geoLoading
                         ? 'Obteniendo ubicación…'
-                        : 'Usar mi ubicación actual'}
+                        : hasResolvedLocation && currentLocationOnly
+                          ? 'Actualizar mi ubicación'
+                          : 'Usar mi ubicación actual'}
                 </Button>
             ) : null}
-            {value?.latitude != null && value?.longitude != null ? (
+            {!currentLocationOnly && hasResolvedLocation ? (
                 <Button
                     type="button"
                     variant="outline"
@@ -529,7 +633,7 @@ export function AddressPicker({
                     </span>
                 </Button>
             ) : null}
-            {showFullscreenAdjust ? (
+            {showFullscreen ? (
                 <Button
                     type="button"
                     variant="outline"
@@ -547,45 +651,97 @@ export function AddressPicker({
 
     return (
         <div className="space-y-3">
-            {searchField}
+            <LoadingDialog
+                open={locating || geoLoading}
+                title={locatingTitle}
+                description={locatingDescription}
+            />
+
+            {showSearch ? searchField : null}
+
+            {mapsError && !showSearch ? (
+                <p className="text-sm text-destructive">{mapsError}</p>
+            ) : null}
+
+            {localError && !showSearch ? (
+                <p className="text-sm text-destructive">{localError}</p>
+            ) : null}
 
             {mapHint}
 
-            {ready && googleApi ? (
-                <AddressMapView
-                    ref={inlineMapRef}
-                    googleApi={googleApi}
-                    initialCenter={mapCenter}
-                    initialZoom={
-                        value?.latitude != null ? SELECTED_PLACE_ZOOM : defaultCenter.zoom ?? 14
-                    }
-                    disabled={disabled}
-                    blockInteraction={mapBlockInteraction}
-                    radiusMeters={radiusMeters}
-                    onCenterSettled={onMapCenterSettled}
-                    className={mapHeightClassName}
-                />
-            ) : (
-                <div
-                    className={cn(
-                        mapHeightClassName,
-                        'rounded-xl border border-border bg-muted',
-                    )}
-                />
-            )}
+            {currentLocationOnly ? locationActions : null}
 
-            {locationActions}
-
-            {geoError ? (
+            {geoError && currentLocationOnly ? (
                 <p className="text-sm text-destructive">{geoError}</p>
             ) : null}
 
-            {showReference ? (
-                <FormField label="Referencia">
+            {currentLocationOnly && hasResolvedLocation ? (
+                <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+                    <span className="font-medium text-navy">Dirección: </span>
+                    {resolvedAddressLabel}
+                </p>
+            ) : null}
+
+            {showMap ? (
+                ready && googleApi ? (
+                    <AddressMapView
+                        key={
+                            currentLocationOnly
+                                ? `${resolvedLocation?.latitude ?? value?.latitude},${resolvedLocation?.longitude ?? value?.longitude}`
+                                : 'interactive-map'
+                        }
+                        ref={inlineMapRef}
+                        googleApi={googleApi}
+                        initialCenter={mapCenter}
+                        initialZoom={
+                            hasResolvedLocation
+                                ? SELECTED_PLACE_ZOOM
+                                : (defaultCenter.zoom ?? 14)
+                        }
+                        disabled={disabled}
+                        blockInteraction={mapBlockInteraction}
+                        radiusMeters={radiusMeters}
+                        onCenterSettled={
+                            allowMapInteraction
+                                ? onMapCenterSettled
+                                : undefined
+                        }
+                        className={mapHeightClassName}
+                    />
+                ) : (
+                    <div
+                        className={cn(
+                            mapHeightClassName,
+                            'rounded-xl border border-border bg-muted',
+                        )}
+                    />
+                )
+            ) : null}
+
+            {!currentLocationOnly ? locationActions : null}
+
+            {geoError && !currentLocationOnly ? (
+                <p className="text-sm text-destructive">{geoError}</p>
+            ) : null}
+
+            {showReference &&
+            (!currentLocationOnly || hasResolvedLocation) ? (
+                <FormField
+                    label="Referencia"
+                    htmlFor="address_reference"
+                    required={referenceRequired}
+                    hint={
+                        referenceRequired
+                            ? 'Ej. casa azul, portón negro.'
+                            : undefined
+                    }
+                >
                     <Textarea
+                        id="address_reference"
                         value={reference ?? ''}
                         disabled={disabled}
                         rows={2}
+                        required={referenceRequired}
                         placeholder="Casa azul, portón negro…"
                         onChange={(event) => {
                             const next = event.target.value;
@@ -607,6 +763,7 @@ export function AddressPicker({
                 </FormField>
             ) : null}
 
+            {showFullscreen ? (
             <Dialog open={fullscreenOpen} onOpenChange={setFullscreenOpen}>
                 <DialogContent className="fixed inset-0 top-0 left-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-3 rounded-none border-0 p-4 sm:rounded-none">
                     <DialogHeader className="shrink-0 text-left">
@@ -643,6 +800,7 @@ export function AddressPicker({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            ) : null}
         </div>
     );
 }

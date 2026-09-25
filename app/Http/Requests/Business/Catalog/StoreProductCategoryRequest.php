@@ -4,8 +4,10 @@ namespace App\Http\Requests\Business\Catalog;
 
 use App\Models\ProductCategory;
 use App\Support\CatalogAccess;
+use App\Support\CategorySchedule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreProductCategoryRequest extends FormRequest
 {
@@ -34,6 +36,21 @@ class StoreProductCategoryRequest extends FormRequest
             && app(CatalogAccess::class)->canManageBranchCatalog($user, $branch);
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('schedule_hours')) {
+            $this->merge([
+                'schedule_hours' => CategorySchedule::prepareInput($this->input('schedule_hours')),
+            ]);
+        }
+
+        if ($this->has('has_schedule')) {
+            $this->merge([
+                'has_schedule' => filter_var($this->input('has_schedule'), FILTER_VALIDATE_BOOLEAN),
+            ]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -41,8 +58,10 @@ class StoreProductCategoryRequest extends FormRequest
     {
         $businessId = $this->user()?->activeBusinessMembership()?->business_id;
         $branchId = $this->integer('branch_id') ?: null;
+        $isPrincipal = blank($this->input('parent_id'));
+        $hasSchedule = filter_var($this->input('has_schedule'), FILTER_VALIDATE_BOOLEAN);
 
-        return [
+        $rules = [
             'branch_id' => [
                 'required',
                 'integer',
@@ -62,7 +81,16 @@ class StoreProductCategoryRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+            'has_schedule' => ['sometimes', 'boolean'],
         ];
+
+        if ($isPrincipal && $hasSchedule) {
+            $rules = [...$rules, ...CategorySchedule::validationRules(required: true)];
+        } else {
+            $rules['schedule_hours'] = ['nullable'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -89,6 +117,22 @@ class StoreProductCategoryRequest extends FormRequest
             'parent_id' => 'categoría padre',
             'name' => 'nombre',
             'description' => 'descripción',
+            'schedule_hours' => 'horario',
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        if (! blank($this->input('parent_id'))) {
+            return;
+        }
+
+        if (! filter_var($this->input('has_schedule'), FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
+        foreach (CategorySchedule::afterValidation() as $callback) {
+            $validator->after($callback);
+        }
     }
 }

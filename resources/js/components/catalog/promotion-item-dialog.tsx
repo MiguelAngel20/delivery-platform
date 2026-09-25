@@ -344,8 +344,8 @@ export function PromotionItemList({
                     </h2>
                     <p className="text-sm text-muted-foreground">
                         {items.length === 0
-                            ? 'Agrega productos del menú o elementos externos.'
-                            : `${items.length} ítem${items.length === 1 ? '' : 's'} en la promoción.`}
+                            ? 'Opcional. El cliente ve nombre, descripción y precio. Agrega ítems solo si hay productos o extras por configurar.'
+                            : `${items.length} ítem${items.length === 1 ? '' : 's'} configurado${items.length === 1 ? '' : 's'} (personalización al pedir).`}
                     </p>
                 </div>
                 <Button
@@ -362,8 +362,8 @@ export function PromotionItemList({
 
             {items.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                    Aún no hay ítems. Usa &quot;Agregar ítem&quot; para
-                    comenzar.
+                    Sin ítems por ahora. Puedes guardar la promoción solo con
+                    nombre, descripción y precio.
                 </div>
             ) : (
                 <ul className="divide-y divide-border rounded-lg border border-border">

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Web\Public;
 use App\Enums\BranchStatus;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
-use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\BusinessBranch;
@@ -129,27 +128,46 @@ class RestaurantController extends Controller
             ->roots()
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['id', 'name', 'description', 'sort_order', 'parent_id']);
+            ->get(['id', 'name', 'description', 'sort_order', 'parent_id', 'is_active', 'has_schedule', 'schedule_hours'])
+            ->filter(fn (ProductCategory $category): bool => $category->isVisibleNow())
+            ->values();
+
+        $visibleCategoryIds = $categories
+            ->flatMap(fn (ProductCategory $category) => [
+                $category->id,
+                ...$category->children->pluck('id')->all(),
+            ])
+            ->unique()
+            ->values()
+            ->all();
 
         $products = Product::query()
             ->where('branch_id', $branch->id)
             ->where('is_active', true)
+            ->where(function ($query) use ($visibleCategoryIds): void {
+                $query->whereIn('product_category_id', $visibleCategoryIds)
+                    ->orWhereNull('product_category_id');
+            })
             ->with([
-                'category:id,name,parent_id',
-                'category.parent:id,name',
+                'category:id,name,parent_id,is_active,has_schedule,schedule_hours',
+                'category.parent:id,name,is_active,has_schedule,schedule_hours',
                 'currentPrice',
                 'optionGroups' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order'),
                 'optionGroups.options' => fn ($query) => $query->where('is_available', true)->orderBy('sort_order'),
             ])
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (Product $product): bool => $product->category === null || $product->category->isVisibleNow())
+            ->values();
 
         $promotions = Promotion::query()
             ->where('branch_id', $branch->id)
-            ->where('status', PromotionStatus::Active)
+            ->currentlyAvailable()
             ->with('items')
             ->latest()
-            ->get();
+            ->get()
+            ->filter(fn (Promotion $promotion): bool => $promotion->isCurrentlyAvailable())
+            ->values();
 
         $logoUrl = $this->logoStorage->url($business->logo_path);
 

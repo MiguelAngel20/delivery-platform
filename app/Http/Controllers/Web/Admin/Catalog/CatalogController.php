@@ -16,10 +16,13 @@ use App\Models\ProductCategory;
 use App\Models\Promotion;
 use App\Support\Catalog\CatalogListPagination;
 use App\Support\CatalogData;
+use App\Support\CategorySchedule;
 use App\Support\ProductImageStorage;
+use App\Support\PromotionSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -72,25 +75,14 @@ class CatalogController extends Controller
     {
         $this->ensurePlatformOperated($business);
 
-        $validated = $request->validate([
-            'branch_id' => [
-                'required',
-                'integer',
-                Rule::exists('business_branches', 'id')
-                    ->where('business_id', $business->id)
-                    ->whereNull('deleted_at'),
-            ],
-            'name' => ['required', 'string', 'max:100'],
-            'description' => ['nullable', 'string'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-            'is_active' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $this->validatePrincipalCategory($request, $business);
 
         ProductCategory::query()->create([
-            ...$validated,
+            ...collect($validated)->except(['has_schedule', 'schedule_hours'])->all(),
             'parent_id' => null,
             'is_active' => $request->boolean('is_active', true),
             'sort_order' => (int) ($validated['sort_order'] ?? 0),
+            ...CategorySchedule::attributesFromValidated($validated, allowSchedule: true),
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Categoría creada.']);
@@ -119,18 +111,14 @@ class CatalogController extends Controller
         $this->ensureCategory($business, $category);
         abort_unless($category->isRoot(), 404);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'description' => ['nullable', 'string'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-            'is_active' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $this->validatePrincipalCategory($request, $business, updating: true);
 
         $category->update([
-            ...$validated,
+            ...collect($validated)->except(['branch_id', 'has_schedule', 'schedule_hours'])->all(),
             'parent_id' => null,
-            'is_active' => $request->boolean('is_active', $category->is_active),
+            'is_active' => $request->boolean('is_active'),
             'sort_order' => (int) ($validated['sort_order'] ?? $category->sort_order),
+            ...CategorySchedule::attributesFromValidated($validated, allowSchedule: true),
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Categoría actualizada.']);
@@ -213,9 +201,10 @@ class CatalogController extends Controller
         ]);
 
         ProductCategory::query()->create([
-            ...$validated,
+            ...collect($validated)->except(['has_schedule', 'schedule_hours'])->all(),
             'is_active' => $request->boolean('is_active', true),
             'sort_order' => (int) ($validated['sort_order'] ?? 0),
+            ...CategorySchedule::attributesFromValidated([], allowSchedule: false),
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Subcategoría creada.']);
@@ -262,8 +251,9 @@ class CatalogController extends Controller
         $subcategory->update([
             ...$validated,
             'parent_id' => (int) $validated['parent_id'],
-            'is_active' => $request->boolean('is_active', $subcategory->is_active),
+            'is_active' => $request->boolean('is_active'),
             'sort_order' => (int) ($validated['sort_order'] ?? $subcategory->sort_order),
+            ...CategorySchedule::attributesFromValidated([], allowSchedule: false),
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Subcategoría actualizada.']);
@@ -493,6 +483,59 @@ class CatalogController extends Controller
     /**
      * @return array<string, mixed>
      */
+    private function validatePrincipalCategory(Request $request, Business $business, bool $updating = false): array
+    {
+        if ($request->has('schedule_hours')) {
+            $request->merge([
+                'schedule_hours' => CategorySchedule::prepareInput($request->input('schedule_hours')),
+            ]);
+        }
+
+        $request->merge([
+            'has_schedule' => filter_var($request->input('has_schedule'), FILTER_VALIDATE_BOOLEAN),
+        ]);
+
+        $hasSchedule = (bool) $request->input('has_schedule');
+
+        $branchRule = $updating
+            ? ['sometimes']
+            : [
+                'required',
+                'integer',
+                Rule::exists('business_branches', 'id')
+                    ->where('business_id', $business->id)
+                    ->whereNull('deleted_at'),
+            ];
+
+        $rules = [
+            'branch_id' => $branchRule,
+            'name' => ['required', 'string', 'max:100'],
+            'description' => ['nullable', 'string'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['sometimes', 'boolean'],
+            'has_schedule' => ['sometimes', 'boolean'],
+        ];
+
+        if ($hasSchedule) {
+            $rules = [...$rules, ...CategorySchedule::validationRules(required: true)];
+        } else {
+            $rules['schedule_hours'] = ['nullable'];
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($hasSchedule) {
+            foreach (CategorySchedule::afterValidation() as $callback) {
+                $validator->after($callback);
+            }
+        }
+
+        return $validator->validate();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function validateProduct(Request $request, Business $business, bool $updating = false): array
     {
         if (is_string($request->input('option_groups'))) {
@@ -554,6 +597,22 @@ class CatalogController extends Controller
             $request->merge(['items' => is_array($decoded) ? $decoded : []]);
         }
 
+        if (is_string($request->input('recurring_hours'))) {
+            $request->merge([
+                'recurring_hours' => PromotionSchedule::prepareInput($request->input('recurring_hours')),
+            ]);
+        } elseif ($request->has('recurring_hours')) {
+            $request->merge([
+                'recurring_hours' => PromotionSchedule::prepareInput($request->input('recurring_hours')),
+            ]);
+        }
+
+        $request->merge([
+            'is_recurring' => filter_var($request->input('is_recurring'), FILTER_VALIDATE_BOOLEAN),
+        ]);
+
+        $isRecurring = (bool) $request->input('is_recurring');
+
         $branchRule = $updating
             ? ['sometimes']
             : [
@@ -564,22 +623,43 @@ class CatalogController extends Controller
                     ->whereNull('deleted_at'),
             ];
 
-        return $request->validate([
+        $rules = [
             'branch_id' => $branchRule,
             'name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'promotion_price' => ['required', 'numeric', 'min:0'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date'],
+            'is_recurring' => ['required', 'boolean'],
             'status' => ['required', Rule::enum(PromotionStatus::class)],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.is_external_item' => ['required', 'boolean'],
+            'items' => ['nullable', 'array'],
+            'items.*.is_external_item' => ['required_with:items', 'boolean'],
             'items.*.product_id' => ['nullable', 'integer'],
             'items.*.name' => ['nullable', 'string', 'max:150'],
             'items.*.description' => ['nullable', 'string'],
             'items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.original_price' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        ];
+
+        if ($isRecurring) {
+            $rules['starts_at'] = ['nullable'];
+            $rules['ends_at'] = ['nullable'];
+            $rules['recurrence_starts_on'] = ['required', 'date'];
+            $rules['recurrence_ends_on'] = ['nullable', 'date', 'after_or_equal:recurrence_starts_on'];
+            $rules = [...$rules, ...PromotionSchedule::validationRules(required: true)];
+        } else {
+            $rules['starts_at'] = ['nullable', 'date'];
+            $rules['ends_at'] = ['nullable', 'date', 'after_or_equal:starts_at'];
+            $rules['recurrence_starts_on'] = ['nullable'];
+            $rules['recurrence_ends_on'] = ['nullable'];
+            $rules['recurring_hours'] = ['nullable'];
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        foreach (PromotionSchedule::afterValidation() as $callback) {
+            $validator->after($callback);
+        }
+
+        return $validator->validate();
     }
 }

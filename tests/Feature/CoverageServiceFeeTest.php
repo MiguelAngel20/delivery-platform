@@ -10,6 +10,7 @@ use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Models\CoverageZone;
 use App\Models\Customer;
+use App\Models\CustomerAddress;
 use App\Models\Product;
 use App\Models\ProductPrice;
 use App\Models\ServiceFeeDistanceSetting;
@@ -57,16 +58,22 @@ test('creating an order applies distance-based service fee', function () {
 
     expect($meters)->toBeGreaterThan(1000)->toBeLessThanOrEqual(2000);
 
+    $address = CustomerAddress::factory()->create([
+        'customer_id' => $customer->id,
+        'address_text' => 'A ~1.5 km',
+        'latitude' => $deliveryLat,
+        'longitude' => $deliveryLng,
+        'is_default' => true,
+    ]);
+
     $order = app(CreateOrder::class)->handle($customer, $user, [
         'branch_id' => $branch->id,
         'items' => [
             ['product_id' => $product->id, 'quantity' => 1, 'selected_options' => []],
         ],
         'delivery' => [
-            'source' => OrderAddressSource::Temporary->value,
-            'address_text' => 'A ~1.5 km',
-            'latitude' => $deliveryLat,
-            'longitude' => $deliveryLng,
+            'source' => OrderAddressSource::SavedAddress->value,
+            'customer_address_id' => $address->id,
         ],
     ]);
 

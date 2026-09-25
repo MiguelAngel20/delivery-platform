@@ -30,6 +30,10 @@ final class CatalogData
             'description' => $category->description,
             'sort_order' => $category->sort_order,
             'is_active' => $category->is_active,
+            'has_schedule' => $category->has_schedule,
+            'schedule_hours' => $category->has_schedule
+                ? CategorySchedule::normalize($category->schedule_hours ?? CategorySchedule::defaultHours())
+                : CategorySchedule::defaultHours(),
             'can_delete' => ! $category->isInUse(),
         ];
     }
@@ -160,6 +164,12 @@ final class CatalogData
             'image_url' => $promotion->imageUrl(),
             'starts_at' => $promotion->starts_at?->toIso8601String(),
             'ends_at' => $promotion->ends_at?->toIso8601String(),
+            'is_recurring' => $promotion->is_recurring,
+            'recurrence_starts_on' => $promotion->recurrence_starts_on?->toDateString(),
+            'recurrence_ends_on' => $promotion->recurrence_ends_on?->toDateString(),
+            'recurring_hours' => $promotion->is_recurring
+                ? PromotionSchedule::normalize($promotion->recurring_hours ?? PromotionSchedule::defaultHours())
+                : PromotionSchedule::defaultHours(),
             'status' => $promotion->status->value,
             'status_label' => $promotion->status->label(),
             'items' => $promotion->items->map(fn ($item): array => [
@@ -278,6 +288,9 @@ final class CatalogData
                 ])
                 ->values()
                 ->all(),
+            'weekdays' => BusinessHours::dayOptions(),
+            'default_recurring_hours' => PromotionSchedule::defaultHours(),
+            'default_schedule_hours' => CategorySchedule::defaultHours(),
         ];
     }
 }

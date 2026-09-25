@@ -293,6 +293,7 @@ export default function BusinessOrderShow({
                                 customer={order.customer}
                                 deliveryAddress={order.delivery_address}
                                 orderNumber={order.order_number}
+                                showReference={false}
                                 footer={
                                     <div className="flex flex-wrap items-center gap-2 pt-1">
                                         <StatusBadge

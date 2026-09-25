@@ -2,8 +2,10 @@
 
 namespace App\Services\Customers;
 
+use App\Enums\OrderStatus;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
+use App\Models\Order;
 use App\Services\Geo\CoverageService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +16,20 @@ final class CustomerAddressService
     public function __construct(
         private readonly CoverageService $coverage,
     ) {}
+
+    public function assertCanManageAddresses(Customer $customer): void
+    {
+        $hasCompletedOrder = Order::query()
+            ->where('customer_id', $customer->id)
+            ->where('order_status', OrderStatus::Delivered)
+            ->exists();
+
+        if (! $hasCompletedOrder) {
+            throw ValidationException::withMessages([
+                'address' => 'Completa tu primer pedido entregado para agregar o eliminar direcciones.',
+            ]);
+        }
+    }
 
     /**
      * @param  array<string, mixed>  $data

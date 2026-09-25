@@ -5,6 +5,7 @@ namespace App\Actions\Catalog;
 use App\Models\Promotion;
 use App\Models\User;
 use App\Support\PromotionImageStorage;
+use App\Support\PromotionSchedule;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
@@ -25,12 +26,13 @@ final class UpdatePromotion
                 $this->imageStorage->replace($promotion, $data['image']);
             }
 
+            $schedule = PromotionSchedule::attributesFromValidated($data);
+
             $promotion->update([
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
                 'promotion_price' => $data['promotion_price'],
-                'starts_at' => $data['starts_at'] ?? null,
-                'ends_at' => $data['ends_at'] ?? null,
+                ...$schedule,
                 'status' => $data['status'] ?? $promotion->status,
             ]);
 

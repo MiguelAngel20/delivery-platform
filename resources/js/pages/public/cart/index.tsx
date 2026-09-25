@@ -20,6 +20,7 @@ import { useDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-locati
 import { useServiceFeeQuote } from '@/apps/storefront/hooks/use-service-fee-quote';
 import { COVERAGE_UNAVAILABLE_MESSAGE } from '@/apps/storefront/lib/check-delivery-coverage';
 import type { ActivitySuspensionShared } from '@/apps/storefront/components/activity-suspension-modal';
+import { LoadingDialog } from '@/components/feedback/loading-dialog';
 import { notify } from '@/components/feedback/toast';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
@@ -51,12 +52,11 @@ export default function CartIndex() {
     const {
         status: branchOrdering,
         isLoading: branchOrderingLoading,
+        waitUntilReady: waitForBranchOrdering,
     } = useBranchOrderingStatus(cart.branchId);
     const branchClosed = branchOrdering?.open === false;
     const branchClosedMessage =
         branchOrdering?.closedMessage ?? BRANCH_CLOSED_FALLBACK;
-    const branchOrderingPending =
-        cart.branchId != null && branchOrderingLoading;
     const feeQuote = useServiceFeeQuote(
         hasCoordinates ? location.latitude : null,
         hasCoordinates ? location.longitude : null,
@@ -82,10 +82,15 @@ export default function CartIndex() {
     );
     const [editingPromotionLine, setEditingPromotionLine] =
         useState<CartLine | null>(null);
+    const [checkingBranchHours, setCheckingBranchHours] = useState(false);
 
     const outsideCoverage = feeQuote?.covered === false;
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
+        if (checkingBranchHours) {
+            return;
+        }
+
         if (orderingSuspended) {
             notify.error(
                 activitySuspension?.footnote ??
@@ -95,20 +100,32 @@ export default function CartIndex() {
             return;
         }
 
-        if (branchOrderingPending) {
-            return;
-        }
-
-        if (branchClosed) {
-            notify.error(branchClosedMessage);
-
-            return;
-        }
-
         if (outsideCoverage) {
             notify.error(
                 feeQuote?.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
             );
+
+            return;
+        }
+
+        let isClosed = branchClosed;
+        let closedMessage = branchClosedMessage;
+
+        if (cart.branchId != null && (branchOrderingLoading || branchOrdering == null)) {
+            setCheckingBranchHours(true);
+
+            try {
+                const status = await waitForBranchOrdering();
+                isClosed = status?.open === false;
+                closedMessage =
+                    status?.closedMessage ?? BRANCH_CLOSED_FALLBACK;
+            } finally {
+                setCheckingBranchHours(false);
+            }
+        }
+
+        if (isClosed) {
+            notify.error(closedMessage);
 
             return;
         }
@@ -263,17 +280,26 @@ export default function CartIndex() {
                         <CheckoutFooter
                             total={total}
                             primaryLabel="Continuar"
-                            onPrimary={handleContinue}
+                            onPrimary={() => {
+                                void handleContinue();
+                            }}
                             primaryDisabled={
                                 outsideCoverage ||
                                 orderingSuspended ||
                                 branchClosed ||
-                                branchOrderingPending
+                                checkingBranchHours
                             }
+                            primaryLoading={checkingBranchHours}
                         />
                     </>
                 )}
             </PageContainer>
+
+            <LoadingDialog
+                open={checkingBranchHours}
+                title="Verificando horario…"
+                description="Estamos comprobando si la sucursal puede recibir tu pedido."
+            />
 
             <PromotionDialog
                 promotionId={editingPromotionId}

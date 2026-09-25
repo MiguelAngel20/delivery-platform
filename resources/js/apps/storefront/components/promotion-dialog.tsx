@@ -293,48 +293,66 @@ export function PromotionDialog({
                     <div className="space-y-5">
                         {isConfirmStep ? (
                             <>
-                                <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
-                                    <p className="text-sm font-medium text-navy">
-                                        Productos
+                                {promotion.description ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        {promotion.description}
                                     </p>
-                                    {promotion.items.map((item) => {
-                                        const draft = itemDrafts[item.id];
-                                        const summary = summarizeItemSelections(
-                                            item,
-                                            draft,
-                                        );
-                                        const configLines =
-                                            formatItemConfigurationLines(
-                                                draft,
-                                                summary,
-                                            );
+                                ) : null}
 
-                                        return (
-                                            <div
-                                                key={item.id}
-                                                className="space-y-0.5 border-b border-border pb-3 last:border-0 last:pb-0"
-                                            >
-                                                <p className="text-sm font-medium text-foreground">
-                                                    {item.name}
-                                                </p>
-                                                {configLines.length > 0 ? (
-                                                    configLines.map((line) => (
-                                                        <p
-                                                            key={line}
-                                                            className="text-xs text-muted-foreground"
-                                                        >
-                                                            {line}
-                                                        </p>
-                                                    ))
-                                                ) : (
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Sin personalización
+                                <p className="text-lg font-semibold text-primary">
+                                    {promotion.price > 0
+                                        ? formatMoney(promotion.price)
+                                        : 'Ver detalle'}
+                                </p>
+
+                                {promotion.items.length > 0 ? (
+                                    <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
+                                        <p className="text-sm font-medium text-navy">
+                                            Incluye
+                                        </p>
+                                        {promotion.items.map((item) => {
+                                            const draft = itemDrafts[item.id];
+                                            const summary =
+                                                summarizeItemSelections(
+                                                    item,
+                                                    draft,
+                                                );
+                                            const configLines =
+                                                formatItemConfigurationLines(
+                                                    draft,
+                                                    summary,
+                                                );
+
+                                            return (
+                                                <div
+                                                    key={item.id}
+                                                    className="space-y-0.5 border-b border-border pb-3 last:border-0 last:pb-0"
+                                                >
+                                                    <p className="text-sm font-medium text-foreground">
+                                                        {item.name}
                                                     </p>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                                    {configLines.length > 0 ? (
+                                                        configLines.map(
+                                                            (line) => (
+                                                                <p
+                                                                    key={line}
+                                                                    className="text-xs text-muted-foreground"
+                                                                >
+                                                                    {line}
+                                                                </p>
+                                                            ),
+                                                        )
+                                                    ) : (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Sin
+                                                            personalización
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : null}
 
                                 <div className="flex items-center justify-between gap-3">
                                     <p className="text-sm font-medium text-navy">

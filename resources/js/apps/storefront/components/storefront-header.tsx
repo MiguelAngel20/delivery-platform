@@ -212,7 +212,7 @@ export function StorefrontHeader() {
                         <Button asChild variant="ghost" size="sm">
                             <Link href={home()}>Inicio</Link>
                         </Button>
-                        <DropdownMenu>
+                        <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     type="button"
@@ -224,7 +224,11 @@ export function StorefrontHeader() {
                                     <ChevronDown className="size-4 opacity-70" />
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="min-w-48">
+                            <DropdownMenuContent
+                                align="start"
+                                collisionPadding={12}
+                                className="z-[60] min-w-48"
+                            >
                                 <DropdownMenuLabel>
                                     Tipo / giro
                                 </DropdownMenuLabel>
@@ -292,7 +296,7 @@ export function StorefrontHeader() {
                         </Button>
 
                         {authenticated ? (
-                            <DropdownMenu>
+                            <DropdownMenu modal={false}>
                                 <DropdownMenuTrigger asChild>
                                     <Button
                                         variant="ghost"
@@ -308,7 +312,8 @@ export function StorefrontHeader() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
                                     align="end"
-                                    className="min-w-64"
+                                    collisionPadding={12}
+                                    className="z-[60] max-h-[min(70dvh,28rem)] min-w-64 overflow-y-auto"
                                 >
                                     <DropdownMenuLabel className="font-normal">
                                         <p className="truncate text-sm font-medium text-navy">

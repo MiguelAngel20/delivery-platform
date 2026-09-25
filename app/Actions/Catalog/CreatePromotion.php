@@ -10,6 +10,7 @@ use App\Models\PromotionItem;
 use App\Models\User;
 use App\Support\Catalog\PromotionItemOptionGroups;
 use App\Support\PromotionImageStorage;
+use App\Support\PromotionSchedule;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -32,14 +33,15 @@ final class CreatePromotion
                 $imagePath = $this->imageStorage->store($data['image']);
             }
 
+            $schedule = PromotionSchedule::attributesFromValidated($data);
+
             $promotion = Promotion::query()->create([
                 'branch_id' => $branch->id,
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
                 'promotion_price' => $data['promotion_price'],
                 'image_path' => $imagePath,
-                'starts_at' => $data['starts_at'] ?? null,
-                'ends_at' => $data['ends_at'] ?? null,
+                ...$schedule,
                 'status' => $data['status'] ?? PromotionStatus::Draft->value,
                 'created_by_user_id' => $actor?->id,
             ]);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export type BranchOrderingStatus = {
     open: boolean;
@@ -11,22 +11,124 @@ export type BranchOrderingGate = {
     isLoading: boolean;
     /** True once the check finished (or no branch to check). */
     isReady: boolean;
+    /** Resolves with the latest status (uses cache / shared in-flight request). */
+    waitUntilReady: () => Promise<BranchOrderingStatus | null>;
 };
 
 const BRANCH_CLOSED_FALLBACK =
     'Esta sucursal está cerrada en este momento. Puedes armar tu pedido, pero no es posible confirmarlo hasta que abra.';
 
+const CACHE_TTL_MS = 45_000;
+
+type CacheEntry = {
+    status: BranchOrderingStatus;
+    fetchedAt: number;
+};
+
+const statusCache = new Map<number, CacheEntry>();
+const inflightRequests = new Map<
+    number,
+    Promise<BranchOrderingStatus | null>
+>();
+
+function readCache(branchId: number): BranchOrderingStatus | null {
+    const entry = statusCache.get(branchId);
+
+    if (!entry) {
+        return null;
+    }
+
+    if (Date.now() - entry.fetchedAt > CACHE_TTL_MS) {
+        statusCache.delete(branchId);
+
+        return null;
+    }
+
+    return entry.status;
+}
+
+async function fetchBranchOrderingStatus(
+    branchId: number,
+): Promise<BranchOrderingStatus | null> {
+    const cached = readCache(branchId);
+
+    if (cached) {
+        return cached;
+    }
+
+    const existing = inflightRequests.get(branchId);
+
+    if (existing) {
+        return existing;
+    }
+
+    const request = (async (): Promise<BranchOrderingStatus | null> => {
+        try {
+            const response = await fetch(
+                `/cart/branches/${branchId}/ordering-status`,
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error('ordering status failed');
+            }
+
+            const data = (await response.json()) as {
+                open?: boolean;
+                closed_message?: string | null;
+            };
+
+            const status: BranchOrderingStatus = {
+                open: data.open !== false,
+                closedMessage:
+                    data.open === false
+                        ? (data.closed_message?.trim() ||
+                          BRANCH_CLOSED_FALLBACK)
+                        : null,
+            };
+
+            statusCache.set(branchId, {
+                status,
+                fetchedAt: Date.now(),
+            });
+
+            return status;
+        } catch {
+            return null;
+        } finally {
+            inflightRequests.delete(branchId);
+        }
+    })();
+
+    inflightRequests.set(branchId, request);
+
+    return request;
+}
+
 /**
  * Live open/closed status for the branch in the cart (checkout gates).
- * While `isLoading`, continue actions must stay disabled to avoid racing the check.
+ * Prefer keeping Continuar enabled and calling `waitUntilReady` on click
+ * instead of disabling the button while the check is in flight.
  */
 export function useBranchOrderingStatus(
     branchId?: number | null,
 ): BranchOrderingGate {
-    const [status, setStatus] = useState<BranchOrderingStatus | null>(null);
-    const [isLoading, setIsLoading] = useState(
-        () => branchId != null && branchId > 0,
+    const [status, setStatus] = useState<BranchOrderingStatus | null>(() =>
+        branchId != null && branchId > 0 ? readCache(branchId) : null,
     );
+    const [isLoading, setIsLoading] = useState(() => {
+        if (branchId == null || branchId <= 0) {
+            return false;
+        }
+
+        return readCache(branchId) == null;
+    });
 
     useEffect(() => {
         if (branchId == null || branchId <= 0) {
@@ -36,65 +138,46 @@ export function useBranchOrderingStatus(
             return;
         }
 
-        const controller = new AbortController();
+        const cached = readCache(branchId);
+
+        if (cached) {
+            setStatus(cached);
+            setIsLoading(false);
+
+            return;
+        }
+
+        let cancelled = false;
         setStatus(null);
         setIsLoading(true);
 
-        void (async () => {
-            try {
-                const response = await fetch(
-                    `/cart/branches/${branchId}/ordering-status`,
-                    {
-                        headers: {
-                            Accept: 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        credentials: 'same-origin',
-                        signal: controller.signal,
-                    },
-                );
-
-                if (!response.ok) {
-                    throw new Error('ordering status failed');
-                }
-
-                const data = (await response.json()) as {
-                    open?: boolean;
-                    closed_message?: string | null;
-                };
-
-                if (controller.signal.aborted) {
-                    return;
-                }
-
-                setStatus({
-                    open: data.open !== false,
-                    closedMessage:
-                        data.open === false
-                            ? (data.closed_message?.trim() ||
-                              BRANCH_CLOSED_FALLBACK)
-                            : null,
-                });
-            } catch {
-                if (controller.signal.aborted) {
-                    return;
-                }
-
-                setStatus(null);
-            } finally {
-                if (!controller.signal.aborted) {
-                    setIsLoading(false);
-                }
+        void fetchBranchOrderingStatus(branchId).then((result) => {
+            if (cancelled) {
+                return;
             }
-        })();
 
-        return () => controller.abort();
+            setStatus(result);
+            setIsLoading(false);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [branchId]);
+
+    const waitUntilReady = useCallback(async (): Promise<BranchOrderingStatus | null> => {
+        if (branchId == null || branchId <= 0) {
+            return null;
+        }
+
+        return fetchBranchOrderingStatus(branchId);
     }, [branchId]);
 
     return {
         status,
         isLoading,
         isReady: !isLoading,
+        waitUntilReady,
     };
 }
 

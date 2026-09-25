@@ -157,3 +157,54 @@ test('cannot nest a category that already has children', function () {
         ])
         ->assertSessionHasErrors(['parent_id']);
 });
+
+test('business admin can deactivate and reactivate a category via update', function () {
+    ['admin' => $admin, 'branch' => $branch] = seedSubcategoryBusinessAdmin();
+
+    $category = ProductCategory::factory()->create([
+        'branch_id' => $branch->id,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('business.categories.update', $category), [
+            'name' => $category->name,
+            'description' => $category->description,
+            'sort_order' => $category->sort_order,
+            'is_active' => '0',
+        ])
+        ->assertRedirect(route('business.categories.index'));
+
+    expect($category->fresh()->is_active)->toBeFalse();
+
+    $this->actingAs($admin)
+        ->put(route('business.categories.update', $category), [
+            'name' => $category->name,
+            'is_active' => '1',
+        ])
+        ->assertRedirect(route('business.categories.index'));
+
+    expect($category->fresh()->is_active)->toBeTrue();
+});
+
+test('business admin can deactivate a subcategory via update', function () {
+    ['admin' => $admin, 'branch' => $branch] = seedSubcategoryBusinessAdmin();
+
+    $parent = ProductCategory::factory()->create([
+        'branch_id' => $branch->id,
+        'is_active' => true,
+    ]);
+    $subcategory = ProductCategory::factory()->childOf($parent)->create([
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('business.subcategories.update', $subcategory), [
+            'parent_id' => $parent->id,
+            'name' => $subcategory->name,
+            'is_active' => '0',
+        ])
+        ->assertRedirect(route('business.subcategories.index'));
+
+    expect($subcategory->fresh()->is_active)->toBeFalse();
+});

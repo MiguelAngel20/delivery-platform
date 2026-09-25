@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Business\Catalog;
 
 use App\Models\ProductCategory;
+use App\Support\CategorySchedule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -17,14 +18,31 @@ class UpdateProductCategoryRequest extends FormRequest
             && ($this->user()?->can('update', $category) ?? false);
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('schedule_hours')) {
+            $this->merge([
+                'schedule_hours' => CategorySchedule::prepareInput($this->input('schedule_hours')),
+            ]);
+        }
+
+        if ($this->has('has_schedule')) {
+            $this->merge([
+                'has_schedule' => filter_var($this->input('has_schedule'), FILTER_VALIDATE_BOOLEAN),
+            ]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         $category = $this->category();
+        $isPrincipal = $category?->isRoot() ?? blank($this->input('parent_id'));
+        $hasSchedule = filter_var($this->input('has_schedule'), FILTER_VALIDATE_BOOLEAN);
 
-        return [
+        $rules = [
             'parent_id' => [
                 'nullable',
                 'integer',
@@ -38,7 +56,16 @@ class UpdateProductCategoryRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+            'has_schedule' => ['sometimes', 'boolean'],
         ];
+
+        if ($isPrincipal && $hasSchedule) {
+            $rules = [...$rules, ...CategorySchedule::validationRules(required: true)];
+        } else {
+            $rules['schedule_hours'] = ['nullable'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -62,6 +89,7 @@ class UpdateProductCategoryRequest extends FormRequest
             'parent_id' => 'categoría padre',
             'name' => 'nombre',
             'description' => 'descripción',
+            'schedule_hours' => 'horario',
         ];
     }
 
@@ -81,6 +109,20 @@ class UpdateProductCategoryRequest extends FormRequest
                 );
             }
         });
+
+        $category = $this->category();
+
+        if ($category === null || ! $category->isRoot()) {
+            return;
+        }
+
+        if (! filter_var($this->input('has_schedule'), FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
+        foreach (CategorySchedule::afterValidation() as $callback) {
+            $validator->after($callback);
+        }
     }
 
     private function category(): ?ProductCategory

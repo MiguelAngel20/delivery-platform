@@ -26,6 +26,12 @@ class ServiceFeeQuoteController extends Controller
             'branch_id' => ['nullable', 'integer', 'exists:business_branches,id'],
         ]);
 
+        // Release the session lock before slow geo/distance work so parallel
+        // cart requests (e.g. branch ordering-status) are not blocked.
+        if ($request->hasSession()) {
+            $request->session()->save();
+        }
+
         $branch = isset($validated['branch_id'])
             ? BusinessBranch::query()->find($validated['branch_id'])
             : null;

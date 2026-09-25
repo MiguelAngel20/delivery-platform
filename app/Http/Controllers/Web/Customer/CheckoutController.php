@@ -16,11 +16,18 @@ class CheckoutController extends Controller
     public function __invoke(Request $request, CustomerLoyaltyService $loyalty): Response
     {
         $customer = $this->currentCustomer($request);
+        $hasCompletedOrder = $loyalty->hasCompletedOrder($customer);
 
-        $addresses = $customer->addresses()
+        $addressesQuery = $customer->addresses()
             ->where('is_active', true)
             ->orderByDesc('is_default')
-            ->orderBy('label')
+            ->orderBy('label');
+
+        if (! $hasCompletedOrder) {
+            $addressesQuery->where('is_default', true);
+        }
+
+        $addresses = $addressesQuery
             ->get()
             ->map(fn (CustomerAddress $address): array => [
                 'id' => (string) $address->id,
@@ -37,6 +44,8 @@ class CheckoutController extends Controller
 
         return Inertia::render('customer/checkout/index', [
             'addresses' => $addresses,
+            'hasCompletedOrder' => $hasCompletedOrder,
+            'canUseTemporaryAddress' => $hasCompletedOrder,
             'loyalty' => $progress,
             'orderSettings' => [
                 'service_fee' => (float) $progress['service_fee'],

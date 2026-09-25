@@ -65,7 +65,7 @@ test('business admin receives validation errors when creating promotion without 
     $this->actingAs($admin)
         ->from(route('business.promotions.create'))
         ->post(route('business.promotions.store'), [])
-        ->assertSessionHasErrors(['branch_id', 'name', 'promotion_price', 'status', 'items'])
+        ->assertSessionHasErrors(['branch_id', 'name', 'promotion_price', 'status'])
         ->assertRedirect(route('business.promotions.create'));
 });
 
@@ -206,6 +206,27 @@ test('changing price preserves history', function () {
 
     expect(ProductPrice::query()->where('product_id', $product->id)->count())->toBe(2)
         ->and(ProductPrice::query()->where('product_id', $product->id)->where('is_active', false)->count())->toBe(1);
+});
+
+test('promotion can be created without items', function () {
+    ['admin' => $admin, 'branch' => $branch] = seedCatalogBusinessAdmin();
+
+    $this->actingAs($admin)
+        ->post(route('business.promotions.store'), [
+            'branch_id' => $branch->id,
+            'name' => 'Promo solo precio',
+            'description' => 'Sin ítems configurados',
+            'promotion_price' => 99,
+            'status' => PromotionStatus::Active->value,
+            'items' => [],
+        ])
+        ->assertRedirect();
+
+    $promotion = Promotion::query()->where('name', 'Promo solo precio')->first();
+
+    expect($promotion)->not->toBeNull()
+        ->and($promotion?->items()->count())->toBe(0)
+        ->and((string) $promotion?->promotion_price)->toBe('99.00');
 });
 
 test('promotion can contain menu product', function () {

@@ -18,6 +18,11 @@ use App\Models\User;
 test('customer can save valid address', function () {
     $user = User::factory()->customer()->create();
     $customer = Customer::factory()->forUser($user)->create();
+    Order::factory()->create([
+        'customer_id' => $customer->id,
+        'order_status' => OrderStatus::Delivered,
+        'delivered_at' => now(),
+    ]);
 
     $this->actingAs($user)
         ->post(route('customer.addresses.store'), [
@@ -47,6 +52,11 @@ test('customer cannot save an address outside platform coverage', function () {
 
     $user = User::factory()->customer()->create();
     $customer = Customer::factory()->forUser($user)->create();
+    Order::factory()->create([
+        'customer_id' => $customer->id,
+        'order_status' => OrderStatus::Delivered,
+        'delivered_at' => now(),
+    ]);
 
     $this->actingAs($user)
         ->post(route('customer.addresses.store'), [
@@ -64,6 +74,11 @@ test('customer cannot save an address outside platform coverage', function () {
 test('customer cannot exceed four active addresses', function () {
     $user = User::factory()->customer()->create();
     $customer = Customer::factory()->forUser($user)->create();
+    Order::factory()->create([
+        'customer_id' => $customer->id,
+        'order_status' => OrderStatus::Delivered,
+        'delivered_at' => now(),
+    ]);
 
     CustomerAddress::factory()->count(4)->create([
         'customer_id' => $customer->id,

@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import {
     consumeCheckoutIntent,
     consumePendingCartClear,
+    purgeUnavailableProductLines,
+    purgeUnavailablePromotionLines,
 } from '@/apps/storefront/cart/use-storefront-cart';
 import { StorefrontBottomNav } from '@/apps/storefront/components/storefront-bottom-nav';
 import { ActivitySuspensionModal } from '@/apps/storefront/components/activity-suspension-modal';
@@ -12,6 +14,7 @@ import { StorefrontFooter } from '@/apps/storefront/components/storefront-footer
 import { StorefrontHeader } from '@/apps/storefront/components/storefront-header';
 import { clearAccountBoundDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-location';
 import { useStorefrontShell } from '@/apps/storefront/hooks/use-storefront-shell';
+import { notify } from '@/components/feedback/toast';
 import { PushPermissionPrompt } from '@/components/notifications/push-permission-prompt';
 import { useCustomerForegroundPush } from '@/hooks/use-customer-foreground-push';
 import { forceLightTheme } from '@/hooks/use-appearance';
@@ -24,6 +27,7 @@ export default function StorefrontLayout({
     children: ReactNode;
 }) {
     const { auth } = usePage().props as { auth: Auth };
+    const pageUrl = usePage().url;
     const { showBottomNav } = useStorefrontShell();
 
     useCustomerForegroundPush();
@@ -33,6 +37,29 @@ export default function StorefrontLayout({
     useEffect(() => {
         consumePendingCartClear();
     }, []);
+
+    useEffect(() => {
+        void (async () => {
+            const removedPromotions = await purgeUnavailablePromotionLines();
+            const removedProducts = await purgeUnavailableProductLines();
+
+            if (removedPromotions > 0) {
+                notify.info(
+                    removedPromotions === 1
+                        ? 'Se quitó una promoción que ya no está disponible.'
+                        : `Se quitaron ${removedPromotions} promociones que ya no están disponibles.`,
+                );
+            }
+
+            if (removedProducts > 0) {
+                notify.info(
+                    removedProducts === 1
+                        ? 'Se quitó un producto que ya no está disponible en este horario.'
+                        : `Se quitaron ${removedProducts} productos que ya no están disponibles en este horario.`,
+                );
+            }
+        })();
+    }, [pageUrl]);
 
     useEffect(() => {
         if (auth.user?.role === 'customer') {
@@ -55,12 +82,12 @@ export default function StorefrontLayout({
     }, [auth.user?.role]);
 
     return (
-        <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background text-foreground">
+        <div className="flex min-h-screen min-w-0 flex-col bg-background text-foreground">
             {auth.user?.role === 'customer' ? (
                 <PushPermissionPrompt tone="customer" />
             ) : null}
             <StorefrontHeader />
-            <main className="mx-auto w-full min-w-0 max-w-6xl flex-1">
+            <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 overflow-x-clip">
                 {children}
             </main>
             <div className={cn('md:pb-0', showBottomNav ? 'pb-24' : 'pb-0')}>

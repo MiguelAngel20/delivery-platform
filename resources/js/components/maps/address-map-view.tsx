@@ -25,7 +25,7 @@ type AddressMapViewProps = {
     blockInteraction?: boolean;
     /** Optional coverage radius (meters) drawn as a circle around the pin. */
     radiusMeters?: number | null;
-    onCenterSettled: (lat: number, lng: number) => void;
+    onCenterSettled?: (lat: number, lng: number) => void;
 };
 
 export const AddressMapView = forwardRef<AddressMapHandle, AddressMapViewProps>(
@@ -135,7 +135,7 @@ export const AddressMapView = forwardRef<AddressMapHandle, AddressMapViewProps>(
                     return;
                 }
 
-                onCenterSettledRef.current(center.lat(), center.lng());
+                onCenterSettledRef.current?.(center.lat(), center.lng());
                 syncCircleCenter(center.lat(), center.lng());
             });
 

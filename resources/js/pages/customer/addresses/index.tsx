@@ -33,6 +33,8 @@ type Address = {
 type Props = {
     addresses: Address[];
     maxAddresses: number;
+    hasCompletedOrder: boolean;
+    canManageAddresses: boolean;
 };
 
 const emptyForm = {
@@ -50,11 +52,14 @@ const emptyForm = {
 export default function CustomerAddressesIndex({
     addresses,
     maxAddresses,
+    hasCompletedOrder,
+    canManageAddresses,
 }: Props) {
     const [open, setOpen] = useState(false);
     const [coverageError, setCoverageError] = useState<string | null>(null);
     const [checkingCoverage, setCheckingCoverage] = useState(false);
-    const canAdd = addresses.length < maxAddresses;
+    const canAdd =
+        canManageAddresses && addresses.length < maxAddresses;
     const form = useForm({
         ...emptyForm,
         is_default: addresses.length === 0,
@@ -112,7 +117,11 @@ export default function CustomerAddressesIndex({
             <PageContainer className="gap-5 px-4 py-4 md:px-6">
                 <PageHeader
                     title="Mis direcciones"
-                    description={`Máximo ${maxAddresses} activas`}
+                    description={
+                        hasCompletedOrder
+                            ? `Máximo ${maxAddresses} activas`
+                            : 'Tu dirección de registro se desbloquea para editar o agregar más después de tu primer pedido entregado.'
+                    }
                     actions={
                         canAdd ? (
                             <Button
@@ -126,6 +135,15 @@ export default function CustomerAddressesIndex({
                         ) : null
                     }
                 />
+
+                {!hasCompletedOrder ? (
+                    <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-navy">
+                        Esta es la dirección que registraste. Se usará en tu
+                        primer pedido. Cuando tengas un pedido entregado podrás
+                        agregar hasta {Math.max(maxAddresses - 1, 0)} direcciones
+                        más y gestionarlas aquí.
+                    </p>
+                ) : null}
 
                 <div className="space-y-3">
                     {addresses.length === 0 ? (
@@ -142,23 +160,32 @@ export default function CustomerAddressesIndex({
                                     <div className="min-w-0">
                                         <p className="font-semibold text-navy">
                                             {address.label}
+                                            {address.is_default ? (
+                                                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                                    Predeterminada
+                                                </span>
+                                            ) : null}
                                         </p>
                                         <p className="text-sm text-muted-foreground">
                                             {address.address_text}
                                         </p>
                                     </div>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                        aria-label={`Eliminar ${address.label}`}
-                                        onClick={() =>
-                                            form.delete(destroy.url(address.id))
-                                        }
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
+                                    {canManageAddresses ? (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                            aria-label={`Eliminar ${address.label}`}
+                                            onClick={() =>
+                                                form.delete(
+                                                    destroy.url(address.id),
+                                                )
+                                            }
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </Button>
+                                    ) : null}
                                 </div>
                             </div>
                         ))

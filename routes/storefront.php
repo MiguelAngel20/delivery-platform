@@ -30,6 +30,12 @@ Route::get('cart', fn () => Inertia::render('public/cart/index'))
 Route::get('cart/products/{product}', [CartController::class, 'product'])
     ->name('cart.products.show');
 
+Route::post('cart/products/availability', [CartController::class, 'productsAvailability'])
+    ->name('cart.products.availability');
+
+Route::post('cart/promotions/availability', [CartController::class, 'promotionsAvailability'])
+    ->name('cart.promotions.availability');
+
 Route::get('cart/promotions/{promotion}', [CartController::class, 'promotion'])
     ->name('cart.promotions.show');
 

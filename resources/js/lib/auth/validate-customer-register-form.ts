@@ -18,6 +18,7 @@ export type CustomerRegisterFormInput = {
     password_confirmation: string;
     address_label: string;
     address_text: string;
+    reference: string;
     latitude: string;
     longitude: string;
 };
@@ -133,9 +134,20 @@ export function validateCustomerRegisterForm(
 
     if (!hasLocation) {
         errors.address_text =
-            'Selecciona tu dirección de entrega en el mapa.';
+            'Usa el botón “Usar mi ubicación actual” para continuar.';
     } else if (input.address_text.trim().length > 255) {
         errors.address_text = 'La dirección no puede superar 255 caracteres.';
+    }
+
+    const reference = input.reference.trim();
+
+    if (reference === '') {
+        errors.reference =
+            'Indica una referencia para que el repartidor te encuentre.';
+    } else if (reference.length < 3) {
+        errors.reference = 'La referencia debe tener al menos 3 caracteres.';
+    } else if (reference.length > 500) {
+        errors.reference = 'La referencia no puede superar 500 caracteres.';
     }
 
     return errors;

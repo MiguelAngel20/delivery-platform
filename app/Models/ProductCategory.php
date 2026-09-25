@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\CategorySchedule;
+use Carbon\CarbonInterface;
 use Database\Factories\ProductCategoryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +23,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $description
  * @property int $sort_order
  * @property bool $is_active
+ * @property bool $has_schedule
+ * @property list<array{day: string, is_open: bool, opens_at: string|null, closes_at: string|null}>|null $schedule_hours
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -34,6 +38,8 @@ use Illuminate\Support\Carbon;
     'description',
     'sort_order',
     'is_active',
+    'has_schedule',
+    'schedule_hours',
 ])]
 class ProductCategory extends Model
 {
@@ -46,6 +52,7 @@ class ProductCategory extends Model
     protected $attributes = [
         'sort_order' => 0,
         'is_active' => true,
+        'has_schedule' => false,
     ];
 
     /**
@@ -56,6 +63,8 @@ class ProductCategory extends Model
         return [
             'sort_order' => 'integer',
             'is_active' => 'boolean',
+            'has_schedule' => 'boolean',
+            'schedule_hours' => 'array',
             'parent_id' => 'integer',
         ];
     }
@@ -146,5 +155,45 @@ class ProductCategory extends Model
     public function rootName(): string
     {
         return $this->parent?->name ?? $this->name;
+    }
+
+    /**
+     * Principal category that owns the optional schedule (self or parent).
+     */
+    public function scheduleRoot(): self
+    {
+        if ($this->isRoot()) {
+            return $this;
+        }
+
+        $this->loadMissing('parent');
+
+        return $this->parent ?? $this;
+    }
+
+    /**
+     * Whether this category (and its products) should appear on the storefront now.
+     * Subcategories inherit the principal category schedule.
+     */
+    public function isVisibleNow(?CarbonInterface $at = null): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        $root = $this->scheduleRoot();
+
+        if ($root->id !== $this->id && ! $root->is_active) {
+            return false;
+        }
+
+        if (! $root->has_schedule) {
+            return true;
+        }
+
+        return CategorySchedule::isWithinWeeklyHours(
+            is_array($root->schedule_hours) ? $root->schedule_hours : null,
+            $at,
+        );
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\User;
 use App\Services\Customers\CustomerAddressService;
+use App\Services\Loyalty\CustomerLoyaltyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,11 +18,13 @@ class AddressController extends Controller
 {
     public function __construct(
         private readonly CustomerAddressService $addresses,
+        private readonly CustomerLoyaltyService $loyalty,
     ) {}
 
     public function index(Request $request): Response
     {
         $customer = $this->currentCustomer($request);
+        $hasCompletedOrder = $this->loyalty->hasCompletedOrder($customer);
 
         $addresses = $customer->addresses()
             ->where('is_active', true)
@@ -41,6 +44,8 @@ class AddressController extends Controller
         return Inertia::render('customer/addresses/index', [
             'addresses' => $addresses,
             'maxAddresses' => (int) config('business.orders.max_customer_addresses', 4),
+            'hasCompletedOrder' => $hasCompletedOrder,
+            'canManageAddresses' => $hasCompletedOrder,
         ]);
     }
 
@@ -48,6 +53,7 @@ class AddressController extends Controller
     {
         $customer = $this->currentCustomer($request);
 
+        $this->addresses->assertCanManageAddresses($customer);
         $this->addresses->create($customer, $request->validated());
 
         Inertia::flash('toast', [
@@ -63,6 +69,7 @@ class AddressController extends Controller
         $customer = $this->currentCustomer($request);
         abort_unless($address->customer_id === $customer->id, 404);
 
+        $this->addresses->assertCanManageAddresses($customer);
         $this->addresses->delete($address);
 
         Inertia::flash('toast', [

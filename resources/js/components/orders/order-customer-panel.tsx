@@ -19,6 +19,8 @@ type OrderCustomerPanelProps = {
     deliveryAddress?: OrderDeliveryAddress;
     orderNumber?: string | null;
     title?: string;
+    /** Driver/admin see reference; business portal hides it. */
+    showReference?: boolean;
     footer?: ReactNode;
     className?: string;
 };
@@ -26,7 +28,9 @@ type OrderCustomerPanelProps = {
 export function formatCustomerPlainText(
     customer: OrderCustomerInfo,
     deliveryAddress?: OrderDeliveryAddress,
+    options?: { includeReference?: boolean },
 ): string {
+    const includeReference = options?.includeReference !== false;
     const lines: string[] = [
         `Cliente: ${customer.name?.trim() || '—'}`,
         `Tel: ${customer.phone?.trim() || '—'}`,
@@ -36,7 +40,7 @@ export function formatCustomerPlainText(
         lines.push(`Dirección: ${deliveryAddress.address_text.trim()}`);
     }
 
-    if (deliveryAddress?.reference?.trim()) {
+    if (includeReference && deliveryAddress?.reference?.trim()) {
         lines.push(`Ref: ${deliveryAddress.reference.trim()}`);
     }
 
@@ -48,6 +52,7 @@ export function OrderCustomerPanel({
     deliveryAddress = null,
     orderNumber = null,
     title = 'Cliente',
+    showReference = true,
     footer,
     className,
 }: OrderCustomerPanelProps) {
@@ -65,7 +70,9 @@ export function OrderCustomerPanel({
                     copyAriaLabel="Copiar datos del cliente"
                     successMessage="Datos del cliente copiados"
                     getCopyText={() =>
-                        formatCustomerPlainText(customer, deliveryAddress)
+                        formatCustomerPlainText(customer, deliveryAddress, {
+                            includeReference: showReference,
+                        })
                     }
                 />
             </div>
@@ -92,7 +99,7 @@ export function OrderCustomerPanel({
                 <p className="text-sm break-words text-muted-foreground">
                     {deliveryAddress?.address_text?.trim() || '—'}
                 </p>
-                {deliveryAddress?.reference?.trim() ? (
+                {showReference && deliveryAddress?.reference?.trim() ? (
                     <p className="text-sm break-words text-muted-foreground">
                         Ref: {deliveryAddress.reference.trim()}
                     </p>
