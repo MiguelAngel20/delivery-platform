@@ -6,8 +6,10 @@ use App\Enums\BranchStatus;
 use App\Enums\BusinessStatus;
 use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
+use App\Models\BusinessBranch;
 use App\Models\Product;
 use App\Models\Promotion;
+use App\Support\BusinessHours;
 use App\Support\BusinessLogoStorage;
 use App\Support\StorefrontProductData;
 use App\Support\StorefrontPromotionData;
@@ -18,6 +20,21 @@ class CartController extends Controller
     public function __construct(
         private readonly BusinessLogoStorage $logoStorage,
     ) {}
+
+    public function branchOrderingStatus(BusinessBranch $branch): JsonResponse
+    {
+        abort_if($branch->status !== BranchStatus::Active, 404);
+        $branch->loadMissing('business');
+        abort_if($branch->business?->status !== BusinessStatus::Active, 404);
+
+        $hours = $branch->opening_hours;
+        $isOpen = BusinessHours::isOpenNow($hours);
+
+        return response()->json([
+            'open' => $isOpen,
+            'closed_message' => $isOpen ? null : BusinessHours::closedNotice($hours),
+        ]);
+    }
 
     public function product(Product $product): JsonResponse
     {

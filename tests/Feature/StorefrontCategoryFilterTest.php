@@ -60,7 +60,7 @@ test('home marks restaurants closed outside opening hours', function () {
             ->component('public/home')
             ->where('restaurants.0.slug', 'cerrado-demo')
             ->where('restaurants.0.open', false)
-            ->where('restaurants.0.canOrder', false)
+            ->where('restaurants.0.canOrder', true)
             ->where('restaurants.0.modeLabel', 'Cerrado ahora'));
 });
 

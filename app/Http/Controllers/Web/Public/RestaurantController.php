@@ -254,7 +254,7 @@ class RestaurantController extends Controller
             'mode' => $business->operation_mode->value,
             'branchName' => $branch?->name ?? 'Sucursal',
             'schedule' => BusinessHours::todayLabel($hours),
-            'canOrder' => $canAcceptOrders && $inCoverage && $isOpen,
+            'canOrder' => $canAcceptOrders && $inCoverage,
             'in_coverage' => $inCoverage,
             'distance_meters' => $distanceMeters,
             'modeLabel' => ! $isOpen

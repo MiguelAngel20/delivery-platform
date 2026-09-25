@@ -105,7 +105,7 @@ export default function RestaurantShow({
                                     image_url: promotion.image_url,
                                 }),
                             )}
-                            canOrder={restaurant.canOrder && restaurant.open}
+                            canOrder={restaurant.canOrder}
                             onAdd={(promotionId) =>
                                 setSelectedPromotionId(Number(promotionId))
                             }
@@ -133,7 +133,7 @@ export default function RestaurantShow({
                         <RestaurantMenu
                             categories={categories}
                             products={products}
-                            canOrder={restaurant.canOrder && restaurant.open}
+                            canOrder={restaurant.canOrder}
                             onAdd={(product) =>
                                 setSelectedProduct(product as Product)
                             }

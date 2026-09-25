@@ -65,7 +65,7 @@ class HomeController extends Controller
                     'mode' => $business->operation_mode->value,
                     'branchName' => $branch?->name ?? 'Sucursal',
                     'schedule' => BusinessHours::todayLabel($hours),
-                    'canOrder' => $canAcceptOrders && $isOpen,
+                    'canOrder' => $canAcceptOrders,
                     'modeLabel' => ! $isOpen
                         ? 'Cerrado ahora'
                         : ($canAcceptOrders

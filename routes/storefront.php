@@ -33,6 +33,9 @@ Route::get('cart/products/{product}', [CartController::class, 'product'])
 Route::get('cart/promotions/{promotion}', [CartController::class, 'promotion'])
     ->name('cart.promotions.show');
 
+Route::get('cart/branches/{branch}/ordering-status', [CartController::class, 'branchOrderingStatus'])
+    ->name('cart.branches.ordering-status');
+
 Route::post('service-fee-quote', ServiceFeeQuoteController::class)
     ->middleware('throttle:maps-geo')
     ->name('service-fee.quote');

@@ -116,7 +116,9 @@ export function RestaurantProfile({
                         />
                         <span>
                             {restaurant.closed_message ??
-                                'Negocio cerrado, regresa cuando esté abierto.'}
+                                'Negocio cerrado en este momento.'}{' '}
+                            Puedes armar tu pedido; la confirmación se habilita
+                            cuando abra.
                         </span>
                     </p>
                 ) : null}

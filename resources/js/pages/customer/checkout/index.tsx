@@ -11,6 +11,10 @@ import { CheckoutFooter } from '@/apps/storefront/components/checkout-footer';
 import { CheckoutStepper } from '@/apps/storefront/components/checkout-stepper';
 import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
+import {
+    BRANCH_CLOSED_FALLBACK,
+    useBranchOrderingStatus,
+} from '@/apps/storefront/hooks/use-branch-ordering-status';
 import { useServiceFeeQuote } from '@/apps/storefront/hooks/use-service-fee-quote';
 import { COVERAGE_UNAVAILABLE_MESSAGE } from '@/apps/storefront/lib/check-delivery-coverage';
 import type { ActivitySuspensionShared } from '@/apps/storefront/components/activity-suspension-modal';
@@ -78,6 +82,17 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
         page.props as { activitySuspension?: ActivitySuspensionShared | null }
     ).activitySuspension;
     const orderingSuspended = activitySuspension?.active === true;
+    const {
+        status: branchOrdering,
+        isLoading: branchOrderingLoading,
+    } = useBranchOrderingStatus(bag.branchId);
+    const branchClosed = branchOrdering?.open === false;
+    const branchClosedMessage =
+        branchOrdering?.closedMessage ?? BRANCH_CLOSED_FALLBACK;
+    const branchOrderingPending =
+        bag.branchId != null && branchOrderingLoading;
+    const orderingBlocked =
+        orderingSuspended || branchClosed || branchOrderingPending;
     const [step, setStep] = useState<CheckoutWizardStep>(2);
     const [processing, setProcessing] = useState(false);
     const [mode, setMode] = useState<'saved' | 'temporary'>(
@@ -237,13 +252,17 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
             processing ||
             !addressReady ||
             outsideCoverage ||
-            orderingSuspended
+            orderingBlocked
         ) {
             if (orderingSuspended) {
                 notify.error(
                     activitySuspension?.footnote ??
                         'Por el momento no es posible realizar pedidos nuevos.',
                 );
+            } else if (branchOrderingPending) {
+                return;
+            } else if (branchClosed) {
+                notify.error(branchClosedMessage);
             } else if (outsideCoverage) {
                 notify.error(
                     feeQuote?.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
@@ -304,6 +323,16 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                 return;
             }
 
+            if (branchOrderingPending) {
+                return;
+            }
+
+            if (branchClosed) {
+                notify.error(branchClosedMessage);
+
+                return;
+            }
+
             if (outsideCoverage) {
                 notify.error(
                     feeQuote?.message ?? COVERAGE_UNAVAILABLE_MESSAGE,
@@ -318,6 +347,21 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
         }
 
         if (step === 3) {
+            if (branchOrderingPending) {
+                return;
+            }
+
+            if (orderingBlocked) {
+                notify.error(
+                    orderingSuspended
+                        ? (activitySuspension?.footnote ??
+                          'Por el momento no es posible realizar pedidos nuevos.')
+                        : branchClosedMessage,
+                );
+
+                return;
+            }
+
             setStep(4);
         }
     };
@@ -398,6 +442,10 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
 
                 {step === 2 && outsideCoverage ? (
                     <CoverageUnavailableBanner message={feeQuote?.message} />
+                ) : null}
+
+                {branchClosed ? (
+                    <CoverageUnavailableBanner message={branchClosedMessage} />
                 ) : null}
 
                 {step === 2 ? (
@@ -589,7 +637,7 @@ export default function CustomerCheckout({ addresses, loyalty }: Props) {
                     }
                     onPrimary={step === 4 ? submit : goNext}
                     primaryDisabled={
-                        orderingSuspended ||
+                        orderingBlocked ||
                         (step === 2 && (!addressReady || outsideCoverage)) ||
                         (step === 4 && (!bag.branchId || outsideCoverage))
                     }

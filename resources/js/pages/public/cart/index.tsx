@@ -12,6 +12,10 @@ import { ProductDialog } from '@/apps/storefront/components/product-dialog';
 import { PromotionDialog } from '@/apps/storefront/components/promotion-dialog';
 import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
 import { OrderSummary } from '@/apps/storefront/components/order-summary';
+import {
+    BRANCH_CLOSED_FALLBACK,
+    useBranchOrderingStatus,
+} from '@/apps/storefront/hooks/use-branch-ordering-status';
 import { useDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-location';
 import { useServiceFeeQuote } from '@/apps/storefront/hooks/use-service-fee-quote';
 import { COVERAGE_UNAVAILABLE_MESSAGE } from '@/apps/storefront/lib/check-delivery-coverage';
@@ -44,6 +48,15 @@ export default function CartIndex() {
     const orderingSuspended = activitySuspension?.active === true;
     const { location, hasCoordinates } = useDeliveryLocation();
     const { cart, updateQuantity, replaceLine, clear } = useStorefrontCart();
+    const {
+        status: branchOrdering,
+        isLoading: branchOrderingLoading,
+    } = useBranchOrderingStatus(cart.branchId);
+    const branchClosed = branchOrdering?.open === false;
+    const branchClosedMessage =
+        branchOrdering?.closedMessage ?? BRANCH_CLOSED_FALLBACK;
+    const branchOrderingPending =
+        cart.branchId != null && branchOrderingLoading;
     const feeQuote = useServiceFeeQuote(
         hasCoordinates ? location.latitude : null,
         hasCoordinates ? location.longitude : null,
@@ -78,6 +91,16 @@ export default function CartIndex() {
                 activitySuspension?.footnote ??
                     'Por el momento no es posible realizar pedidos nuevos.',
             );
+
+            return;
+        }
+
+        if (branchOrderingPending) {
+            return;
+        }
+
+        if (branchClosed) {
+            notify.error(branchClosedMessage);
 
             return;
         }
@@ -231,12 +254,21 @@ export default function CartIndex() {
                             />
                         ) : null}
 
+                        {branchClosed ? (
+                            <CoverageUnavailableBanner
+                                message={branchClosedMessage}
+                            />
+                        ) : null}
+
                         <CheckoutFooter
                             total={total}
                             primaryLabel="Continuar"
                             onPrimary={handleContinue}
                             primaryDisabled={
-                                outsideCoverage || orderingSuspended
+                                outsideCoverage ||
+                                orderingSuspended ||
+                                branchClosed ||
+                                branchOrderingPending
                             }
                         />
                     </>
