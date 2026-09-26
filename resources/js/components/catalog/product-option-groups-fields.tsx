@@ -585,7 +585,7 @@ export function ProductOptionGroupsFields({
                                                         </Button>
                                                     </div>
 
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-2 border-l-2 border-border/70 pl-4 sm:pl-5">
                                                         <p className="text-sm font-medium text-foreground">
                                                             Variantes
                                                         </p>
