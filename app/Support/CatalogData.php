@@ -48,6 +48,7 @@ final class CatalogData
             'category.parent:id,name',
             'currentPrice',
             'optionGroups.options',
+            'optionGroups.clusters.options',
             'branch:id,name',
         ]);
 
@@ -83,12 +84,40 @@ final class CatalogData
      */
     public static function productOptionGroups(Product $product): array
     {
-        $product->loadMissing(['optionGroups.options', 'currentPrice']);
+        $product->loadMissing(['optionGroups.options', 'optionGroups.clusters.options', 'currentPrice']);
 
         $listPrice = (string) ($product->currentPrice?->list_price ?? '0.00');
 
         return $product->optionGroups->map(function ($group) use ($listPrice): array {
             $isSize = $group->type === ProductOptionGroupType::Size;
+
+            $mapOption = function ($option) use ($isSize, $listPrice): array {
+                $priceModifier = (string) $option->price_modifier;
+
+                if ($isSize) {
+                    $priceModifier = bcadd($listPrice, $priceModifier, 2);
+                }
+
+                return [
+                    'id' => $option->id,
+                    'name' => $option->name,
+                    'description' => $option->description,
+                    'price_modifier' => $priceModifier,
+                    'is_default' => $option->is_default,
+                    'is_available' => $option->is_available,
+                    'sort_order' => $option->sort_order,
+                    'option_cluster_id' => $option->option_cluster_id,
+                ];
+            };
+
+            $clusters = $group->has_option_clusters
+                ? $group->clusters->map(fn ($cluster): array => [
+                    'id' => $cluster->id,
+                    'name' => $cluster->name,
+                    'sort_order' => $cluster->sort_order,
+                    'options' => $cluster->options->map($mapOption)->values()->all(),
+                ])->values()->all()
+                : [];
 
             return [
                 'id' => $group->id,
@@ -100,23 +129,9 @@ final class CatalogData
                 'max_selection' => $group->max_selection,
                 'sort_order' => $group->sort_order,
                 'is_active' => $group->is_active,
-                'options' => $group->options->map(function ($option) use ($isSize, $listPrice): array {
-                    $priceModifier = (string) $option->price_modifier;
-
-                    if ($isSize) {
-                        $priceModifier = bcadd($listPrice, $priceModifier, 2);
-                    }
-
-                    return [
-                        'id' => $option->id,
-                        'name' => $option->name,
-                        'description' => $option->description,
-                        'price_modifier' => $priceModifier,
-                        'is_default' => $option->is_default,
-                        'is_available' => $option->is_available,
-                        'sort_order' => $option->sort_order,
-                    ];
-                })->values()->all(),
+                'has_option_clusters' => $group->has_option_clusters,
+                'clusters' => $clusters,
+                'options' => $group->options->map($mapOption)->values()->all(),
             ];
         })->values()->all();
     }

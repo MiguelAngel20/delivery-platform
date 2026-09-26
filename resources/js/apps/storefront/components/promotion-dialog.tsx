@@ -70,6 +70,7 @@ type PromotionDialogProps = {
 
 type ItemDraft = {
     selectedByGroup: Record<number, number[]>;
+    optionQuantities: Record<number, number>;
     note: string;
 };
 
@@ -81,6 +82,7 @@ function summarizeItemSelections(
     const selectedOptions = buildSelectedProductOptions(
         groups,
         draft?.selectedByGroup ?? {},
+        draft?.optionQuantities ?? {},
     );
 
     const variants: string[] = [];
@@ -93,7 +95,11 @@ function summarizeItemSelections(
         }
 
         if (option.action === 'added') {
-            extras.push(option.name);
+            extras.push(
+                (option.quantity ?? 1) > 1
+                    ? `${option.quantity} ${option.name}`
+                    : option.name,
+            );
         }
 
         if (option.action === 'removed') {
@@ -184,6 +190,7 @@ export function PromotionDialog({
                     );
                     const groups = item.option_groups ?? [];
                     const initial = buildInitialOptionSelection(groups);
+                    const optionQuantities: Record<number, number> = {};
 
                     if (existing?.selectedOptions?.length) {
                         for (const group of groups) {
@@ -210,11 +217,26 @@ export function PromotionDialog({
                                     ),
                                 )
                                 .map((option) => option.id);
+
+                            if (group.type === 'addon') {
+                                for (const optionId of initial[group.id]) {
+                                    const selected = existing.selectedOptions.find(
+                                        (entry) =>
+                                            entry.option_id === optionId &&
+                                            entry.action === 'added',
+                                    );
+                                    optionQuantities[optionId] = Math.max(
+                                        1,
+                                        selected?.quantity ?? 1,
+                                    );
+                                }
+                            }
                         }
                     }
 
                     drafts[item.id] = {
                         selectedByGroup: initial,
+                        optionQuantities,
                         note: existing?.note ?? '',
                     };
                 }
@@ -236,7 +258,11 @@ export function PromotionDialog({
     const currentItemValid =
         !currentItem ||
         !currentDraft ||
-        isOptionSelectionValid(currentGroups, currentDraft.selectedByGroup);
+        isOptionSelectionValid(
+            currentGroups,
+            currentDraft.selectedByGroup,
+            currentDraft.optionQuantities,
+        );
 
     const builtItems = useMemo(() => {
         if (!promotion) {
@@ -253,6 +279,7 @@ export function PromotionDialog({
                 selectedOptions: buildSelectedProductOptions(
                     groups,
                     draft?.selectedByGroup ?? {},
+                    draft?.optionQuantities ?? {},
                 ),
                 note: draft?.note.trim() || undefined,
             };
@@ -408,12 +435,26 @@ export function PromotionDialog({
                                         selectedByGroup={
                                             currentDraft.selectedByGroup
                                         }
+                                        optionQuantities={
+                                            currentDraft.optionQuantities
+                                        }
                                         onChange={(selectedByGroup) =>
                                             setItemDrafts((current) => ({
                                                 ...current,
                                                 [currentItem.id]: {
                                                     ...current[currentItem.id],
                                                     selectedByGroup,
+                                                },
+                                            }))
+                                        }
+                                        onOptionQuantitiesChange={(
+                                            optionQuantities,
+                                        ) =>
+                                            setItemDrafts((current) => ({
+                                                ...current,
+                                                [currentItem.id]: {
+                                                    ...current[currentItem.id],
+                                                    optionQuantities,
                                                 },
                                             }))
                                         }

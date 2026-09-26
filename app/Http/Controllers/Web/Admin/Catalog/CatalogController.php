@@ -7,6 +7,7 @@ use App\Actions\Catalog\CreatePromotion;
 use App\Actions\Catalog\UpdateProduct;
 use App\Actions\Catalog\UpdatePromotion;
 use App\Enums\BusinessOperationMode;
+use App\Enums\ProductOptionGroupType;
 use App\Enums\PromotionStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
@@ -543,6 +544,9 @@ class CatalogController extends Controller
             $request->merge(['option_groups' => is_array($decoded) ? $decoded : []]);
         }
 
+        $sanitizedGroups = $this->sanitizeAdminOptionGroups($request->input('option_groups'));
+        $request->merge(['option_groups' => $sanitizedGroups]);
+
         if ($request->input('existing_image_path') === '') {
             $request->merge(['existing_image_path' => null]);
         }
@@ -570,7 +574,32 @@ class CatalogController extends Controller
             'is_active' => ['sometimes', 'boolean'],
             'allow_special_instructions' => ['sometimes', 'boolean'],
             'option_groups' => ['nullable', 'array'],
+            'option_groups.*.name' => ['required_with:option_groups', 'string', 'max:100'],
+            'option_groups.*.type' => ['required_with:option_groups', Rule::enum(ProductOptionGroupType::class)],
+            'option_groups.*.is_required' => ['sometimes', 'boolean'],
+            'option_groups.*.min_selection' => ['required_with:option_groups', 'integer', 'min:0'],
+            'option_groups.*.max_selection' => ['required_with:option_groups', 'integer', 'gte:option_groups.*.min_selection'],
+            'option_groups.*.sort_order' => ['nullable', 'integer', 'min:0'],
+            'option_groups.*.is_active' => ['sometimes', 'boolean'],
+            'option_groups.*.has_option_clusters' => ['sometimes', 'boolean'],
+            'option_groups.*.clusters' => ['nullable', 'array'],
+            'option_groups.*.clusters.*.name' => ['required_with:option_groups.*.clusters', 'string', 'max:100'],
+            'option_groups.*.clusters.*.options' => ['required_with:option_groups.*.clusters', 'array', 'min:1'],
+            'option_groups.*.clusters.*.options.*.name' => ['required', 'string', 'max:100'],
+            'option_groups.*.clusters.*.options.*.description' => ['nullable', 'string'],
+            'option_groups.*.clusters.*.options.*.price_modifier' => ['nullable', 'numeric'],
+            'option_groups.*.clusters.*.options.*.is_default' => ['sometimes', 'boolean'],
+            'option_groups.*.clusters.*.options.*.is_available' => ['sometimes', 'boolean'],
+            'option_groups.*.options' => ['required', 'array', 'min:1'],
+            'option_groups.*.options.*.name' => ['required', 'string', 'max:100'],
+            'option_groups.*.options.*.description' => ['nullable', 'string'],
+            'option_groups.*.options.*.price_modifier' => ['nullable', 'numeric'],
+            'option_groups.*.options.*.is_default' => ['sometimes', 'boolean'],
+            'option_groups.*.options.*.is_available' => ['sometimes', 'boolean'],
         ]);
+
+        // Keep the fully sanitized payload (Laravel only returns keys present in the rules tree).
+        $data['option_groups'] = $sanitizedGroups;
 
         $existingPath = $data['existing_image_path'] ?? null;
 
@@ -585,6 +614,66 @@ class CatalogController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function sanitizeAdminOptionGroups(mixed $groups): array
+    {
+        if (! is_array($groups)) {
+            return [];
+        }
+
+        return collect($groups)
+            ->filter(fn (mixed $group): bool => is_array($group))
+            ->map(function (array $group): array {
+                $type = ProductOptionGroupType::tryFrom((string) ($group['type'] ?? ''));
+                $hasClusters = $type === ProductOptionGroupType::Choice
+                    && filter_var($group['has_option_clusters'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+                $group['has_option_clusters'] = $hasClusters;
+
+                if ($hasClusters) {
+                    $clusters = collect($group['clusters'] ?? [])
+                        ->filter(fn (mixed $cluster): bool => is_array($cluster))
+                        ->map(function (array $cluster): array {
+                            $options = collect($cluster['options'] ?? [])
+                                ->filter(fn (mixed $option): bool => is_array($option))
+                                ->filter(fn (array $option): bool => filled(trim((string) ($option['name'] ?? ''))))
+                                ->values()
+                                ->all();
+
+                            return [
+                                ...$cluster,
+                                'name' => trim((string) ($cluster['name'] ?? '')),
+                                'options' => $options,
+                            ];
+                        })
+                        ->filter(fn (array $cluster): bool => $cluster['name'] !== '' && $cluster['options'] !== [])
+                        ->values()
+                        ->all();
+
+                    $group['clusters'] = $clusters;
+                    $group['options'] = collect($clusters)
+                        ->flatMap(fn (array $cluster): array => $cluster['options'])
+                        ->values()
+                        ->all();
+
+                    return $group;
+                }
+
+                $group['clusters'] = [];
+                $group['options'] = collect($group['options'] ?? [])
+                    ->filter(fn (mixed $option): bool => is_array($option))
+                    ->filter(fn (array $option): bool => filled(trim((string) ($option['name'] ?? ''))))
+                    ->values()
+                    ->all();
+
+                return $group;
+            })
+            ->values()
+            ->all();
     }
 
     /**

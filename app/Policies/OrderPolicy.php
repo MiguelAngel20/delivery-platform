@@ -77,7 +77,10 @@ class OrderPolicy
     {
         return $user->hasRole(UserRole::SystemAdmin)
             && $order->isPlatformManaged()
-            && $order->order_status === OrderStatus::PendingPlatform;
+            && (
+                $order->order_status === OrderStatus::PendingPlatform
+                || $order->order_status->isAwaitingPreparationAcceptance()
+            );
     }
 
     public function reject(User $user, Order $order): bool

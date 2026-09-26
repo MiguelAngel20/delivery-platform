@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Actions\Orders\AcceptBusinessOrder;
+use App\Actions\Orders\AcknowledgeOrder;
 use App\Actions\Orders\MarkOrderReady;
 use App\Actions\Orders\RejectBusinessOrder;
 use App\Enums\BusinessOperationMode;
@@ -106,9 +107,14 @@ class OrderController extends Controller
         ]);
     }
 
-    public function show(Order $order): Response
-    {
+    public function show(
+        Request $request,
+        Order $order,
+        AcknowledgeOrder $acknowledge,
+    ): Response {
         $this->authorize('view', $order);
+
+        $order = $acknowledge->handle($order, $request->user());
 
         return Inertia::render('admin/orders/show', [
             'order' => OrderData::transform($order),

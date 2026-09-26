@@ -42,6 +42,49 @@ export function ProductOptionGroupsReadonly({
                 }
 
                 const config = SECTION_CONFIG[type];
+                const hasClusters = Boolean(group.has_option_clusters);
+
+                if (hasClusters && (group.clusters?.length ?? 0) > 0) {
+                    return (
+                        <div key={type} className="space-y-2">
+                            <p className="text-sm font-medium text-foreground">
+                                {config.label}
+                            </p>
+                            {config.showLimits ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Elige entre {group.min_selection} y{' '}
+                                    {group.max_selection}
+                                    {group.is_required
+                                        ? ' (obligatorio)'
+                                        : ' (opcional)'}
+                                </p>
+                            ) : null}
+                            {(group.clusters ?? []).map((cluster) => {
+                                const names = cluster.options
+                                    .map((option) => option.name.trim())
+                                    .filter((name) => name !== '');
+
+                                if (names.length === 0) {
+                                    return null;
+                                }
+
+                                return (
+                                    <div key={cluster.name} className="space-y-1 pl-2">
+                                        <p className="text-xs font-medium text-foreground">
+                                            {cluster.name}
+                                        </p>
+                                        <ul className="list-inside list-disc text-sm text-muted-foreground">
+                                            {names.map((name) => (
+                                                <li key={name}>{name}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    );
+                }
+
                 const optionNames = group.options
                     .map((option) => option.name.trim())
                     .filter((name) => name !== '');

@@ -119,6 +119,10 @@ export default function CustomerCheckout({
         }
     }, [canUseTemporaryAddress, mode]);
 
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [step]);
+
     const selectedSaved = useMemo(
         () => addresses.find((address) => address.id === addressId),
         [addresses, addressId],
@@ -169,6 +173,7 @@ export default function CustomerCheckout({
                                 (option) => ({
                                     option_id: option.option_id,
                                     action: option.action,
+                                    quantity: option.quantity ?? 1,
                                 }),
                             ),
                         })),
@@ -183,6 +188,7 @@ export default function CustomerCheckout({
                         (option) => ({
                             option_id: option.option_id,
                             action: option.action,
+                            quantity: option.quantity ?? 1,
                         }),
                     ),
                 };

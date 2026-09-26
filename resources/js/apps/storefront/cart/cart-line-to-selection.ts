@@ -4,8 +4,12 @@ import type { StorefrontProduct } from '@/apps/storefront/components/product-dia
 export function buildInitialSelectionFromCartLine(
     product: StorefrontProduct,
     line: CartLine,
-): Record<number, number[]> {
+): {
+    selectedByGroup: Record<number, number[]>;
+    optionQuantities: Record<number, number>;
+} {
     const initial: Record<number, number[]> = {};
+    const optionQuantities: Record<number, number> = {};
     const selections = line.selectedOptions ?? [];
     const removedIds = new Set(
         selections
@@ -43,15 +47,27 @@ export function buildInitialSelectionFromCartLine(
         }
 
         if (group.type === 'addon') {
-            const selected = selections
-                .filter(
-                    (option) =>
-                        option.action === 'added' &&
-                        group.options.some(
-                            (candidate) => candidate.id === option.option_id,
-                        ),
-                )
-                .map((option) => option.option_id);
+            const selected: number[] = [];
+
+            for (const option of selections) {
+                if (
+                    option.action !== 'added' ||
+                    !group.options.some(
+                        (candidate) => candidate.id === option.option_id,
+                    )
+                ) {
+                    continue;
+                }
+
+                if (!selected.includes(option.option_id)) {
+                    selected.push(option.option_id);
+                }
+
+                optionQuantities[option.option_id] = Math.max(
+                    1,
+                    option.quantity ?? 1,
+                );
+            }
 
             for (const extra of line.extras) {
                 const option = group.options.find(
@@ -60,6 +76,7 @@ export function buildInitialSelectionFromCartLine(
 
                 if (option && !selected.includes(option.id)) {
                     selected.push(option.id);
+                    optionQuantities[option.id] = 1;
                 }
             }
 
@@ -67,5 +84,5 @@ export function buildInitialSelectionFromCartLine(
         }
     }
 
-    return initial;
+    return { selectedByGroup: initial, optionQuantities };
 }

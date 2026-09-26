@@ -87,6 +87,7 @@ type OrderDetail = {
     estimated_preparation_exceeded?: boolean;
     actions: {
         business_can_cancel: boolean;
+        business_can_accept: boolean;
         business_can_reject: boolean;
         business_cancel_reasons: Option[];
         business_incident_types: Option[];
@@ -321,111 +322,127 @@ export default function BusinessOrderShow({
                             />
                         </div>
 
-                        {order.order_status === 'pending_business' &&
+                        {order.actions.business_can_accept ||
                         order.actions.business_can_reject ? (
                             <>
-                                <div className="space-y-2">
-                                    <h3 className="text-sm font-medium text-foreground">
-                                        Tiempo estimado (min)
-                                    </h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {preparationOptions.map((option) => (
-                                            <Button
-                                                key={option}
-                                                type="button"
-                                                size="sm"
-                                                variant={
-                                                    minutes === option
-                                                        ? 'default'
-                                                        : 'outline'
-                                                }
-                                                disabled={isBusy}
-                                                onClick={() =>
-                                                    setMinutes(option)
-                                                }
-                                            >
-                                                {option}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        max={180}
-                                        value={minutes}
-                                        disabled={isBusy}
-                                        onChange={(event) =>
-                                            setMinutes(
-                                                Number(event.target.value),
-                                            )
-                                        }
-                                    />
-                                    <Button
-                                        type="button"
-                                        className="w-full"
-                                        disabled={isBusy}
-                                        loading={
-                                            busy?.title ===
-                                            'Aceptando pedido…'
-                                        }
-                                        onClick={() =>
-                                            runOrderAction(
-                                                'Aceptando pedido…',
-                                                'Estamos registrando la aceptación. No cierres esta ventana.',
-                                                accept.url(order.order_number),
-                                                {
-                                                    estimated_preparation_minutes:
-                                                        minutes,
-                                                },
-                                            )
-                                        }
-                                    >
-                                        Aceptar pedido
-                                    </Button>
-                                </div>
-
-                                <div className="space-y-2 border-t border-border pt-4">
-                                    <FormField
-                                        label="Motivo de rechazo"
-                                        required
-                                    >
-                                        <Textarea
-                                            value={rejectForm.data.reason}
+                                {order.actions.business_can_accept ? (
+                                    <div className="space-y-2">
+                                        <h3 className="text-sm font-medium text-foreground">
+                                            Tiempo estimado (min)
+                                        </h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {preparationOptions.map(
+                                                (option) => (
+                                                    <Button
+                                                        key={option}
+                                                        type="button"
+                                                        size="sm"
+                                                        variant={
+                                                            minutes === option
+                                                                ? 'default'
+                                                                : 'outline'
+                                                        }
+                                                        disabled={isBusy}
+                                                        onClick={() =>
+                                                            setMinutes(option)
+                                                        }
+                                                    >
+                                                        {option}
+                                                    </Button>
+                                                ),
+                                            )}
+                                        </div>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            max={180}
+                                            value={minutes}
                                             disabled={isBusy}
                                             onChange={(event) =>
-                                                rejectForm.setData(
-                                                    'reason',
-                                                    event.target.value,
+                                                setMinutes(
+                                                    Number(event.target.value),
                                                 )
                                             }
-                                            rows={3}
                                         />
-                                    </FormField>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="w-full"
-                                        disabled={isBusy}
-                                        loading={rejectForm.processing}
-                                        onClick={() =>
-                                            rejectForm.post(
-                                                reject.url(order.order_number),
-                                                {
-                                                    onStart: () =>
-                                                        setBusy({
-                                                            title: 'Rechazando pedido…',
-                                                            description:
-                                                                'Estamos registrando el rechazo. No cierres esta ventana.',
-                                                        }),
-                                                    onFinish: () =>
-                                                        setBusy(null),
-                                                },
-                                            )
+                                        <Button
+                                            type="button"
+                                            className="w-full"
+                                            disabled={isBusy}
+                                            loading={
+                                                busy?.title ===
+                                                'Aceptando pedido…'
+                                            }
+                                            onClick={() =>
+                                                runOrderAction(
+                                                    'Aceptando pedido…',
+                                                    'Estamos registrando la aceptación. No cierres esta ventana.',
+                                                    accept.url(
+                                                        order.order_number,
+                                                    ),
+                                                    {
+                                                        estimated_preparation_minutes:
+                                                            minutes,
+                                                    },
+                                                )
+                                            }
+                                        >
+                                            Aceptar pedido
+                                        </Button>
+                                    </div>
+                                ) : null}
+
+                                {order.actions.business_can_reject ? (
+                                    <div
+                                        className={
+                                            order.actions.business_can_accept
+                                                ? 'space-y-2 border-t border-border pt-4'
+                                                : 'space-y-2'
                                         }
                                     >
-                                        Rechazar
-                                    </Button>
-                                </div>
+                                        <FormField
+                                            label="Motivo de rechazo"
+                                            required
+                                        >
+                                            <Textarea
+                                                value={rejectForm.data.reason}
+                                                disabled={isBusy}
+                                                onChange={(event) =>
+                                                    rejectForm.setData(
+                                                        'reason',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                rows={3}
+                                            />
+                                        </FormField>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="w-full"
+                                            disabled={isBusy}
+                                            loading={rejectForm.processing}
+                                            onClick={() =>
+                                                rejectForm.post(
+                                                    reject.url(
+                                                        order.order_number,
+                                                    ),
+                                                    {
+                                                        onStart: () =>
+                                                            setBusy({
+                                                                title: 'Rechazando pedido…',
+                                                                description:
+                                                                    'Estamos registrando el rechazo. No cierres esta ventana.',
+                                                            }),
+                                                        onFinish: () =>
+                                                            setBusy(null),
+                                                    },
+                                                )
+                                            }
+                                        >
+                                            Rechazar
+                                        </Button>
+                                    </div>
+                                ) : null}
                             </>
                         ) : null}
 
@@ -466,7 +483,7 @@ export default function BusinessOrderShow({
                             </Button>
                         ) : null}
 
-                        {order.order_status !== 'pending_business' &&
+                        {!order.actions.business_can_accept &&
                         order.order_status !== 'cancelled' &&
                         order.order_status !== 'rejected' &&
                         order.order_status !== 'delivered' ? (

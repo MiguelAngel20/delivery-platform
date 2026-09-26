@@ -34,7 +34,10 @@ final class RejectBusinessOrder
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $previous = $locked->order_status;
 
-            if (! $locked->order_status->isAwaitingMerchantConfirmation()) {
+            if (
+                ! $locked->order_status->isAwaitingMerchantConfirmation()
+                && ! $locked->order_status->isAwaitingPreparationAcceptance()
+            ) {
                 throw ValidationException::withMessages([
                     'order_status' => 'El pedido ya fue procesado.',
                 ]);

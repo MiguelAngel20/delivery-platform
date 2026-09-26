@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Business;
 
 use App\Actions\Orders\AcceptBusinessOrder;
+use App\Actions\Orders\AcknowledgeOrder;
 use App\Actions\Orders\MarkOrderReady;
 use App\Actions\Orders\RejectBusinessOrder;
 use App\Enums\CancellationReasonCode;
@@ -88,6 +89,7 @@ class OrderController extends Controller
             'statusOptions' => collect(OrderStatus::cases())
                 ->filter(fn (OrderStatus $status) => in_array($status, [
                     OrderStatus::PendingBusiness,
+                    OrderStatus::Accepted,
                     OrderStatus::Preparing,
                     OrderStatus::ReadyForPickup,
                     OrderStatus::DriverAssigned,
@@ -107,10 +109,15 @@ class OrderController extends Controller
         ]);
     }
 
-    public function show(Request $request, Order $order): Response
-    {
+    public function show(
+        Request $request,
+        Order $order,
+        AcknowledgeOrder $acknowledge,
+    ): Response {
         $this->ensureAccessible($request, $order);
         $this->authorize('view', $order);
+
+        $order = $acknowledge->handle($order, $request->user());
 
         return Inertia::render('business/orders/show', [
             'order' => OrderData::forBusiness($order),

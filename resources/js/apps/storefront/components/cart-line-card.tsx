@@ -80,7 +80,7 @@ export function CartLineCard({
                             <ul className="space-y-0.5 text-sm text-navy">
                                 {customizations.extras.map((extra) => (
                                     <li key={extra.name}>
-                                        + {extra.name}
+                                        {extra.name}
                                         {extra.price
                                             ? ` (${formatMoney(extra.price)})`
                                             : ''}

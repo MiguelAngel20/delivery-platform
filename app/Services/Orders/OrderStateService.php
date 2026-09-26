@@ -34,6 +34,7 @@ final class OrderStateService
         ],
         OrderStatus::Accepted->value => [
             OrderStatus::Preparing->value,
+            OrderStatus::Rejected->value,
             OrderStatus::Cancelled->value,
         ],
         OrderStatus::Preparing->value => [

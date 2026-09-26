@@ -295,7 +295,12 @@ final class CreateOrder
         foreach ($optionRows as $optionRow) {
             if ($optionRow['selection_action'] === OptionSelectionAction::Added
                 || $optionRow['selection_action'] === OptionSelectionAction::Selected) {
-                $modifiers = bcadd($modifiers, (string) $optionRow['price_modifier'], 2);
+                $lineModifier = bcmul(
+                    (string) $optionRow['price_modifier'],
+                    (string) ($optionRow['quantity'] ?? 1),
+                    2,
+                );
+                $modifiers = bcadd($modifiers, $lineModifier, 2);
             }
         }
 
@@ -479,6 +484,11 @@ final class CreateOrder
         foreach ($selectedOptions as $optionIndex => $selection) {
             $optionId = (int) ($selection['option_id'] ?? 0);
             $action = OptionSelectionAction::tryFrom((string) ($selection['action'] ?? ''));
+            $quantity = $this->resolveOptionQuantity(
+                $selection,
+                $itemIndex,
+                $optionIndex,
+            );
 
             $decoded = StorefrontPromotionData::decodeExternalOptionId($optionId);
 
@@ -519,16 +529,30 @@ final class CreateOrder
                 ]);
             }
 
+            if ($groupType !== ProductOptionGroupType::Addon && $quantity !== 1) {
+                throw ValidationException::withMessages([
+                    "items.{$itemIndex}.selected_options.{$optionIndex}.quantity" => 'Solo los extras permiten cantidad mayor a 1.',
+                ]);
+            }
+
+            if ($action === OptionSelectionAction::Removed) {
+                $quantity = 1;
+            }
+
             if ($action !== OptionSelectionAction::Removed) {
-                $countsByGroup[$group['id']] = ($countsByGroup[$group['id']] ?? 0) + 1;
+                $countsByGroup[$group['id']] = ($countsByGroup[$group['id']] ?? 0) + $quantity;
             }
 
             $rows[] = [
                 'product_option_id' => null,
                 'option_name' => (string) $option['name'],
+                'option_cluster_name' => filled($option['option_cluster_name'] ?? null)
+                    ? (string) $option['option_cluster_name']
+                    : null,
                 'option_type' => $groupType,
                 'price_modifier' => '0.00',
                 'selection_action' => $action,
+                'quantity' => $quantity,
             ];
         }
 
@@ -570,9 +594,14 @@ final class CreateOrder
         foreach ($selectedOptions as $optionIndex => $selection) {
             $optionId = (int) ($selection['option_id'] ?? 0);
             $action = OptionSelectionAction::tryFrom((string) ($selection['action'] ?? ''));
+            $quantity = $this->resolveOptionQuantity(
+                $selection,
+                $itemIndex,
+                $optionIndex,
+            );
 
             $option = ProductOption::query()
-                ->with('group')
+                ->with(['group', 'cluster'])
                 ->whereKey($optionId)
                 ->first();
 
@@ -610,18 +639,30 @@ final class CreateOrder
                 ]);
             }
 
+            if ($group->type !== ProductOptionGroupType::Addon && $quantity !== 1) {
+                throw ValidationException::withMessages([
+                    "items.{$itemIndex}.selected_options.{$optionIndex}.quantity" => 'Solo los extras permiten cantidad mayor a 1.',
+                ]);
+            }
+
+            if ($action === OptionSelectionAction::Removed) {
+                $quantity = 1;
+            }
+
             if ($action !== OptionSelectionAction::Removed) {
-                $countsByGroup[$group->id] = ($countsByGroup[$group->id] ?? 0) + 1;
+                $countsByGroup[$group->id] = ($countsByGroup[$group->id] ?? 0) + $quantity;
             }
 
             $rows[] = [
                 'product_option_id' => $option->id,
                 'option_name' => $option->name,
+                'option_cluster_name' => $option->cluster?->name,
                 'option_type' => $group->type,
                 'price_modifier' => $action === OptionSelectionAction::Removed
                     ? '0.00'
                     : (string) $option->price_modifier,
                 'selection_action' => $action,
+                'quantity' => $quantity,
             ];
         }
 
@@ -646,6 +687,32 @@ final class CreateOrder
         }
 
         return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>  $selection
+     */
+    private function resolveOptionQuantity(array $selection, int $itemIndex, int $optionIndex): int
+    {
+        if (! array_key_exists('quantity', $selection) || $selection['quantity'] === null || $selection['quantity'] === '') {
+            return 1;
+        }
+
+        if (! is_numeric($selection['quantity'])) {
+            throw ValidationException::withMessages([
+                "items.{$itemIndex}.selected_options.{$optionIndex}.quantity" => 'La cantidad del extra no es válida.',
+            ]);
+        }
+
+        $quantity = (int) $selection['quantity'];
+
+        if ($quantity < 1 || $quantity > 99) {
+            throw ValidationException::withMessages([
+                "items.{$itemIndex}.selected_options.{$optionIndex}.quantity" => 'La cantidad del extra debe ser entre 1 y 99.',
+            ]);
+        }
+
+        return $quantity;
     }
 
     /**

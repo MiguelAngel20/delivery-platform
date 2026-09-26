@@ -6,6 +6,7 @@ use App\Enums\ProductOptionGroupType;
 use App\Models\BusinessBranch;
 use App\Models\Product;
 use App\Models\ProductOption;
+use App\Models\ProductOptionCluster;
 use App\Models\ProductOptionGroup;
 use App\Models\User;
 use App\Support\ProductImageStorage;
@@ -57,7 +58,7 @@ final class CreateProduct
             );
             $this->syncOptionGroups($product, $data['option_groups'] ?? []);
 
-            return $product->fresh(['currentPrice', 'optionGroups.options', 'category']);
+            return $product->fresh(['currentPrice', 'optionGroups.options', 'optionGroups.clusters.options', 'category']);
         });
     }
 
@@ -165,33 +166,89 @@ final class CreateProduct
     {
         $product->optionGroups()->each(function (ProductOptionGroup $group): void {
             $group->options()->delete();
+            $group->clusters()->delete();
             $group->delete();
         });
 
         foreach (array_values($groups) as $index => $groupData) {
             $this->assertGroupRules($groupData);
 
+            $type = ProductOptionGroupType::tryFrom((string) ($groupData['type'] ?? ''));
+            $hasClusters = $type === ProductOptionGroupType::Choice
+                && filter_var($groupData['has_option_clusters'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
             $group = ProductOptionGroup::query()->create([
                 'product_id' => $product->id,
-                'name' => $groupData['name'],
-                'type' => $groupData['type'],
+                'name' => (string) ($groupData['name'] ?? ''),
+                'type' => $groupData['type'] ?? ProductOptionGroupType::Choice->value,
                 'is_required' => (bool) ($groupData['is_required'] ?? false),
                 'min_selection' => (int) ($groupData['min_selection'] ?? 0),
                 'max_selection' => (int) ($groupData['max_selection'] ?? 1),
                 'sort_order' => (int) ($groupData['sort_order'] ?? $index),
                 'is_active' => (bool) ($groupData['is_active'] ?? true),
+                'has_option_clusters' => $hasClusters,
             ]);
 
+            if ($hasClusters) {
+                $this->syncClusteredOptions($group, $groupData['clusters'] ?? []);
+
+                continue;
+            }
+
             foreach (array_values($groupData['options'] ?? []) as $optionIndex => $optionData) {
+                if (! is_array($optionData) || blank($optionData['name'] ?? null)) {
+                    continue;
+                }
+
                 ProductOption::query()->create([
                     'option_group_id' => $group->id,
-                    'name' => $optionData['name'],
+                    'option_cluster_id' => null,
+                    'name' => (string) $optionData['name'],
                     'description' => $optionData['description'] ?? null,
                     'price_modifier' => $optionData['price_modifier'] ?? 0,
                     'is_default' => (bool) ($optionData['is_default'] ?? false),
                     'is_available' => (bool) ($optionData['is_available'] ?? true),
                     'sort_order' => (int) ($optionData['sort_order'] ?? $optionIndex),
                 ]);
+            }
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $clusters
+     */
+    private function syncClusteredOptions(ProductOptionGroup $group, array $clusters): void
+    {
+        $optionSort = 0;
+
+        foreach (array_values($clusters) as $clusterIndex => $clusterData) {
+            if (! is_array($clusterData) || blank($clusterData['name'] ?? null)) {
+                continue;
+            }
+
+            $cluster = ProductOptionCluster::query()->create([
+                'option_group_id' => $group->id,
+                'name' => (string) $clusterData['name'],
+                'sort_order' => (int) ($clusterData['sort_order'] ?? $clusterIndex),
+            ]);
+
+            foreach (array_values($clusterData['options'] ?? []) as $optionData) {
+                if (! is_array($optionData) || blank($optionData['name'] ?? null)) {
+                    continue;
+                }
+
+                ProductOption::query()->create([
+                    'option_group_id' => $group->id,
+                    'option_cluster_id' => $cluster->id,
+                    'name' => (string) $optionData['name'],
+                    'description' => $optionData['description'] ?? null,
+                    'price_modifier' => $optionData['price_modifier'] ?? 0,
+                    'is_default' => (bool) ($optionData['is_default'] ?? false),
+                    'is_available' => (bool) ($optionData['is_available'] ?? true),
+                    'sort_order' => (int) ($optionData['sort_order'] ?? $optionSort),
+                ]);
+
+                $optionSort++;
             }
         }
     }

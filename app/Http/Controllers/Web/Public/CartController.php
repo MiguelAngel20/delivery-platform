@@ -45,6 +45,10 @@ class CartController extends Controller
             'optionGroups.options' => fn ($query) => $query
                 ->where('is_available', true)
                 ->orderBy('sort_order'),
+            'optionGroups.clusters' => fn ($query) => $query->orderBy('sort_order'),
+            'optionGroups.clusters.options' => fn ($query) => $query
+                ->where('is_available', true)
+                ->orderBy('sort_order'),
             'currentPrice',
             'category',
             'category.parent',

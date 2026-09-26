@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CheckCircle2, MapPin, ShoppingBag, Store } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AddressCard } from '@/apps/storefront/components/address-card';
 import {
     CheckoutStepper,
@@ -53,6 +53,10 @@ export default function CustomerCustomOrderCreate({ addresses }: Props) {
     const [step, setStep] = useState<WizardStep>(1);
     const [processing, setProcessing] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
+
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [step]);
 
     const [establishmentName, setEstablishmentName] = useState('');
     const [description, setDescription] = useState('');
@@ -526,7 +530,14 @@ export default function CustomerCustomOrderCreate({ addresses }: Props) {
                                 type="button"
                                 variant="outline"
                                 className="min-h-11 flex-1 md:min-h-12 md:flex-none md:px-6"
-                                onClick={goBack}
+                                onClick={() => {
+                                    window.scrollTo({
+                                        top: 0,
+                                        left: 0,
+                                        behavior: 'auto',
+                                    });
+                                    goBack();
+                                }}
                                 disabled={processing}
                             >
                                 Atrás
@@ -544,7 +555,18 @@ export default function CustomerCustomOrderCreate({ addresses }: Props) {
                         <Button
                             type="button"
                             className="min-h-11 flex-[2] md:min-h-12 md:flex-none md:px-8"
-                            onClick={step === 3 ? submit : goNext}
+                            onClick={() => {
+                                window.scrollTo({
+                                    top: 0,
+                                    left: 0,
+                                    behavior: 'auto',
+                                });
+                                if (step === 3) {
+                                    submit();
+                                } else {
+                                    goNext();
+                                }
+                            }}
                             disabled={
                                 processing ||
                                 (step === 1 && !step1Ready) ||

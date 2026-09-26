@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int $max_selection
  * @property int $sort_order
  * @property bool $is_active
+ * @property bool $has_option_clusters
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -33,6 +34,7 @@ use Illuminate\Support\Carbon;
     'max_selection',
     'sort_order',
     'is_active',
+    'has_option_clusters',
 ])]
 class ProductOptionGroup extends Model
 {
@@ -48,6 +50,7 @@ class ProductOptionGroup extends Model
         'max_selection' => 1,
         'sort_order' => 0,
         'is_active' => true,
+        'has_option_clusters' => false,
     ];
 
     /**
@@ -62,6 +65,7 @@ class ProductOptionGroup extends Model
             'max_selection' => 'integer',
             'sort_order' => 'integer',
             'is_active' => 'boolean',
+            'has_option_clusters' => 'boolean',
         ];
     }
 
@@ -73,5 +77,10 @@ class ProductOptionGroup extends Model
     public function options(): HasMany
     {
         return $this->hasMany(ProductOption::class, 'option_group_id')->orderBy('sort_order');
+    }
+
+    public function clusters(): HasMany
+    {
+        return $this->hasMany(ProductOptionCluster::class, 'option_group_id')->orderBy('sort_order');
     }
 }

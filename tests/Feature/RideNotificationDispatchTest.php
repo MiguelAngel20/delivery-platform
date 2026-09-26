@@ -52,14 +52,35 @@ test('order accepted notifies customer with estimated time', function () {
         'estimated_preparation_minutes' => 15,
     ]);
 
-    app(RideNotificationDispatcher::class)->statusChanged($order, OrderStatus::PendingBusiness);
+    app(RideNotificationDispatcher::class)->statusChanged($order, OrderStatus::Accepted);
 
     Notification::assertSentTo(
         $customerUser,
         OrderStatusChangedNotification::class,
         fn (OrderStatusChangedNotification $n): bool => $n->status === OrderStatus::Preparing
             && $n->title() === 'Tu pedido fue aceptado'
-            && $n->body() === 'Tiempo estimado: 15 minutos.',
+            && $n->body() === 'Estará listo en aproximadamente 15 minutos.',
+    );
+});
+
+test('order confirming notifies customer without estimated time', function () {
+    Notification::fake();
+
+    $customerUser = User::factory()->customer()->create();
+    $customer = Customer::factory()->for($customerUser)->create();
+    $order = Order::factory()->create([
+        'customer_id' => $customer->id,
+        'order_status' => OrderStatus::Accepted,
+    ]);
+
+    app(RideNotificationDispatcher::class)->statusChanged($order, OrderStatus::PendingBusiness);
+
+    Notification::assertSentTo(
+        $customerUser,
+        OrderStatusChangedNotification::class,
+        fn (OrderStatusChangedNotification $n): bool => $n->status === OrderStatus::Accepted
+            && $n->title() === 'Tu pedido está en confirmación'
+            && $n->body() === 'Pronto te indicamos el tiempo estimado.',
     );
 });
 
@@ -97,6 +118,26 @@ test('OrderDelivered creates Customer notification', function () {
         $customerUser,
         OrderStatusChangedNotification::class,
         fn (OrderStatusChangedNotification $n): bool => $n->status === OrderStatus::Delivered,
+    );
+});
+
+test('OrderRejected creates Customer notification', function () {
+    Notification::fake();
+
+    $customerUser = User::factory()->customer()->create();
+    $customer = Customer::factory()->for($customerUser)->create();
+    $order = Order::factory()->create([
+        'customer_id' => $customer->id,
+        'order_status' => OrderStatus::Rejected,
+    ]);
+
+    app(RideNotificationDispatcher::class)->statusChanged($order, OrderStatus::PendingBusiness);
+
+    Notification::assertSentTo(
+        $customerUser,
+        OrderStatusChangedNotification::class,
+        fn (OrderStatusChangedNotification $n): bool => $n->status === OrderStatus::Rejected
+            && str_contains($n->body(), 'rechazado'),
     );
 });
 
@@ -247,7 +288,7 @@ test('order status change stores customer inbox notification immediately', funct
     app(RideNotificationDispatcher::class)->statusChanged($order, OrderStatus::PendingBusiness);
 
     expect($customerUser->fresh()->notifications)->toHaveCount(1)
-        ->and($customerUser->notifications->first()?->data['title'])->toBe('Tu pedido fue aceptado');
+        ->and($customerUser->notifications->first()?->data['title'])->toBe('Tu pedido está en confirmación');
 });
 
 test('order created does not notify customer', function () {

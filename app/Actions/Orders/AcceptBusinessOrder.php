@@ -13,6 +13,7 @@ use Illuminate\Validation\ValidationException;
 final class AcceptBusinessOrder
 {
     public function __construct(
+        private readonly AcknowledgeOrder $acknowledge,
         private readonly OrderStateService $stateService,
         private readonly OrderRealtimePublisher $realtime,
     ) {}
@@ -25,38 +26,33 @@ final class AcceptBusinessOrder
             ]);
         }
 
+        if ($order->order_status->isAwaitingMerchantConfirmation()) {
+            $order = $this->acknowledge->handle($order, $actor);
+        }
+
         $previous = $order->order_status;
 
         $updated = DB::transaction(function () use ($order, $actor, $estimatedPreparationMinutes): Order {
             /** @var Order $locked */
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
 
-            if (! $locked->order_status->isAwaitingMerchantConfirmation()) {
+            if ($locked->order_status !== OrderStatus::Accepted) {
                 throw ValidationException::withMessages([
                     'order_status' => 'El pedido ya fue procesado.',
                 ]);
             }
 
+            $this->stateService->assertCanTransition(
+                $locked->order_status,
+                OrderStatus::Preparing,
+            );
+
             $now = now();
-
-            $this->stateService->assertCanTransition($locked->order_status, OrderStatus::Accepted);
-
-            $locked->fill([
-                'order_status' => OrderStatus::Accepted,
-                'estimated_preparation_minutes' => $estimatedPreparationMinutes,
-                'business_accepted_at' => $now,
-            ]);
-            $locked->save();
-
-            $locked->statusHistory()->create([
-                'status' => OrderStatus::Accepted,
-                'changed_by_user_id' => $actor->id,
-                'notes' => "Aceptado. Tiempo estimado: {$estimatedPreparationMinutes} min",
-                'created_at' => $now,
-            ]);
 
             $locked->fill([
                 'order_status' => OrderStatus::Preparing,
+                'estimated_preparation_minutes' => $estimatedPreparationMinutes,
+                'business_accepted_at' => $now,
                 'preparation_started_at' => $now,
             ]);
             $locked->save();
@@ -64,7 +60,7 @@ final class AcceptBusinessOrder
             $locked->statusHistory()->create([
                 'status' => OrderStatus::Preparing,
                 'changed_by_user_id' => $actor->id,
-                'notes' => 'Preparación iniciada',
+                'notes' => "Aceptado. Tiempo estimado: {$estimatedPreparationMinutes} min",
                 'created_at' => $now,
             ]);
 

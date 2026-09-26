@@ -1,4 +1,4 @@
-import { Form, Head, usePage } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { consumePendingCartClear } from '@/apps/storefront/cart/use-storefront-cart';
 import { OrderStatusTimeline } from '@/apps/storefront/components/order-status-timeline';
@@ -7,16 +7,30 @@ import { PageContainer } from '@/components/layout/page';
 import { BackButton } from '@/components/navigation/back-button';
 import { DriverRatingForm } from '@/components/orders/driver-rating-form';
 import { OrderActionDialog } from '@/components/orders/order-action-dialog';
+import { OrderItemsGrouped } from '@/components/orders/order-items-grouped';
 import { Button } from '@/components/ui/button';
 import { useCustomerOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
-import { formatOrderItemLine } from '@/lib/order-item-line';
+import { cn } from '@/lib/utils';
+import { cart } from '@/routes';
 import { cancel as cancelOrder, index } from '@/routes/customer/orders';
 import { accept as acceptQuote } from '@/routes/customer/orders/quotes';
 import { store as storeIncident } from '@/routes/customer/orders/incidents';
 import { store as storeRating } from '@/routes/customer/orders/ratings';
+import { show as showRestaurant } from '@/routes/restaurants';
 
 type Option = { value: string; label: string };
+
+type StatusGuidance = {
+    tone: 'info' | 'success' | 'danger' | string;
+    title: string;
+    message: string;
+    actions?: Array<{
+        type: string;
+        label: string;
+        slug?: string | null;
+    }>;
+};
 
 type OrderDetail = {
     id: number;
@@ -26,12 +40,15 @@ type OrderDetail = {
     estimated_preparation_minutes?: number | null;
     total: string;
     payment_method_label: string;
-    restaurant: { name?: string | null };
+    restaurant: { name?: string | null; slug?: string | null };
     driver?: { id: number; name: string } | null;
     delivery_address?: { address_text: string; reference?: string | null } | null;
     items: Array<{
         id: number;
         product_name: string;
+        display_name?: string | null;
+        category_name?: string | null;
+        subcategory_name?: string | null;
         quantity: string;
         subtotal: string;
         notes?: string | null;
@@ -44,6 +61,7 @@ type OrderDetail = {
         done: boolean;
         current?: boolean;
     }>;
+    customer_status_guidance?: StatusGuidance | null;
     cancellation?: {
         cancelled_by_type_label: string;
         reason_code_label: string;
@@ -69,12 +87,39 @@ type Props = {
     order: OrderDetail;
 };
 
+function guidanceToneClasses(tone: string): string {
+    switch (tone) {
+        case 'success':
+            return 'border-success/30 bg-success/5';
+        case 'danger':
+            return 'border-destructive/40 bg-destructive/5';
+        default:
+            return 'border-primary/30 bg-primary/5';
+    }
+}
+
+function guidanceActionHref(action: {
+    type: string;
+    slug?: string | null;
+}): string | null {
+    if (action.type === 'cart') {
+        return cart.url();
+    }
+
+    if (action.type === 'restaurant' && action.slug) {
+        return showRestaurant.url(action.slug);
+    }
+
+    return null;
+}
+
 export default function CustomerOrderShow({ order }: Props) {
     const { auth, realtime } = usePage().props as {
         auth: Auth;
         realtime?: { customer_id?: number | null };
     };
     const [dialog, setDialog] = useState<'cancel' | 'report' | null>(null);
+    const guidance = order.customer_status_guidance ?? null;
 
     useEffect(() => {
         consumePendingCartClear();
@@ -156,30 +201,54 @@ export default function CustomerOrderShow({ order }: Props) {
 
                 <section className="rounded-xl border border-border bg-surface p-4">
                     <h2 className="mb-4 font-semibold text-navy">Seguimiento</h2>
+                    {guidance ? (
+                        <div
+                            className={cn(
+                                'mb-4 space-y-3 rounded-xl border p-3',
+                                guidanceToneClasses(guidance.tone),
+                            )}
+                        >
+                            <div className="space-y-1">
+                                <p className="text-sm font-semibold text-navy">
+                                    {guidance.title}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    {guidance.message}
+                                </p>
+                            </div>
+                            {(guidance.actions?.length ?? 0) > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {guidance.actions!.map((action) => {
+                                        const href = guidanceActionHref(action);
+
+                                        if (!href) {
+                                            return null;
+                                        }
+
+                                        return (
+                                            <Button
+                                                key={`${action.type}-${action.label}`}
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                asChild
+                                            >
+                                                <Link href={href}>
+                                                    {action.label}
+                                                </Link>
+                                            </Button>
+                                        );
+                                    })}
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
                     <OrderStatusTimeline timeline={order.customer_timeline} />
                 </section>
 
                 <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
                     <h2 className="font-semibold text-navy">Detalle</h2>
-                    <ul className="space-y-3 text-sm">
-                        {order.items.map((item) => (
-                            <li key={item.id} className="space-y-1">
-                                <div className="flex justify-between gap-3">
-                                    <span className="text-navy">
-                                        {formatOrderItemLine(item)}
-                                    </span>
-                                    <span className="font-medium text-navy">
-                                        {formatMoney(item.subtotal)}
-                                    </span>
-                                </div>
-                                {item.notes ? (
-                                    <p className="text-xs text-muted-foreground">
-                                        Nota: {item.notes}
-                                    </p>
-                                ) : null}
-                            </li>
-                        ))}
-                    </ul>
+                    <OrderItemsGrouped items={order.items} />
                     <div className="border-t border-border pt-3 text-sm">
                         <p className="text-muted-foreground">
                             Dirección:{' '}

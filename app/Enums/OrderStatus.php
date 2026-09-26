@@ -27,7 +27,7 @@ enum OrderStatus: string
             self::PendingBusiness => 'Nuevo',
             self::PendingPlatform => 'Pendiente ChisDrive',
             self::PendingCustomerConfirmation => 'Esperando cliente',
-            self::Accepted => 'Aceptado',
+            self::Accepted => 'En confirmación',
             self::Preparing => 'Preparando',
             self::ReadyForPickup => 'Listo para recoger',
             self::Cancelled => 'Cancelado',
@@ -57,9 +57,9 @@ enum OrderStatus: string
     public function customerLabel(): string
     {
         return match ($this) {
-            self::PendingBusiness, self::PendingPlatform => 'Pedido recibido',
+            self::PendingBusiness, self::PendingPlatform => 'Esperando confirmación',
             self::PendingCustomerConfirmation => 'Confirma el nuevo total',
-            self::Accepted,
+            self::Accepted => 'Tu pedido está en confirmación',
             self::Preparing,
             self::SearchingDriver,
             self::ReadyForPickup,
@@ -68,7 +68,7 @@ enum OrderStatus: string
             self::PickedUp => 'Tu pedido va en camino',
             self::OnTheWay => 'Tu pedido ya está afuera de tu domicilio',
             self::Delivered => 'Entregado',
-            self::Rejected => 'Rechazado por el negocio',
+            self::Rejected => 'Pedido rechazado',
             self::Cancelled => 'Cancelado',
         };
     }
@@ -97,6 +97,11 @@ enum OrderStatus: string
             self::PendingBusiness,
             self::PendingPlatform,
         ], true);
+    }
+
+    public function isAwaitingPreparationAcceptance(): bool
+    {
+        return $this === self::Accepted;
     }
 
     public function isEarlyCustomerCancelWindow(): bool

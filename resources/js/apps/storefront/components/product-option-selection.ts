@@ -35,6 +35,34 @@ export function selectionHint(group: StorefrontOptionGroup): string | null {
     return `Elige entre ${min} y ${max} opciones`;
 }
 
+export function addonQuantityForOption(
+    optionId: number,
+    selectedIds: number[],
+    optionQuantities: Record<number, number>,
+): number {
+    if (!selectedIds.includes(optionId)) {
+        return 0;
+    }
+
+    return Math.max(1, optionQuantities[optionId] ?? 1);
+}
+
+export function groupSelectionCount(
+    group: StorefrontOptionGroup,
+    selectedIds: number[],
+    optionQuantities: Record<number, number> = {},
+): number {
+    if (group.type !== 'addon') {
+        return selectedIds.length;
+    }
+
+    return selectedIds.reduce(
+        (sum, optionId) =>
+            sum + addonQuantityForOption(optionId, selectedIds, optionQuantities),
+        0,
+    );
+}
+
 export function isGroupSelectionValid(
     group: StorefrontOptionGroup,
     selectedCount: number,
@@ -92,9 +120,15 @@ export function buildInitialOptionSelection(
 export function isOptionSelectionValid(
     groups: StorefrontOptionGroup[],
     selectedByGroup: Record<number, number[]>,
+    optionQuantities: Record<number, number> = {},
 ): boolean {
     return groups.every((group) => {
-        const selectedCount = (selectedByGroup[group.id] ?? []).length;
+        const selectedIds = selectedByGroup[group.id] ?? [];
+        const selectedCount = groupSelectionCount(
+            group,
+            selectedIds,
+            optionQuantities,
+        );
 
         return isGroupSelectionValid(group, selectedCount);
     });
@@ -103,6 +137,7 @@ export function isOptionSelectionValid(
 export function buildSelectedProductOptions(
     groups: StorefrontOptionGroup[],
     selectedByGroup: Record<number, number[]>,
+    optionQuantities: Record<number, number> = {},
 ): SelectedProductOption[] {
     const selectedOptions: SelectedProductOption[] = [];
 
@@ -120,6 +155,7 @@ export function buildSelectedProductOptions(
                         name: option.name,
                         action: 'removed',
                         price_modifier: 0,
+                        quantity: 1,
                     });
                 }
 
@@ -127,12 +163,22 @@ export function buildSelectedProductOptions(
             }
 
             if (selected) {
+                const quantity =
+                    group.type === 'addon'
+                        ? addonQuantityForOption(
+                              option.id,
+                              selectedIds,
+                              optionQuantities,
+                          )
+                        : 1;
+
                 selectedOptions.push({
                     option_id: option.id,
                     group_id: group.id,
                     name: option.name,
                     action: group.type === 'addon' ? 'added' : 'selected',
                     price_modifier: option.price_modifier,
+                    quantity,
                 });
             }
         }

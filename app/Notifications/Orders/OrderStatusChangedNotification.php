@@ -26,10 +26,13 @@ final class OrderStatusChangedNotification extends RideNotification
     {
         if ($this->audience === UserRole::Customer) {
             return match ($this->status) {
-                OrderStatus::Accepted, OrderStatus::Preparing => 'Tu pedido fue aceptado',
+                OrderStatus::Accepted => 'Tu pedido está en confirmación',
+                OrderStatus::Preparing => 'Tu pedido fue aceptado',
                 OrderStatus::PickedUp => 'Tu pedido va en camino',
                 OrderStatus::OnTheWay => 'Tu pedido ya está afuera',
                 OrderStatus::Delivered => 'Pedido entregado',
+                OrderStatus::Rejected => 'Pedido rechazado',
+                OrderStatus::Cancelled => 'Pedido cancelado',
                 default => 'Actualización de pedido',
             };
         }
@@ -49,12 +52,15 @@ final class OrderStatusChangedNotification extends RideNotification
 
         if ($this->audience === UserRole::Customer) {
             return match ($this->status) {
-                OrderStatus::Accepted, OrderStatus::Preparing => $minutes !== null && $minutes > 0
-                    ? "Recibimos tu pedido. Tiempo estimado: {$minutes} minutos."
-                    : 'Recibimos tu pedido.',
-                OrderStatus::PickedUp => 'Tu pedido va en camino hacia ti.',
-                OrderStatus::OnTheWay => 'Tu repartidor ya está afuera de tu domicilio.',
+                OrderStatus::Accepted => 'Pronto te indicamos el tiempo estimado.',
+                OrderStatus::Preparing => $minutes !== null && $minutes > 0
+                    ? "Estará listo en aproximadamente {$minutes} minutos."
+                    : 'Tu pedido se está preparando.',
+                OrderStatus::PickedUp => 'Tu pedido va en camino.',
+                OrderStatus::OnTheWay => 'Tu repartidor ya está afuera.',
                 OrderStatus::Delivered => 'Tu pedido fue entregado.',
+                OrderStatus::Rejected => "Tu pedido #{$number} fue rechazado. Puedes crear uno nuevo.",
+                OrderStatus::Cancelled => "Tu pedido #{$number} fue cancelado. Puedes crear uno nuevo.",
                 default => "Tu pedido #{$number} cambió de estado.",
             };
         }
@@ -90,6 +96,8 @@ final class OrderStatusChangedNotification extends RideNotification
             OrderStatus::PickedUp,
             OrderStatus::OnTheWay,
             OrderStatus::Delivered,
+            OrderStatus::Rejected,
+            OrderStatus::Cancelled,
         ], true);
     }
 
@@ -104,10 +112,13 @@ final class OrderStatusChangedNotification extends RideNotification
     {
         if ($this->audience === UserRole::Customer) {
             return match ($this->status) {
-                OrderStatus::Accepted, OrderStatus::Preparing => 'order:'.$this->order->id.':accepted',
+                OrderStatus::Accepted => 'order:'.$this->order->id.':confirming',
+                OrderStatus::Preparing => 'order:'.$this->order->id.':preparing',
                 OrderStatus::PickedUp => 'order:'.$this->order->id.':en-camino',
                 OrderStatus::OnTheWay => 'order:'.$this->order->id.':afuera',
                 OrderStatus::Delivered => 'order:'.$this->order->id.':delivered',
+                OrderStatus::Rejected => 'order:'.$this->order->id.':rejected',
+                OrderStatus::Cancelled => 'order:'.$this->order->id.':cancelled',
                 default => sprintf('order:%d:status:%s:customer', $this->order->id, $this->status->value),
             };
         }

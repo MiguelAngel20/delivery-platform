@@ -16,6 +16,10 @@ type CheckoutFooterProps = {
     extra?: ReactNode;
 };
 
+function scrollCheckoutToTop(): void {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+}
+
 export function CheckoutFooter({
     total,
     primaryLabel,
@@ -56,7 +60,10 @@ export function CheckoutFooter({
                                 type="button"
                                 variant="outline"
                                 className="min-h-11 flex-1 md:min-h-12 md:flex-none md:px-6"
-                                onClick={onBack}
+                                onClick={() => {
+                                    scrollCheckoutToTop();
+                                    onBack();
+                                }}
                                 disabled={primaryLoading}
                             >
                                 {backLabel}
@@ -70,7 +77,10 @@ export function CheckoutFooter({
                                     ? 'flex-[2] md:flex-none md:px-8'
                                     : 'w-full md:w-auto md:min-w-48 md:px-8',
                             )}
-                            onClick={onPrimary}
+                            onClick={() => {
+                                scrollCheckoutToTop();
+                                onPrimary();
+                            }}
                             disabled={primaryDisabled || primaryLoading}
                             loading={primaryLoading}
                         >

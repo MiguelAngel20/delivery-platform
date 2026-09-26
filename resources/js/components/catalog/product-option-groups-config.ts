@@ -85,6 +85,8 @@ export function buildGroup(type: SectionType): ProductOptionGroupDraft {
         min_selection: config.defaultMin,
         max_selection: config.defaultMax,
         is_active: true,
+        has_option_clusters: false,
+        clusters: [],
         options: [emptyOption(type)],
     };
 }

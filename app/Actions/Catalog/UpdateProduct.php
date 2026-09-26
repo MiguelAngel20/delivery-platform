@@ -77,7 +77,7 @@ final class UpdateProduct
                 $this->createProduct->syncOptionGroups($product, $data['option_groups'] ?? []);
             }
 
-            return $product->fresh(['currentPrice', 'optionGroups.options', 'category']);
+            return $product->fresh(['currentPrice', 'optionGroups.options', 'optionGroups.clusters.options', 'category']);
         });
     }
 }

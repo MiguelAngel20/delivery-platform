@@ -16,18 +16,22 @@ use Illuminate\Support\Carbon;
  * @property int $order_item_id
  * @property int|null $product_option_id
  * @property string $option_name
+ * @property string|null $option_cluster_name
  * @property ProductOptionGroupType $option_type
  * @property string $price_modifier
  * @property OptionSelectionAction|null $selection_action
+ * @property int $quantity
  * @property Carbon|null $created_at
  */
 #[Fillable([
     'order_item_id',
     'product_option_id',
     'option_name',
+    'option_cluster_name',
     'option_type',
     'price_modifier',
     'selection_action',
+    'quantity',
     'created_at',
 ])]
 class OrderItemOption extends Model
@@ -38,6 +42,13 @@ class OrderItemOption extends Model
     public $timestamps = false;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'quantity' => 1,
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -46,6 +57,7 @@ class OrderItemOption extends Model
             'option_type' => ProductOptionGroupType::class,
             'price_modifier' => 'decimal:2',
             'selection_action' => OptionSelectionAction::class,
+            'quantity' => 'integer',
             'created_at' => 'datetime',
         ];
     }

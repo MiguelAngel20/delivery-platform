@@ -234,7 +234,12 @@ final class RideNotificationDispatcher
         $shouldNotify = in_array($status, self::CUSTOMER_ACCEPTED_STATUSES, true)
             || $status === OrderStatus::PickedUp
             || $status === OrderStatus::OnTheWay
-            || $status === OrderStatus::Delivered;
+            || $status === OrderStatus::Delivered
+            || $status === OrderStatus::Rejected
+            || (
+                $status === OrderStatus::Cancelled
+                && $order->cancellation?->cancelled_by_type !== CancelledByType::Customer
+            );
 
         if (! $shouldNotify) {
             return;

@@ -27,6 +27,7 @@ class OrderItemOptionFactory extends Factory
             'option_type' => ProductOptionGroupType::Choice,
             'price_modifier' => 0,
             'selection_action' => OptionSelectionAction::Selected,
+            'quantity' => 1,
             'created_at' => now(),
         ];
     }

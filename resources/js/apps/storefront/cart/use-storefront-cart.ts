@@ -351,7 +351,10 @@ function promotionLineKey(
     const itemSignature = promotionItems
         .map((item) => {
             const options = (item.selectedOptions ?? [])
-                .map((option) => `${option.option_id}:${option.action}`)
+                .map(
+                    (option) =>
+                        `${option.option_id}:${option.action}:${option.quantity ?? 1}`,
+                )
                 .sort()
                 .join(',');
 
@@ -378,7 +381,10 @@ function lineKey(
         note ?? '',
         (removedIngredients ?? []).slice().sort().join(','),
         (selectedOptions ?? [])
-            .map((option) => `${option.option_id}:${option.action}`)
+            .map(
+                (option) =>
+                    `${option.option_id}:${option.action}:${option.quantity ?? 1}`,
+            )
             .sort()
             .join(','),
     ].join('|');

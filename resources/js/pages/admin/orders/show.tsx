@@ -287,7 +287,8 @@ export default function AdminOrderShow({ order, preparationOptions }: Props) {
                 </div>
 
                 {order.is_platform_managed &&
-                order.order_status === 'pending_platform' ? (
+                (order.order_status === 'pending_platform' ||
+                    order.order_status === 'accepted') ? (
                     <ContentCard title="Ajuste de precio" className="mt-4">
                         <form
                             className="space-y-3"

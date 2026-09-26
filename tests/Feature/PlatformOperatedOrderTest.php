@@ -217,6 +217,43 @@ test('admin confirms platform order and it enters dispatch', function () {
     expect($order->fresh()->assigned_driver_id)->toBe($driver->id);
 });
 
+test('admin can confirm platform order after viewing marks it confirming', function () {
+    ['user' => $user, 'customer' => $customer, 'address' => $address] = seedPlatformCustomer();
+    ['branch' => $branch, 'product' => $product] = seedPlatformCatalog();
+    $admin = User::factory()->systemAdmin()->create();
+
+    $order = app(CreateOrder::class)->handle($customer, $user, [
+        'branch_id' => $branch->id,
+        'items' => [[
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'selected_options' => [],
+        ]],
+        'delivery' => [
+            'source' => 'saved_address',
+            'customer_address_id' => $address->id,
+        ],
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.orders.show', $order))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('order.order_status', OrderStatus::Accepted->value)
+            ->where('order.actions.admin_can_confirm', true));
+
+    expect($order->fresh()->order_status)->toBe(OrderStatus::Accepted);
+
+    $this->actingAs($admin)
+        ->post(route('admin.orders.confirm', $order), [
+            'estimated_preparation_minutes' => 30,
+        ])
+        ->assertRedirect();
+
+    expect($order->fresh()->order_status)->toBe(OrderStatus::Preparing)
+        ->and($order->fresh()->estimated_preparation_minutes)->toBe(30);
+});
+
 test('business-only driver is not eligible for platform-operated orders', function () {
     ['user' => $user, 'customer' => $customer, 'address' => $address] = seedPlatformCustomer();
     ['business' => $business, 'branch' => $branch, 'product' => $product] = seedPlatformCatalog();

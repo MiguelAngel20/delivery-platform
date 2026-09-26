@@ -14,6 +14,7 @@ use App\Events\Orders\DriverAssigned;
 use App\Events\Orders\OrderAvailableToDriver;
 use App\Events\Orders\OrderCreated;
 use App\Events\Orders\OrderStatusChanged;
+use App\Jobs\Dispatch\NotifyEligibleDriversJob;
 use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Models\Customer;
@@ -24,6 +25,7 @@ use App\Models\ProductOption;
 use App\Models\ProductOptionGroup;
 use App\Models\ProductPrice;
 use App\Models\User;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
 
 function seedBroadcastCatalog(): array
@@ -100,6 +102,7 @@ test('OrderCreated is dispatched after successful order creation', function () {
 
 test('OrderStatusChanged is emitted when business accepts order', function () {
     Event::fake([OrderCreated::class, OrderStatusChanged::class, OrderAvailableToDriver::class]);
+    Bus::fake([NotifyEligibleDriversJob::class]);
 
     ['user' => $user, 'customer' => $customer, 'address' => $address] = seedBroadcastCustomer();
     ['branch' => $branch, 'product' => $product, 'option' => $option] = seedBroadcastCatalog();
@@ -122,24 +125,24 @@ test('OrderStatusChanged is emitted when business accepts order', function () {
     ]);
 
     Event::fake([OrderStatusChanged::class, OrderAvailableToDriver::class]);
-
-    $driverUser = User::factory()->driver()->create();
-    $driver = Driver::factory()->approved()->forUser($driverUser)->create([
-        'driver_scope' => DriverScope::Platform,
-        'availability_status' => DriverAvailabilityStatus::Available,
-    ]);
+    Bus::fake([NotifyEligibleDriversJob::class]);
 
     app(AcceptBusinessOrder::class)->handle($order, $businessUser, 20);
 
     Event::assertDispatched(OrderStatusChanged::class, function (OrderStatusChanged $event) use ($order): bool {
         return $event->payload['order_id'] === $order->id
-            && $event->payload['status'] === OrderStatus::Preparing->value
+            && $event->payload['status'] === OrderStatus::Accepted->value
             && $event->payload['previous_status'] === OrderStatus::PendingBusiness->value;
     });
 
-    Event::assertDispatched(OrderAvailableToDriver::class, function (OrderAvailableToDriver $event) use ($order, $driver): bool {
+    Event::assertDispatched(OrderStatusChanged::class, function (OrderStatusChanged $event) use ($order): bool {
         return $event->payload['order_id'] === $order->id
-            && $event->driverId === $driver->id;
+            && $event->payload['status'] === OrderStatus::Preparing->value
+            && $event->payload['previous_status'] === OrderStatus::Accepted->value;
+    });
+
+    Bus::assertDispatchedAfterResponse(NotifyEligibleDriversJob::class, function (NotifyEligibleDriversJob $job) use ($order): bool {
+        return $job->orderId === $order->id && $job->kind === 'offer';
     });
 });
 

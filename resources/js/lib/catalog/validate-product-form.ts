@@ -13,12 +13,40 @@ export function sanitizeProductOptionGroups(
     groups: ProductOptionGroupDraft[],
 ): ProductOptionGroupDraft[] {
     return groups
-        .map((group) => ({
-            ...group,
-            options: group.options.filter(
-                (option) => option.name.trim() !== '',
-            ),
-        }))
+        .map((group) => {
+            const hasClusters =
+                group.type === 'choice' && Boolean(group.has_option_clusters);
+
+            if (hasClusters) {
+                const clusters = (group.clusters ?? [])
+                    .map((cluster) => ({
+                        name: cluster.name.trim(),
+                        options: cluster.options.filter(
+                            (option) => option.name.trim() !== '',
+                        ),
+                    }))
+                    .filter(
+                        (cluster) =>
+                            cluster.name !== '' && cluster.options.length > 0,
+                    );
+
+                return {
+                    ...group,
+                    has_option_clusters: true,
+                    clusters,
+                    options: clusters.flatMap((cluster) => cluster.options),
+                };
+            }
+
+            return {
+                ...group,
+                has_option_clusters: false,
+                clusters: [],
+                options: group.options.filter(
+                    (option) => option.name.trim() !== '',
+                ),
+            };
+        })
         .filter((group) => group.options.length > 0);
 }
 
@@ -39,55 +67,103 @@ export function validateProductOptionGroups(
     groups.forEach((group, groupIndex) => {
         const sectionLabel =
             SECTION_LABELS[group.type] ?? group.name ?? 'Personalización';
-        const namedOptions = group.options.filter(
-            (option) => option.name.trim() !== '',
-        );
+        const hasClusters =
+            group.type === 'choice' && Boolean(group.has_option_clusters);
 
-        if (namedOptions.length === 0) {
-            errors[`${errorPrefix}.${groupIndex}.options`] =
-                `Agrega al menos una opción en "${sectionLabel}".`;
+        if (hasClusters) {
+            const clusters = group.clusters ?? [];
+
+            if (clusters.length === 0) {
+                errors[`${errorPrefix}.${groupIndex}.clusters`] =
+                    `Agrega al menos una agrupación en "${sectionLabel}".`;
+            }
+
+            clusters.forEach((cluster, clusterIndex) => {
+                if (cluster.name.trim() === '') {
+                    errors[
+                        `${errorPrefix}.${groupIndex}.clusters.${clusterIndex}.name`
+                    ] = 'Cada agrupación debe tener un nombre.';
+                }
+
+                const namedOptions = cluster.options.filter(
+                    (option) => option.name.trim() !== '',
+                );
+
+                if (namedOptions.length === 0) {
+                    errors[
+                        `${errorPrefix}.${groupIndex}.clusters.${clusterIndex}.options`
+                    ] = 'Cada agrupación debe tener al menos una variante.';
+                }
+
+                cluster.options.forEach((option, optionIndex) => {
+                    const optionName = option.name.trim();
+
+                    if (optionName === '') {
+                        return;
+                    }
+
+                    if (optionName.length > 100) {
+                        errors[
+                            `${errorPrefix}.${groupIndex}.clusters.${clusterIndex}.options.${optionIndex}.name`
+                        ] =
+                            'El nombre de la opción no puede superar 100 caracteres.';
+                    }
+                });
+            });
+        } else {
+            const namedOptions = group.options.filter(
+                (option) => option.name.trim() !== '',
+            );
+
+            if (namedOptions.length === 0) {
+                errors[`${errorPrefix}.${groupIndex}.options`] =
+                    `Agrega al menos una opción en "${sectionLabel}".`;
+            }
+
+            group.options.forEach((option, optionIndex) => {
+                const optionName = option.name.trim();
+
+                if (optionName === '') {
+                    return;
+                }
+
+                if (optionName.length > 100) {
+                    errors[
+                        `${errorPrefix}.${groupIndex}.options.${optionIndex}.name`
+                    ] = 'El nombre de la opción no puede superar 100 caracteres.';
+                }
+
+                if (
+                    (group.type === 'addon' || group.type === 'size') &&
+                    option.price_modifier.trim() !== ''
+                ) {
+                    const modifier = Number(option.price_modifier);
+
+                    if (Number.isNaN(modifier) || modifier < 0) {
+                        errors[
+                            `${errorPrefix}.${groupIndex}.options.${optionIndex}.price_modifier`
+                        ] =
+                            group.type === 'size'
+                                ? 'Ingresa un precio válido para este tamaño.'
+                                : 'Ingresa un precio adicional válido.';
+                    }
+                }
+
+                if (
+                    group.type === 'size' &&
+                    option.price_modifier.trim() === ''
+                ) {
+                    errors[
+                        `${errorPrefix}.${groupIndex}.options.${optionIndex}.price_modifier`
+                    ] = 'Ingresa un precio válido para este tamaño.';
+                }
+            });
         }
 
         if (group.min_selection > group.max_selection) {
             errors[`${errorPrefix}.${groupIndex}.max_selection`] =
                 'El máximo no puede ser menor que el mínimo.';
         }
-
-        group.options.forEach((option, optionIndex) => {
-            const optionName = option.name.trim();
-
-            if (optionName === '') {
-                return;
-            }
-
-            if (optionName.length > 100) {
-                errors[
-                    `${errorPrefix}.${groupIndex}.options.${optionIndex}.name`
-                ] = 'El nombre de la opción no puede superar 100 caracteres.';
-            }
-
-            if (
-                (group.type === 'addon' || group.type === 'size') &&
-                option.price_modifier.trim() !== ''
-            ) {
-                const modifier = Number(option.price_modifier);
-
-                if (Number.isNaN(modifier) || modifier < 0) {
-                    errors[
-                        `${errorPrefix}.${groupIndex}.options.${optionIndex}.price_modifier`
-                    ] =
-                        group.type === 'size'
-                            ? 'Ingresa un precio válido para este tamaño.'
-                            : 'Ingresa un precio adicional válido.';
-                }
-            }
-
-            if (group.type === 'size' && option.price_modifier.trim() === '') {
-                errors[
-                    `${errorPrefix}.${groupIndex}.options.${optionIndex}.price_modifier`
-                ] = 'Ingresa un precio válido para este tamaño.';
-            }
-        });
     });
 
     return errors;

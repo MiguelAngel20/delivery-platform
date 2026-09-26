@@ -24,6 +24,7 @@ use App\Models\ProductPrice;
 use App\Models\User;
 use App\Services\Orders\OrderStateService;
 use App\Support\BusinessHours;
+use App\Support\OrderData;
 use Illuminate\Validation\ValidationException;
 
 function seedOrderCustomer(): array
@@ -152,6 +153,32 @@ test('create order accepts selected action for addon extras', function () {
     expect($order->items->first()?->options)->toHaveCount(2)
         ->and($order->items->first()?->options->firstWhere('option_name', 'Queso extra')?->selection_action)
         ->toBe(OptionSelectionAction::Added);
+});
+
+test('create order accepts quantity for addon extras and multiplies price', function () {
+    ['user' => $user, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $addonGroup = ProductOptionGroup::query()->where('name', 'Extras')->firstOrFail();
+    $addonGroup->update(['max_selection' => 5]);
+
+    $payload = validOrderPayload($branch, $product, $onion, $cheese, $address);
+    $payload['items'][0]['selected_options'][1]['quantity'] = 3;
+
+    $order = app(CreateOrder::class)->handle($customer, $user, $payload);
+    $item = $order->items->first();
+    $cheeseOption = $item?->options->firstWhere('option_name', 'Queso extra');
+
+    expect($cheeseOption?->quantity)->toBe(3)
+        ->and((string) $cheeseOption?->price_modifier)->toBe('15.00')
+        ->and((string) $item?->unit_final_price)->toBe('150.00')
+        ->and(OrderData::optionDisplay(
+            $cheeseOption->option_name,
+            $cheeseOption->option_type->value,
+            $cheeseOption->selection_action?->value,
+            $cheeseOption->option_cluster_name,
+            $cheeseOption->quantity,
+        ))->toBe('3 QUESO EXTRA');
 });
 
 test('order stores price and product name snapshots', function () {
@@ -660,7 +687,81 @@ test('business can accept pending order requiring preparation time', function ()
 
     expect($order->order_status)->toBe(OrderStatus::Preparing)
         ->and($order->estimated_preparation_minutes)->toBe(20)
-        ->and($order->business_accepted_at)->not->toBeNull();
+        ->and($order->business_accepted_at)->not->toBeNull()
+        ->and($order->statusHistory()->where('status', OrderStatus::Accepted)->exists())->toBeTrue()
+        ->and($order->statusHistory()->where('status', OrderStatus::Preparing)->exists())->toBeTrue();
+});
+
+test('viewing a pending business order marks it as confirming', function () {
+    ['user' => $customerUser, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['business' => $business, 'branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $admin = User::factory()->businessAdmin()->create();
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $admin->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ])->branches()->sync([$branch->id]);
+
+    $order = app(CreateOrder::class)->handle(
+        $customer,
+        $customerUser,
+        validOrderPayload($branch, $product, $onion, $cheese, $address),
+    );
+
+    expect($order->order_status)->toBe(OrderStatus::PendingBusiness);
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.show', $order))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('business/orders/show')
+            ->where('order.order_status', OrderStatus::Accepted->value)
+            ->where('order.actions.business_can_accept', true)
+            ->where('order.actions.business_can_reject', true));
+
+    expect($order->fresh()->order_status)->toBe(OrderStatus::Accepted);
+
+    $this->actingAs($admin)
+        ->get(route('business.orders.show', $order))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('order.order_status', OrderStatus::Accepted->value));
+
+    expect($order->fresh()->statusHistory()->where('status', OrderStatus::Accepted)->count())->toBe(1);
+});
+
+test('business can accept after viewing confirming order', function () {
+    ['user' => $customerUser, 'customer' => $customer, 'address' => $address] = seedOrderCustomer();
+    ['business' => $business, 'branch' => $branch, 'product' => $product, 'onion' => $onion, 'cheese' => $cheese] = seedOrderCatalog();
+
+    $admin = User::factory()->businessAdmin()->create();
+    BusinessUser::query()->create([
+        'business_id' => $business->id,
+        'user_id' => $admin->id,
+        'role' => BusinessUserRole::BusinessAdmin,
+        'status' => BusinessUserStatus::Active,
+    ])->branches()->sync([$branch->id]);
+
+    $order = app(CreateOrder::class)->handle(
+        $customer,
+        $customerUser,
+        validOrderPayload($branch, $product, $onion, $cheese, $address),
+    );
+
+    $this->actingAs($admin)->get(route('business.orders.show', $order))->assertOk();
+
+    expect($order->fresh()->order_status)->toBe(OrderStatus::Accepted);
+
+    $this->actingAs($admin)
+        ->post(route('business.orders.accept', $order), [
+            'estimated_preparation_minutes' => 15,
+        ])
+        ->assertRedirect();
+
+    expect($order->fresh()->order_status)->toBe(OrderStatus::Preparing)
+        ->and($order->fresh()->estimated_preparation_minutes)->toBe(15);
 });
 
 test('business can mark preparing order ready', function () {

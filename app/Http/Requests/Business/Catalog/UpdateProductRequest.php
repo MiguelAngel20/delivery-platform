@@ -86,12 +86,32 @@ class UpdateProductRequest extends FormRequest
             'option_groups.*.options.*.is_default' => ['sometimes', 'boolean'],
             'option_groups.*.options.*.is_available' => ['sometimes', 'boolean'],
             'option_groups.*.options.*.sort_order' => ['nullable', 'integer', 'min:0'],
+            ...$this->optionGroupClusterRules(),
         ];
     }
 
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            foreach (array_values($this->input('option_groups') ?? []) as $index => $group) {
+                if (! is_array($group)) {
+                    continue;
+                }
+
+                if (! filter_var($group['has_option_clusters'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                    continue;
+                }
+
+                $clusters = $group['clusters'] ?? [];
+
+                if (! is_array($clusters) || $clusters === []) {
+                    $validator->errors()->add(
+                        "option_groups.{$index}.clusters",
+                        'Agrega al menos una agrupación con variantes.',
+                    );
+                }
+            }
+
             $path = $this->input('existing_image_path');
 
             if (! filled($path) || $this->file('image') !== null) {

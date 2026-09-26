@@ -9,6 +9,12 @@ export type CartLineCustomization = {
     itemNotes?: Array<{ name: string; note: string }>;
 };
 
+function formatExtraLabel(name: string, quantity = 1): string {
+    const qty = Math.max(1, quantity);
+
+    return qty > 1 ? `${qty} ${name}` : name;
+}
+
 export function getCartLineCustomizations(
     line: CartLine,
 ): CartLineCustomization {
@@ -33,11 +39,12 @@ export function getCartLineCustomizations(
                 }
 
                 if (option.action === 'added') {
+                    const quantity = Math.max(1, option.quantity ?? 1);
                     extras.push({
-                        name: label,
+                        name: formatExtraLabel(label, quantity),
                         price:
                             option.price_modifier !== 0
-                                ? option.price_modifier
+                                ? option.price_modifier * quantity
                                 : undefined,
                     });
                 }
@@ -79,11 +86,12 @@ export function getCartLineCustomizations(
         }
 
         if (option.action === 'added') {
+            const quantity = Math.max(1, option.quantity ?? 1);
             extras.push({
-                name: option.name,
+                name: formatExtraLabel(option.name, quantity),
                 price:
                     option.price_modifier !== 0
-                        ? option.price_modifier
+                        ? option.price_modifier * quantity
                         : undefined,
             });
         }
@@ -93,7 +101,17 @@ export function getCartLineCustomizations(
         }
     }
 
+    const coveredExtraIds = new Set(
+        (line.selectedOptions ?? [])
+            .filter((option) => option.action === 'added')
+            .map((option) => String(option.option_id)),
+    );
+
     for (const extra of line.extras) {
+        if (coveredExtraIds.has(extra.id)) {
+            continue;
+        }
+
         if (!extras.some((item) => item.name === extra.name)) {
             extras.push({ name: extra.name, price: extra.price });
         }

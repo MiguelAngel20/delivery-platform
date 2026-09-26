@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type {
+    ProductOptionClusterDraft,
     ProductOptionDraft,
     ProductOptionGroupDraft,
     SectionType,
@@ -75,6 +76,13 @@ type ProductOptionGroupsFieldsProps = {
     heading?: string;
     description?: string;
 };
+
+function emptyCluster(): ProductOptionClusterDraft {
+    return {
+        name: '',
+        options: [emptyOption('choice')],
+    };
+}
 
 export function ProductOptionGroupsFields({
     groups,
@@ -176,6 +184,227 @@ export function ProductOptionGroupsFields({
         );
     };
 
+    const setHasClusters = (enabled: boolean) => {
+        onChange(
+            groups.map((group) => {
+                if (group.type !== 'choice') {
+                    return group;
+                }
+
+                if (enabled) {
+                    const seedOptions =
+                        group.options.length > 0
+                            ? group.options
+                            : [emptyOption('choice')];
+
+                    return {
+                        ...group,
+                        has_option_clusters: true,
+                        clusters:
+                            group.clusters && group.clusters.length > 0
+                                ? group.clusters
+                                : [
+                                      {
+                                          name: 'Agrupación 1',
+                                          options: seedOptions,
+                                      },
+                                  ],
+                        options: seedOptions,
+                    };
+                }
+
+                const flattened = (group.clusters ?? []).flatMap(
+                    (cluster) => cluster.options,
+                );
+
+                return {
+                    ...group,
+                    has_option_clusters: false,
+                    clusters: [],
+                    options:
+                        flattened.length > 0
+                            ? flattened
+                            : group.options.length > 0
+                              ? group.options
+                              : [emptyOption('choice')],
+                };
+            }),
+        );
+    };
+
+    const updateCluster = (
+        clusterIndex: number,
+        patch: Partial<ProductOptionClusterDraft>,
+    ) => {
+        onChange(
+            groups.map((group) => {
+                if (group.type !== 'choice') {
+                    return group;
+                }
+
+                const clusters = [...(group.clusters ?? [])];
+                clusters[clusterIndex] = {
+                    ...clusters[clusterIndex],
+                    ...patch,
+                };
+
+                return {
+                    ...group,
+                    clusters,
+                    options: clusters.flatMap((cluster) => cluster.options),
+                };
+            }),
+        );
+    };
+
+    const updateClusterOption = (
+        clusterIndex: number,
+        optionIndex: number,
+        patch: Partial<ProductOptionDraft>,
+    ) => {
+        onChange(
+            groups.map((group) => {
+                if (group.type !== 'choice') {
+                    return group;
+                }
+
+                const clusters = (group.clusters ?? []).map(
+                    (cluster, index) => {
+                        if (index !== clusterIndex) {
+                            return cluster;
+                        }
+
+                        return {
+                            ...cluster,
+                            options: cluster.options.map((option, optIndex) =>
+                                optIndex === optionIndex
+                                    ? { ...option, ...patch }
+                                    : option,
+                            ),
+                        };
+                    },
+                );
+
+                return {
+                    ...group,
+                    clusters,
+                    options: clusters.flatMap((cluster) => cluster.options),
+                };
+            }),
+        );
+    };
+
+    const addCluster = () => {
+        onChange(
+            groups.map((group) => {
+                if (group.type !== 'choice') {
+                    return group;
+                }
+
+                const clusters = [
+                    ...(group.clusters ?? []),
+                    emptyCluster(),
+                ];
+
+                return {
+                    ...group,
+                    clusters,
+                    options: clusters.flatMap((cluster) => cluster.options),
+                };
+            }),
+        );
+    };
+
+    const removeCluster = (clusterIndex: number) => {
+        onChange(
+            groups.map((group) => {
+                if (group.type !== 'choice') {
+                    return group;
+                }
+
+                const filtered = (group.clusters ?? []).filter(
+                    (_, index) => index !== clusterIndex,
+                );
+                const clusters =
+                    filtered.length === 0 ? [emptyCluster()] : filtered;
+
+                return {
+                    ...group,
+                    clusters,
+                    options: clusters.flatMap((cluster) => cluster.options),
+                };
+            }),
+        );
+    };
+
+    const addClusterOption = (clusterIndex: number) => {
+        onChange(
+            groups.map((group) => {
+                if (group.type !== 'choice') {
+                    return group;
+                }
+
+                const clusters = (group.clusters ?? []).map(
+                    (cluster, index) =>
+                        index === clusterIndex
+                            ? {
+                                  ...cluster,
+                                  options: [
+                                      ...cluster.options,
+                                      emptyOption('choice'),
+                                  ],
+                              }
+                            : cluster,
+                );
+
+                return {
+                    ...group,
+                    clusters,
+                    options: clusters.flatMap((cluster) => cluster.options),
+                };
+            }),
+        );
+    };
+
+    const removeClusterOption = (
+        clusterIndex: number,
+        optionIndex: number,
+    ) => {
+        onChange(
+            groups.map((group) => {
+                if (group.type !== 'choice') {
+                    return group;
+                }
+
+                const clusters = (group.clusters ?? []).map(
+                    (cluster, index) => {
+                        if (index !== clusterIndex) {
+                            return cluster;
+                        }
+
+                        const filtered = cluster.options.filter(
+                            (_, optIndex) => optIndex !== optionIndex,
+                        );
+
+                        return {
+                            ...cluster,
+                            options:
+                                filtered.length === 0
+                                    ? [emptyOption('choice')]
+                                    : filtered,
+                        };
+                    },
+                );
+
+                return {
+                    ...group,
+                    clusters,
+                    options: clusters.flatMap((cluster) => cluster.options),
+                };
+            }),
+        );
+    };
+
     return (
         <section className="space-y-4 rounded-xl border border-border bg-surface p-4">
             <div>
@@ -190,6 +419,8 @@ export function ProductOptionGroupsFields({
                 const groupIndex = findGroupIndex(groups, type);
                 const group = groupIndex === -1 ? undefined : groups[groupIndex];
                 const isEnabled = group !== undefined;
+                const hasClusters =
+                    type === 'choice' && Boolean(group?.has_option_clusters);
 
                 return (
                     <div key={type} className="rounded-lg border border-border">
@@ -255,130 +486,348 @@ export function ProductOptionGroupsFields({
                                     </div>
                                 ) : null}
 
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium text-foreground">
-                                        Opciones
-                                    </p>
-                                    {groupIndex !== -1 &&
-                                    resolveFieldError(
-                                        fieldKey(`${groupIndex}.options`),
-                                        clientErrors,
-                                        serverErrors,
-                                    ) ? (
-                                        <p className="text-sm text-destructive">
-                                            {resolveFieldError(
-                                                fieldKey(
-                                                    `${groupIndex}.options`,
-                                                ),
-                                                clientErrors,
-                                                serverErrors,
-                                            )}
-                                        </p>
-                                    ) : null}
-                                    {group.options.map((option, optionIndex) => (
-                                        <div
-                                            key={optionIndex}
-                                            className={`grid items-start gap-2 ${config.showPrice ? 'grid-cols-[1fr_100px_auto]' : 'grid-cols-[1fr_auto]'}`}
-                                        >
-                                            <FormField
-                                                error={resolveFieldError(
+                                {type === 'choice' ? (
+                                    <label className="flex items-start gap-2 text-sm text-foreground">
+                                        <Checkbox
+                                            checked={hasClusters}
+                                            onCheckedChange={(checked) =>
+                                                setHasClusters(checked === true)
+                                            }
+                                            className="mt-0.5"
+                                        />
+                                        <span>
+                                            Agrupar variantes
+                                            <span className="mt-1 block text-xs text-muted-foreground">
+                                                Opcional. Úsalo para dividir
+                                                variantes en secciones (por
+                                                ejemplo Picantes, Agridulces).
+                                                El mínimo y máximo aplican al
+                                                total de todas las
+                                                agrupaciones.
+                                            </span>
+                                        </span>
+                                    </label>
+                                ) : null}
+
+                                {hasClusters ? (
+                                    <div className="space-y-4">
+                                        {resolveFieldError(
+                                            fieldKey(`${groupIndex}.clusters`),
+                                            clientErrors,
+                                            serverErrors,
+                                        ) ? (
+                                            <p className="text-sm text-destructive">
+                                                {resolveFieldError(
                                                     fieldKey(
-                                                        `${groupIndex}.options.${optionIndex}.name`,
+                                                        `${groupIndex}.clusters`,
                                                     ),
                                                     clientErrors,
                                                     serverErrors,
                                                 )}
-                                            >
-                                                <Input
-                                                    value={option.name}
-                                                    placeholder={
-                                                        config.optionPlaceholder
-                                                    }
-                                                    onChange={(event) => {
-                                                        updateOption(
-                                                            type,
-                                                            optionIndex,
-                                                            {
-                                                                name: event.target
-                                                                    .value,
-                                                            },
-                                                        );
-                                                        clearError(
+                                            </p>
+                                        ) : null}
+                                        {(group.clusters ?? []).map(
+                                            (cluster, clusterIndex) => (
+                                                <div
+                                                    key={clusterIndex}
+                                                    className="space-y-3 rounded-lg border border-border p-3"
+                                                >
+                                                    <div className="flex items-start gap-2">
+                                                        <FormField
+                                                            label="Nombre de la agrupación"
+                                                            htmlFor={`cluster-name-${clusterIndex}`}
+                                                            className="flex-1"
+                                                            error={resolveFieldError(
+                                                                fieldKey(
+                                                                    `${groupIndex}.clusters.${clusterIndex}.name`,
+                                                                ),
+                                                                clientErrors,
+                                                                serverErrors,
+                                                            )}
+                                                        >
+                                                            <Input
+                                                                id={`cluster-name-${clusterIndex}`}
+                                                                value={
+                                                                    cluster.name
+                                                                }
+                                                                placeholder="Ej. Picantes, Agridulces"
+                                                                onChange={(
+                                                                    event,
+                                                                ) => {
+                                                                    updateCluster(
+                                                                        clusterIndex,
+                                                                        {
+                                                                            name: event
+                                                                                .target
+                                                                                .value,
+                                                                        },
+                                                                    );
+                                                                    clearError(
+                                                                        fieldKey(
+                                                                            `${groupIndex}.clusters.${clusterIndex}.name`,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                            />
+                                                        </FormField>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="mt-6 size-9 text-muted-foreground hover:text-destructive"
+                                                            onClick={() =>
+                                                                removeCluster(
+                                                                    clusterIndex,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 className="size-4" />
+                                                        </Button>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <p className="text-sm font-medium text-foreground">
+                                                            Variantes
+                                                        </p>
+                                                        {resolveFieldError(
                                                             fieldKey(
-                                                                `${groupIndex}.options`,
+                                                                `${groupIndex}.clusters.${clusterIndex}.options`,
                                                             ),
-                                                        );
-                                                        clearError(
+                                                            clientErrors,
+                                                            serverErrors,
+                                                        ) ? (
+                                                            <p className="text-sm text-destructive">
+                                                                {resolveFieldError(
+                                                                    fieldKey(
+                                                                        `${groupIndex}.clusters.${clusterIndex}.options`,
+                                                                    ),
+                                                                    clientErrors,
+                                                                    serverErrors,
+                                                                )}
+                                                            </p>
+                                                        ) : null}
+                                                        {cluster.options.map(
+                                                            (
+                                                                option,
+                                                                optionIndex,
+                                                            ) => (
+                                                                <div
+                                                                    key={
+                                                                        optionIndex
+                                                                    }
+                                                                    className="grid grid-cols-[1fr_auto] items-start gap-2"
+                                                                >
+                                                                    <FormField
+                                                                        error={resolveFieldError(
+                                                                            fieldKey(
+                                                                                `${groupIndex}.clusters.${clusterIndex}.options.${optionIndex}.name`,
+                                                                            ),
+                                                                            clientErrors,
+                                                                            serverErrors,
+                                                                        )}
+                                                                    >
+                                                                        <Input
+                                                                            value={
+                                                                                option.name
+                                                                            }
+                                                                            placeholder={
+                                                                                config.optionPlaceholder
+                                                                            }
+                                                                            onChange={(
+                                                                                event,
+                                                                            ) => {
+                                                                                updateClusterOption(
+                                                                                    clusterIndex,
+                                                                                    optionIndex,
+                                                                                    {
+                                                                                        name: event
+                                                                                            .target
+                                                                                            .value,
+                                                                                    },
+                                                                                );
+                                                                                clearError(
+                                                                                    fieldKey(
+                                                                                        `${groupIndex}.clusters.${clusterIndex}.options.${optionIndex}.name`,
+                                                                                    ),
+                                                                                );
+                                                                            }}
+                                                                        />
+                                                                    </FormField>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="size-9 text-muted-foreground hover:text-destructive"
+                                                                        onClick={() =>
+                                                                            removeClusterOption(
+                                                                                clusterIndex,
+                                                                                optionIndex,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Trash2 className="size-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                addClusterOption(
+                                                                    clusterIndex,
+                                                                )
+                                                            }
+                                                        >
+                                                            + Agregar variante
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ),
+                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={addCluster}
+                                        >
+                                            + Agregar agrupación
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <p className="text-sm font-medium text-foreground">
+                                            Opciones
+                                        </p>
+                                        {groupIndex !== -1 &&
+                                        resolveFieldError(
+                                            fieldKey(`${groupIndex}.options`),
+                                            clientErrors,
+                                            serverErrors,
+                                        ) ? (
+                                            <p className="text-sm text-destructive">
+                                                {resolveFieldError(
+                                                    fieldKey(
+                                                        `${groupIndex}.options`,
+                                                    ),
+                                                    clientErrors,
+                                                    serverErrors,
+                                                )}
+                                            </p>
+                                        ) : null}
+                                        {group.options.map(
+                                            (option, optionIndex) => (
+                                                <div
+                                                    key={optionIndex}
+                                                    className={`grid items-start gap-2 ${config.showPrice ? 'grid-cols-[1fr_100px_auto]' : 'grid-cols-[1fr_auto]'}`}
+                                                >
+                                                    <FormField
+                                                        error={resolveFieldError(
                                                             fieldKey(
                                                                 `${groupIndex}.options.${optionIndex}.name`,
                                                             ),
-                                                        );
-                                                    }}
-                                                />
-                                            </FormField>
-                                            {config.showPrice ? (
-                                                <FormField
-                                                    error={resolveFieldError(
-                                                        fieldKey(
-                                                            `${groupIndex}.options.${optionIndex}.price_modifier`,
-                                                        ),
-                                                        clientErrors,
-                                                        serverErrors,
-                                                    )}
-                                                >
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        value={
-                                                            option.price_modifier
-                                                        }
-                                                        placeholder="+ $0.00"
-                                                        onChange={(event) => {
-                                                            updateOption(
-                                                                type,
-                                                                optionIndex,
-                                                                {
-                                                                    price_modifier:
-                                                                        event
+                                                            clientErrors,
+                                                            serverErrors,
+                                                        )}
+                                                    >
+                                                        <Input
+                                                            value={option.name}
+                                                            placeholder={
+                                                                config.optionPlaceholder
+                                                            }
+                                                            onChange={(
+                                                                event,
+                                                            ) => {
+                                                                updateOption(
+                                                                    type,
+                                                                    optionIndex,
+                                                                    {
+                                                                        name: event
                                                                             .target
                                                                             .value,
-                                                                },
-                                                            );
-                                                            clearError(
+                                                                    },
+                                                                );
+                                                                clearError(
+                                                                    fieldKey(
+                                                                        `${groupIndex}.options`,
+                                                                    ),
+                                                                );
+                                                                clearError(
+                                                                    fieldKey(
+                                                                        `${groupIndex}.options.${optionIndex}.name`,
+                                                                    ),
+                                                                );
+                                                            }}
+                                                        />
+                                                    </FormField>
+                                                    {config.showPrice ? (
+                                                        <FormField
+                                                            error={resolveFieldError(
                                                                 fieldKey(
                                                                     `${groupIndex}.options.${optionIndex}.price_modifier`,
                                                                 ),
-                                                            );
-                                                        }}
-                                                    />
-                                                </FormField>
-                                            ) : null}
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="size-9 text-muted-foreground hover:text-destructive"
-                                                onClick={() =>
-                                                    removeOption(
-                                                        type,
-                                                        optionIndex,
-                                                    )
-                                                }
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => addOption(type)}
-                                    >
-                                        + Agregar opción
-                                    </Button>
-                                </div>
+                                                                clientErrors,
+                                                                serverErrors,
+                                                            )}
+                                                        >
+                                                            <Input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                value={
+                                                                    option.price_modifier
+                                                                }
+                                                                placeholder="+ $0.00"
+                                                                onChange={(
+                                                                    event,
+                                                                ) => {
+                                                                    updateOption(
+                                                                        type,
+                                                                        optionIndex,
+                                                                        {
+                                                                            price_modifier:
+                                                                                event
+                                                                                    .target
+                                                                                    .value,
+                                                                        },
+                                                                    );
+                                                                    clearError(
+                                                                        fieldKey(
+                                                                            `${groupIndex}.options.${optionIndex}.price_modifier`,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                            />
+                                                        </FormField>
+                                                    ) : null}
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="size-9 text-muted-foreground hover:text-destructive"
+                                                        onClick={() =>
+                                                            removeOption(
+                                                                type,
+                                                                optionIndex,
+                                                            )
+                                                        }
+                                                    >
+                                                        <Trash2 className="size-4" />
+                                                    </Button>
+                                                </div>
+                                            ),
+                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => addOption(type)}
+                                        >
+                                            + Agregar opción
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         ) : null}
                     </div>

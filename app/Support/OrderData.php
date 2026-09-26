@@ -11,6 +11,7 @@ use App\Enums\OrderQuoteStatus;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderItemOption;
 use App\Services\Finance\RevenueAllocationService;
 use App\Services\Orders\OrderCancellationService;
 
@@ -88,18 +89,7 @@ final class OrderData
             'customer' => self::customerSummary($order),
             'driver' => self::driverSummary($order),
             'items' => $order->items->map(function ($item): array {
-                $options = $item->options->map(fn ($option): array => [
-                    'id' => $option->id,
-                    'option_name' => $option->option_name,
-                    'option_type' => $option->option_type->value,
-                    'price_modifier' => (string) $option->price_modifier,
-                    'selection_action' => $option->selection_action?->value,
-                    'display' => self::optionDisplay(
-                        $option->option_name,
-                        $option->option_type->value,
-                        $option->selection_action?->value,
-                    ),
-                ])->values()->all();
+                $options = self::optionsForDisplay($item->options);
 
                 $category = self::itemCategoryContext($item);
 
@@ -149,6 +139,7 @@ final class OrderData
                 ),
             ] : null,
             'customer_timeline' => self::customerTimeline($order),
+            'customer_status_guidance' => self::customerStatusGuidance($order),
             'timeline' => self::timeline($order),
             'financial' => self::financialSummary($order),
             'pending_quote' => self::pendingQuote($order),
@@ -579,12 +570,26 @@ final class OrderData
             'customer_can_cancel' => $cancellations->customerCanCancel($order),
             'customer_can_report_problem' => $cancellations->customerCanReportProblem($order),
             'business_can_cancel' => $cancellations->businessCanCancel($order),
-            'business_can_reject' => $order->order_status === OrderStatus::PendingBusiness
-                && ! $order->isPlatformManaged(),
+            'business_can_reject' => ! $order->isPlatformManaged()
+                && (
+                    $order->order_status === OrderStatus::PendingBusiness
+                    || $order->order_status === OrderStatus::Accepted
+                ),
+            'business_can_accept' => ! $order->isPlatformManaged()
+                && (
+                    $order->order_status === OrderStatus::PendingBusiness
+                    || $order->order_status === OrderStatus::Accepted
+                ),
             'admin_can_confirm' => $order->isPlatformManaged()
-                && $order->order_status === OrderStatus::PendingPlatform,
+                && (
+                    $order->order_status === OrderStatus::PendingPlatform
+                    || $order->order_status === OrderStatus::Accepted
+                ),
             'admin_can_reject' => $order->isPlatformManaged()
-                && $order->order_status === OrderStatus::PendingPlatform,
+                && (
+                    $order->order_status === OrderStatus::PendingPlatform
+                    || $order->order_status === OrderStatus::Accepted
+                ),
             'admin_can_mark_ready' => $order->isPlatformManaged()
                 && in_array($order->order_status, [
                     OrderStatus::Preparing,
@@ -675,6 +680,116 @@ final class OrderData
     }
 
     /**
+     * Contextual copy shown under the customer tracking stepper.
+     * Hidden once the order is already on the road or delivered.
+     *
+     * @return array{
+     *     tone: string,
+     *     title: string,
+     *     message: string,
+     *     actions?: list<array{type: string, label: string, slug?: string|null}>
+     * }|null
+     */
+    public static function customerStatusGuidance(Order $order): ?array
+    {
+        $status = $order->order_status;
+        $minutes = $order->estimated_preparation_minutes;
+        $restaurantSlug = $order->branch?->business?->slug;
+
+        if ($status->isAwaitingMerchantConfirmation()) {
+            return [
+                'tone' => 'info',
+                'title' => 'Estamos revisando tu pedido',
+                'message' => 'En un máximo de 5 minutos te confirmaremos si tu pedido es aceptado.',
+            ];
+        }
+
+        if ($status->isAwaitingPreparationAcceptance()) {
+            return [
+                'tone' => 'info',
+                'title' => 'Tu pedido está en confirmación',
+                'message' => 'Pronto te indicamos el tiempo estimado.',
+            ];
+        }
+
+        if (in_array($status, [
+            OrderStatus::Preparing,
+            OrderStatus::SearchingDriver,
+            OrderStatus::ReadyForPickup,
+            OrderStatus::DriverAssigned,
+            OrderStatus::DriverAtBusiness,
+        ], true)) {
+            $message = $minutes !== null
+                ? "Estará listo en aproximadamente {$minutes} minutos."
+                : 'Ya estamos preparando tu pedido.';
+
+            return [
+                'tone' => 'success',
+                'title' => 'Tu pedido se está preparando',
+                'message' => $message,
+            ];
+        }
+
+        if ($status === OrderStatus::Rejected) {
+            $order->loadMissing('statusHistory');
+            $reason = $order->statusHistory
+                ->reverse()
+                ->first(fn ($entry): bool => $entry->status === OrderStatus::Rejected)
+                ?->notes;
+
+            $message = filled($reason)
+                ? "Motivo: {$reason}. Puedes editar tu carrito o crear un pedido nuevo."
+                : 'Puedes editar tu carrito o crear un pedido nuevo.';
+
+            return [
+                'tone' => 'danger',
+                'title' => 'Pedido rechazado',
+                'message' => $message,
+                'actions' => array_values(array_filter([
+                    [
+                        'type' => 'cart',
+                        'label' => 'Ir al carrito',
+                    ],
+                    filled($restaurantSlug) ? [
+                        'type' => 'restaurant',
+                        'label' => 'Ver menú',
+                        'slug' => $restaurantSlug,
+                    ] : null,
+                ])),
+            ];
+        }
+
+        if ($status === OrderStatus::Cancelled) {
+            $order->loadMissing('cancellation');
+            $reason = $order->cancellation?->reason
+                ?: $order->cancellation?->reason_code?->label();
+
+            $message = filled($reason)
+                ? "Motivo: {$reason}. Puedes editar tu carrito o crear un pedido nuevo."
+                : 'Puedes editar tu carrito o crear un pedido nuevo.';
+
+            return [
+                'tone' => 'danger',
+                'title' => 'Pedido cancelado',
+                'message' => $message,
+                'actions' => array_values(array_filter([
+                    [
+                        'type' => 'cart',
+                        'label' => 'Ir al carrito',
+                    ],
+                    filled($restaurantSlug) ? [
+                        'type' => 'restaurant',
+                        'label' => 'Ver menú',
+                        'slug' => $restaurantSlug,
+                    ] : null,
+                ])),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     public static function customerTimeline(Order $order): array
@@ -692,8 +807,18 @@ final class OrderData
             ])->values()->all();
         }
 
+        $awaitingConfirmation = $current->isAwaitingMerchantConfirmation();
+        $confirming = $current->isAwaitingPreparationAcceptance();
+
         $milestones = [
-            ['key' => 'received', 'label' => 'Pedido recibido'],
+            [
+                'key' => 'received',
+                'label' => match (true) {
+                    $awaitingConfirmation => 'Esperando confirmación',
+                    $confirming => 'Pedido en confirmación',
+                    default => 'Pedido recibido',
+                },
+            ],
             ['key' => 'preparing', 'label' => 'Tu pedido se está preparando'],
             ['key' => 'on_the_way', 'label' => 'Tu pedido va en camino'],
             ['key' => 'at_door', 'label' => 'Tu pedido ya está afuera de tu domicilio'],
@@ -703,9 +828,13 @@ final class OrderData
         $currentIndex = self::customerTimelineIndex($current);
         $isDelivered = $current === OrderStatus::Delivered;
 
-        return collect($milestones)->map(function (array $milestone, int $index) use ($currentIndex, $isDelivered, $order): array {
+        return collect($milestones)->map(function (array $milestone, int $index) use ($currentIndex, $isDelivered, $order, $awaitingConfirmation): array {
             $isCurrent = ! $isDelivered && $index === $currentIndex;
-            $isDone = $isDelivered || $index <= $currentIndex;
+            $isDone = $isDelivered || (
+                $awaitingConfirmation
+                    ? $index < $currentIndex
+                    : $index <= $currentIndex
+            );
 
             return [
                 'key' => $milestone['key'],
@@ -738,8 +867,8 @@ final class OrderData
     {
         return match ($status) {
             OrderStatus::PendingBusiness,
-            OrderStatus::PendingPlatform => 0,
-            OrderStatus::Accepted,
+            OrderStatus::PendingPlatform,
+            OrderStatus::Accepted => 0,
             OrderStatus::Preparing,
             OrderStatus::SearchingDriver,
             OrderStatus::ReadyForPickup,
@@ -757,11 +886,12 @@ final class OrderData
         /** @var list<OrderStatus> $statuses */
         $statuses = match ($milestoneIndex) {
             0 => [
+                OrderStatus::Accepted,
+                OrderStatus::Preparing,
                 OrderStatus::PendingBusiness,
                 OrderStatus::PendingPlatform,
             ],
             1 => [
-                OrderStatus::Accepted,
                 OrderStatus::Preparing,
                 OrderStatus::SearchingDriver,
                 OrderStatus::ReadyForPickup,
@@ -778,21 +908,115 @@ final class OrderData
             fn ($historyEntry) => in_array($historyEntry->status, $statuses, true),
         );
 
-        if ($milestoneIndex === 0 && $entry === null) {
-            return $order->created_at?->toIso8601String();
+        if ($milestoneIndex === 0) {
+            $acceptedEntry = $order->statusHistory->first(
+                fn ($historyEntry) => $historyEntry->status === OrderStatus::Accepted,
+            );
+
+            if ($acceptedEntry !== null) {
+                return $acceptedEntry->created_at?->toIso8601String();
+            }
+
+            if ($entry === null) {
+                return $order->created_at?->toIso8601String();
+            }
         }
 
         return $entry?->created_at?->toIso8601String();
     }
 
-    public static function optionDisplay(string $name, string $type, ?string $action): string
-    {
+    public static function optionDisplay(
+        string $name,
+        string $type,
+        ?string $action,
+        ?string $clusterName = null,
+        int $quantity = 1,
+    ): string {
+        $label = filled($clusterName)
+            ? mb_strtoupper($clusterName).': '.mb_strtoupper($name)
+            : mb_strtoupper($name);
+
+        $qty = max(1, $quantity);
+
         return match ($action) {
-            'removed' => 'SIN '.mb_strtoupper($name),
-            'added' => '+ '.mb_strtoupper($name),
-            'selected' => mb_strtoupper($name),
-            default => mb_strtoupper($name),
+            'removed' => 'SIN '.$label,
+            'added' => $qty > 1 ? $qty.' '.$label : $label,
+            'selected' => $qty > 1 ? $qty.' '.$label : $label,
+            default => $qty > 1 ? $qty.' '.$label : $label,
         };
+    }
+
+    /**
+     * Collapse variants that share the same option cluster into one display
+     * line so the cluster header is not repeated (admin, business, customer).
+     *
+     * @param  iterable<int, OrderItemOption>  $options
+     * @return list<array{
+     *     id: int,
+     *     option_name: string,
+     *     option_cluster_name: string|null,
+     *     option_type: string,
+     *     price_modifier: string,
+     *     selection_action: string|null,
+     *     quantity: int,
+     *     display: string
+     * }>
+     */
+    public static function optionsForDisplay(iterable $options): array
+    {
+        /** @var list<array{key: string, cluster: string|null, action: string|null, type: string, price_modifier: string, id: int, quantity: int, names: list<string>}> $groups */
+        $groups = [];
+        $indexByKey = [];
+
+        foreach ($options as $option) {
+            $clusterName = filled($option->option_cluster_name)
+                ? (string) $option->option_cluster_name
+                : null;
+            $action = $option->selection_action?->value;
+            $quantity = max(1, (int) ($option->quantity ?? 1));
+
+            // Addons with quantity stay as their own line; only choice clusters collapse.
+            $key = $clusterName !== null && $option->option_type->value !== 'addon'
+                ? 'cluster:'.mb_strtolower($clusterName).'|'.($action ?? '')
+                : 'option:'.$option->id;
+
+            if (! isset($indexByKey[$key])) {
+                $indexByKey[$key] = count($groups);
+                $groups[] = [
+                    'key' => $key,
+                    'cluster' => $clusterName,
+                    'action' => $action,
+                    'type' => $option->option_type->value,
+                    'price_modifier' => (string) $option->price_modifier,
+                    'id' => $option->id,
+                    'quantity' => $quantity,
+                    'names' => [],
+                ];
+            }
+
+            $groups[$indexByKey[$key]]['names'][] = $option->option_name;
+        }
+
+        return array_map(function (array $group): array {
+            $joinedName = implode(', ', $group['names']);
+
+            return [
+                'id' => $group['id'],
+                'option_name' => $joinedName,
+                'option_cluster_name' => $group['cluster'],
+                'option_type' => $group['type'],
+                'price_modifier' => $group['price_modifier'],
+                'selection_action' => $group['action'],
+                'quantity' => $group['quantity'],
+                'display' => self::optionDisplay(
+                    $joinedName,
+                    $group['type'],
+                    $group['action'],
+                    $group['cluster'],
+                    $group['quantity'],
+                ),
+            ];
+        }, $groups);
     }
 
     /**

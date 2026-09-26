@@ -154,6 +154,8 @@ class RestaurantController extends Controller
                 'currentPrice',
                 'optionGroups' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order'),
                 'optionGroups.options' => fn ($query) => $query->where('is_available', true)->orderBy('sort_order'),
+                'optionGroups.clusters' => fn ($query) => $query->orderBy('sort_order'),
+                'optionGroups.clusters.options' => fn ($query) => $query->where('is_available', true)->orderBy('sort_order'),
             ])
             ->orderBy('name')
             ->get()
