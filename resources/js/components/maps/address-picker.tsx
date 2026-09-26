@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useBrowserGeolocation } from '@/hooks/use-browser-geolocation';
+import { useBrowserGeolocation, POOR_GEOLOCATION_ACCURACY_METERS } from '@/hooks/use-browser-geolocation';
 import { googleMapsSearchUrl } from '@/lib/maps/google-maps-url';
 import {
     createAutocompleteSessionToken,
@@ -89,7 +89,7 @@ export function AddressPicker({
     showFullscreenAdjust = true,
     currentLocationOnly = false,
     locatingTitle = 'Buscando tu ubicación…',
-    locatingDescription = 'No cierres esta ventana. Estamos detectando tu ubicación actual.',
+    locatingDescription = 'Puede tardar unos segundos. En computadora la ubicación suele ser menos precisa que en el celular.',
     mapHeightClassName = 'h-[min(50vh,24rem)] md:h-96',
     disabled = false,
     radiusMeters = null,
@@ -117,6 +117,9 @@ export function AddressPicker({
     const [highlightIndex, setHighlightIndex] = useState(0);
     const [fullscreenOpen, setFullscreenOpen] = useState(false);
     const [locating, setLocating] = useState(false);
+    const [locationAccuracyMeters, setLocationAccuracyMeters] = useState<
+        number | null
+    >(null);
     const [resolvedLocation, setResolvedLocation] = useState<{
         latitude: number;
         longitude: number;
@@ -304,6 +307,7 @@ export function AddressPicker({
                 return;
             }
 
+            setLocationAccuracyMeters(point.accuracyMeters);
             await applyCoordinates(point.lat, point.lng);
         } finally {
             setLocating(false);
@@ -456,12 +460,17 @@ export function AddressPicker({
         return () => window.clearTimeout(timer);
     }, [fullscreenOpen]);
 
-    const allowMapInteraction = !currentLocationOnly;
+    const locationIsApproximate =
+        locationAccuracyMeters != null
+        && locationAccuracyMeters > POOR_GEOLOCATION_ACCURACY_METERS;
+    const allowMapInteraction =
+        !currentLocationOnly || locationIsApproximate;
     const showSearch = !currentLocationOnly;
     const showFullscreen = showFullscreenAdjust && allowMapInteraction;
     const showLocateButton = showCurrentLocation || currentLocationOnly;
     const mapBlockInteraction =
-        currentLocationOnly || suggestions.length > 0;
+        (!allowMapInteraction && currentLocationOnly)
+        || suggestions.length > 0;
     const hasResolvedLocation =
         resolvedLocation != null ||
         (value?.latitude != null && value?.longitude != null);
@@ -575,12 +584,16 @@ export function AddressPicker({
     const mapHint = (
         <p className="text-xs text-muted-foreground">
             {currentLocationOnly
-                ? hasResolvedLocation
-                    ? 'Ubicación detectada. El mapa es solo de consulta; si no es correcta, vuelve a usar tu ubicación actual.'
-                    : 'Para continuar, comparte tu ubicación actual. El mapa aparecerá cuando se detecte.'
+                ? !hasResolvedLocation
+                    ? 'Para continuar, comparte tu ubicación actual. El mapa aparecerá cuando se detecte.'
+                    : locationIsApproximate
+                      ? 'En esta computadora la ubicación suele ser aproximada. Mueve el mapa para colocar el pin en tu punto exacto.'
+                      : 'Ubicación detectada. El mapa es solo de consulta; si no es correcta, vuelve a usar tu ubicación actual.'
                 : radiusMeters != null && radiusMeters > 0
                   ? `Mueve el mapa para centrar la zona. El círculo naranja muestra el radio (${(radiusMeters / 1000).toFixed(1)} km).`
-                  : 'Mueve el mapa para colocar el pin en tu ubicación exacta.'}
+                  : locationIsApproximate
+                    ? 'La ubicación detectada es aproximada (común en PC). Mueve el mapa para afinar el pin.'
+                    : 'Mueve el mapa para colocar el pin en tu ubicación exacta.'}
         </p>
     );
 
