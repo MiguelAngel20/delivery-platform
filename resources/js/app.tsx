@@ -1,4 +1,5 @@
 import { createInertiaApp } from '@inertiajs/react';
+import { configureEcho } from '@laravel/echo-react';
 import type { ComponentType, ReactNode } from 'react';
 import AdminLayout from '@/apps/admin/layouts/admin-layout';
 import BusinessLayout from '@/apps/business/layouts/business-layout';
@@ -12,7 +13,7 @@ import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import MapsLayout from '@/layouts/maps-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import { configureEcho } from '@laravel/echo-react';
+import { installMetaPixel } from '@/lib/meta-pixel';
 
 const broadcastConnection =
     import.meta.env.VITE_BROADCAST_CONNECTION || 'reverb';
@@ -32,6 +33,8 @@ if (broadcastConnection === 'pusher') {
 }
 
 const appName = import.meta.env.VITE_APP_NAME || 'ChisDrive';
+
+installMetaPixel();
 
 type LayoutComponent = ComponentType<{ children: ReactNode }>;
 

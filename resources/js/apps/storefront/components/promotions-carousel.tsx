@@ -11,7 +11,7 @@ import { MobilePromotionCard } from '@/apps/storefront/components/mobile-promoti
 import {
     PROMOTION_AUTO_ADVANCE_MS,
     useCarouselAutoAdvance,
-    useCarouselPauseHandlers,
+    useCarouselSwipe,
 } from '@/apps/storefront/hooks/use-carousel-auto-advance';
 import type { MockPromotion } from '@/apps/storefront/mocks';
 import { Button } from '@/components/ui/button';
@@ -40,9 +40,14 @@ export function PromotionsCarousel({
     const isAnimatingRef = useRef(false);
     const [slideIndex, setSlideIndex] = useState(0);
     const [slideStepPx, setSlideStepPx] = useState(0);
-    const [visibleCount, setVisibleCount] = useState(1);
+    const [visibleCount, setVisibleCount] = useState(() => {
+        if (typeof window === 'undefined') {
+            return 3;
+        }
+
+        return window.matchMedia('(min-width: 1024px)').matches ? 3 : 2;
+    });
     const [animate, setAnimate] = useState(true);
-    const { isPaused, pauseHandlers } = useCarouselPauseHandlers();
 
     const canRotate = promotions.length > visibleCount;
 
@@ -95,7 +100,7 @@ export function PromotionsCarousel({
 
             setSlideStepPx(step);
             setVisibleCount(
-                Math.max(1, Math.floor((container.clientWidth + gap) / step)),
+                window.matchMedia('(min-width: 1024px)').matches ? 3 : 2,
             );
         };
 
@@ -210,7 +215,18 @@ export function PromotionsCarousel({
         [canRotate, promotions, slideIndex],
     );
 
-    useCarouselAutoAdvance(canRotate, isPaused, goNext, PROMOTION_AUTO_ADVANCE_MS);
+    const { interacting, pointerHandlers } = useCarouselSwipe(
+        canRotate,
+        goNext,
+        goPrevious,
+    );
+
+    useCarouselAutoAdvance(
+        canRotate,
+        interacting,
+        goNext,
+        PROMOTION_AUTO_ADVANCE_MS,
+    );
 
     const activePromotionId =
         promotions[slideIndex % promotions.length]?.id ??
@@ -222,10 +238,14 @@ export function PromotionsCarousel({
 
     return (
         <div
-            className={cn('relative hidden space-y-3 md:block', className)}
+            className={cn(
+                'relative hidden space-y-3 md:block',
+                canRotate && 'cursor-grab touch-pan-y active:cursor-grabbing',
+                className,
+            )}
             aria-roledescription="carrusel"
             aria-label="Promociones"
-            {...pauseHandlers}
+            {...pointerHandlers}
         >
             {canRotate ? (
                 <>
@@ -284,7 +304,7 @@ export function PromotionsCarousel({
                 </div>
             </div>
 
-            {promotions.length > 1 ? (
+            {canRotate ? (
                 <div className="flex justify-center gap-1.5">
                     {promotions.map((promotion) => (
                         <button

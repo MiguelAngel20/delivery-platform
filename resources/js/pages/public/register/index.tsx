@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
 import {
     COVERAGE_UNAVAILABLE_MESSAGE,
@@ -116,6 +116,7 @@ export default function CustomerRegister({
         useState<CustomerRegisterClientErrors>({});
     const [coverageError, setCoverageError] = useState<string | null>(null);
     const [checkingCoverage, setCheckingCoverage] = useState(false);
+    const lastCoveragePoint = useRef<string | null>(null);
 
     const fieldError = (key: string) =>
         resolveFieldError(key, clientErrors, form.errors);
@@ -148,6 +149,14 @@ export default function CustomerRegister({
         clearFieldError('latitude');
         clearFieldError('longitude');
         clearFieldError('reference');
+
+        const coveragePoint = `${value.latitude},${value.longitude}`;
+
+        if (lastCoveragePoint.current === coveragePoint) {
+            return;
+        }
+
+        lastCoveragePoint.current = coveragePoint;
         setCoverageError(null);
 
         void (async () => {

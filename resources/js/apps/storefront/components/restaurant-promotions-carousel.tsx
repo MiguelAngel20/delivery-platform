@@ -4,7 +4,7 @@ import { PromotionsCarousel } from '@/apps/storefront/components/promotions-caro
 import {
     PROMOTION_AUTO_ADVANCE_MS,
     useCarouselAutoAdvance,
-    useCarouselPauseHandlers,
+    useCarouselSwipe,
 } from '@/apps/storefront/hooks/use-carousel-auto-advance';
 import type { MockPromotion } from '@/apps/storefront/mocks';
 import { cn } from '@/lib/utils';
@@ -23,15 +23,24 @@ function RestaurantPromotionsMobileCarousel({
     onAdd,
 }: RestaurantPromotionsCarouselProps) {
     const [index, setIndex] = useState(0);
-    const { isPaused, pauseHandlers } = useCarouselPauseHandlers();
+    const canRotate = promotions.length > 1;
+    const { interacting, pointerHandlers } = useCarouselSwipe(
+        canRotate,
+        () => setIndex((current) => (current + 1) % promotions.length),
+        () =>
+            setIndex(
+                (current) =>
+                    (current - 1 + promotions.length) % promotions.length,
+            ),
+    );
 
     useEffect(() => {
         setIndex(0);
     }, [promotions]);
 
     useCarouselAutoAdvance(
-        promotions.length > 1,
-        isPaused,
+        canRotate,
+        interacting,
         () => setIndex((current) => (current + 1) % promotions.length),
         PROMOTION_AUTO_ADVANCE_MS,
     );
@@ -42,10 +51,14 @@ function RestaurantPromotionsMobileCarousel({
 
     return (
         <div
-            className={cn('space-y-3 md:hidden', className)}
+            className={cn(
+                'space-y-3 md:hidden',
+                canRotate && 'cursor-grab touch-pan-y active:cursor-grabbing',
+                className,
+            )}
             aria-roledescription="carrusel"
             aria-label="Promociones del negocio"
-            {...pauseHandlers}
+            {...pointerHandlers}
         >
             <div className="overflow-hidden">
                 <div
@@ -72,7 +85,7 @@ function RestaurantPromotionsMobileCarousel({
                 </div>
             </div>
 
-            {promotions.length > 1 ? (
+            {canRotate ? (
                 <div className="flex justify-center gap-1.5">
                     {promotions.map((promotion, promotionIndex) => (
                         <button

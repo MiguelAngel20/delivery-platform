@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CoverageUnavailableBanner } from '@/apps/storefront/components/coverage-unavailable-banner';
 import {
     COVERAGE_UNAVAILABLE_MESSAGE,
@@ -58,6 +58,7 @@ export default function CustomerAddressesIndex({
     const [open, setOpen] = useState(false);
     const [coverageError, setCoverageError] = useState<string | null>(null);
     const [checkingCoverage, setCheckingCoverage] = useState(false);
+    const lastCoveragePoint = useRef<string | null>(null);
     const canAdd =
         canManageAddresses && addresses.length < maxAddresses;
     const form = useForm({
@@ -68,6 +69,7 @@ export default function CustomerAddressesIndex({
     const openCreate = () => {
         form.clearErrors();
         setCoverageError(null);
+        lastCoveragePoint.current = null;
         form.setData({
             ...emptyForm,
             is_default: addresses.length === 0,
@@ -87,6 +89,14 @@ export default function CustomerAddressesIndex({
             google_maps_url: value.google_maps_url ?? '',
         }));
         form.clearErrors('latitude', 'address_text');
+
+        const coveragePoint = `${value.latitude},${value.longitude}`;
+
+        if (lastCoveragePoint.current === coveragePoint) {
+            return;
+        }
+
+        lastCoveragePoint.current = coveragePoint;
         setCoverageError(null);
 
         void (async () => {
