@@ -6,7 +6,7 @@ import {
     type PointerEvent as ReactPointerEvent,
 } from 'react';
 
-export const PROMOTION_AUTO_ADVANCE_MS = 4000;
+export const PROMOTION_AUTO_ADVANCE_MS = 3000;
 
 const SWIPE_THRESHOLD_PX = 48;
 

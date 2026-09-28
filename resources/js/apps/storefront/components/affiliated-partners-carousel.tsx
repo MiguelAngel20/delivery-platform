@@ -33,7 +33,7 @@ export function AffiliatedPartnersCarousel({
 
         const timer = window.setInterval(() => {
             setIndex((current) => (current + 1) % partners.length);
-        }, 5500);
+        }, 3000);
 
         return () => window.clearInterval(timer);
     }, [partners]);
