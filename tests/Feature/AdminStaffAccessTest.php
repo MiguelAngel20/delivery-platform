@@ -8,6 +8,13 @@ use App\Models\Customer;
 use App\Models\User;
 use App\Support\AdminAccess;
 
+test('a missing platform owner flag is treated as false', function () {
+    $user = User::factory()->systemAdmin()->create();
+    $user->is_platform_owner = null;
+
+    expect($user->isPlatformOwner())->toBeFalse();
+});
+
 test('the platform owner keeps full admin access', function () {
     $owner = User::factory()->systemAdmin()->create();
 

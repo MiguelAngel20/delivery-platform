@@ -140,7 +140,7 @@ class User extends Authenticatable
 
     public function isPlatformOwner(): bool
     {
-        return $this->is_platform_owner;
+        return (bool) $this->is_platform_owner;
     }
 
     public function todaysUnreadNotificationCount(): int
