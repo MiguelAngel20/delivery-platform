@@ -1,12 +1,11 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { LogOut } from 'lucide-react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { ContentCard, PageContainer } from '@/components/layout/page';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useDriverProfileEvents } from '@/hooks/realtime/use-order-realtime';
-import { deactivateStoredPushDevice } from '@/lib/push/devices';
-import { logout } from '@/routes';
+import { logoutAfterPushCleanup } from '@/lib/auth/logout';
 import type { Auth } from '@/types';
 
 function initials(name: string): string {
@@ -138,22 +137,16 @@ export default function DriverProfileIndex({
                 </Button>
 
                 <Button
-                    asChild
+                    type="button"
                     variant="outline"
                     className="min-h-12 w-full text-destructive hover:bg-destructive/5 hover:text-destructive"
+                    data-test="driver-logout-button"
+                    onClick={() => {
+                        void logoutAfterPushCleanup();
+                    }}
                 >
-                    <Link
-                        href={logout()}
-                        as="button"
-                        data-test="driver-logout-button"
-                        onClick={() => {
-                            void deactivateStoredPushDevice();
-                            router.flushAll();
-                        }}
-                    >
-                        <LogOut className="size-4" />
-                        Cerrar sesión
-                    </Link>
+                    <LogOut className="size-4" />
+                    Cerrar sesión
                 </Button>
             </PageContainer>
         </>

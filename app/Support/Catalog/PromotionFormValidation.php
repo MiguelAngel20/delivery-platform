@@ -37,6 +37,15 @@ trait PromotionFormValidation
                     $validator->errors()->add("items.{$index}.product_id", 'Debes seleccionar un producto del menú.');
                 }
             }
+
+            foreach (
+                PromotionItemOptionGroups::validationErrors(
+                    is_array($this->input('option_groups')) ? $this->input('option_groups') : null,
+                    'option_groups',
+                ) as $key => $message
+            ) {
+                $validator->errors()->add($key, $message);
+            }
         });
     }
 

@@ -2,9 +2,12 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Enums\UserRole;
+use App\Models\User;
 use App\Services\Geo\CoverageService;
 use App\Support\ApplicationPassword;
 use App\Support\PhoneDialCodes;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -22,7 +25,6 @@ class RegisterCustomerRequest extends FormRequest
         $national = preg_replace('/\D+/', '', (string) $this->input('phone_national')) ?? '';
 
         $this->merge([
-            'email' => strtolower(trim((string) $this->input('email'))),
             'phone_dial_code' => $dial,
             'phone_national' => $national,
             'phone' => PhoneDialCodes::e164($dial, $national),
@@ -37,10 +39,33 @@ class RegisterCustomerRequest extends FormRequest
         return [
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'phone_dial_code' => ['required', 'string', Rule::in(PhoneDialCodes::dials())],
+            'phone_dial_code' => ['required', 'string', Rule::in([PhoneDialCodes::customerSmsDial()])],
             'phone_national' => ['required', 'string'],
-            'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
+            'phone' => [
+                'required',
+                'string',
+                'max:20',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! is_string($value) || $value === '') {
+                        return;
+                    }
+
+                    $existing = User::query()->where('phone', $value)->first();
+
+                    if ($existing === null) {
+                        return;
+                    }
+
+                    $canResume = $existing->role === UserRole::Customer
+                        && $existing->email === null
+                        && $existing->email_verified_at === null
+                        && $existing->phone_verified_at === null;
+
+                    if (! $canResume) {
+                        $fail('Ya existe una cuenta con este teléfono. Inicia sesión.');
+                    }
+                },
+            ],
             'password' => ApplicationPassword::validationRules(),
             'address_label' => ['nullable', 'string', 'max:100'],
             'address_text' => ['required', 'string', 'max:255'],
@@ -61,7 +86,6 @@ class RegisterCustomerRequest extends FormRequest
         return [
             'first_name' => 'nombre',
             'last_name' => 'apellidos',
-            'email' => 'correo electrónico',
             'phone_dial_code' => 'código de país',
             'phone_national' => 'teléfono',
             'phone' => 'teléfono',
@@ -85,12 +109,8 @@ class RegisterCustomerRequest extends FormRequest
             'first_name.max' => 'El nombre no puede superar :max caracteres.',
             'last_name.required' => 'Indica tus apellidos.',
             'last_name.max' => 'Los apellidos no pueden superar :max caracteres.',
-            'email.required' => 'Indica tu correo electrónico.',
-            'email.email' => 'El correo electrónico no es válido.',
-            'email.max' => 'El correo electrónico no puede superar :max caracteres.',
-            'email.unique' => 'Ya existe una cuenta con este correo. Inicia sesión.',
             'phone_dial_code.required' => 'Selecciona el código de país.',
-            'phone_dial_code.in' => 'El código de país no es válido.',
+            'phone_dial_code.in' => 'Por ahora solo puedes usar la lada +52.',
             'phone_national.required' => 'Indica tu número de teléfono.',
             'phone.required' => 'Indica tu número de teléfono.',
             'phone.max' => 'El teléfono no puede superar :max caracteres.',
@@ -120,7 +140,7 @@ class RegisterCustomerRequest extends FormRequest
     }
 
     /**
-     * @return list<\Closure(Validator): void>
+     * @return list<Closure(Validator): void>
      */
     public function after(): array
     {

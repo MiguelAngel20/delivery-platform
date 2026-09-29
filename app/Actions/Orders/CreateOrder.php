@@ -59,6 +59,12 @@ final class CreateOrder
     {
         $this->activitySuspension->assertOrderingAllowed();
 
+        if ($actor->phone_verified_at === null) {
+            throw ValidationException::withMessages([
+                'phone' => 'Verifica tu teléfono antes de realizar el pedido.',
+            ]);
+        }
+
         $delivery = $payload['delivery'] ?? [];
         $deliverySource = OrderAddressSource::tryFrom((string) ($delivery['source'] ?? ''));
 
@@ -421,6 +427,42 @@ final class CreateOrder
         }
 
         $unitFinal = (string) $promotion->promotion_price;
+        $promotionGroups = is_array($promotion->option_groups) ? $promotion->option_groups : [];
+
+        if ($promotionGroups !== []) {
+            $promotionRows = $this->resolveStoredOptionGroups(
+                StorefrontPromotionData::externalOptionGroups($promotionGroups, $promotion->id),
+                is_array($itemInput['selected_options'] ?? null) ? $itemInput['selected_options'] : [],
+                $index,
+                true,
+            );
+
+            foreach ($promotionRows as $optionRow) {
+                $optionRows[] = $optionRow;
+            }
+
+            $modifiers = '0.00';
+
+            foreach ($promotionRows as $optionRow) {
+                if (
+                    $optionRow['selection_action'] === OptionSelectionAction::Added
+                    || $optionRow['selection_action'] === OptionSelectionAction::Selected
+                ) {
+                    $modifiers = bcadd(
+                        $modifiers,
+                        bcmul(
+                            (string) $optionRow['price_modifier'],
+                            (string) ($optionRow['quantity'] ?? 1),
+                            2,
+                        ),
+                        2,
+                    );
+                }
+            }
+
+            $unitFinal = bcadd($unitFinal, $modifiers, 2);
+        }
+
         $subtotal = bcmul($unitFinal, $quantity, 2);
 
         return [
@@ -472,11 +514,32 @@ final class CreateOrder
         PromotionItem $promotionItem,
         array $selectedOptions,
         int $itemIndex,
+        bool $chargePrice = false,
     ): array {
         $groups = StorefrontPromotionData::externalOptionGroups(
             is_array($promotionItem->option_groups) ? $promotionItem->option_groups : [],
             $promotionItem->id,
         );
+
+        return $this->resolveStoredOptionGroups(
+            $groups,
+            $selectedOptions,
+            $itemIndex,
+            $chargePrice,
+        );
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $groups
+     * @param  list<array<string, mixed>>  $selectedOptions
+     * @return list<array<string, mixed>>
+     */
+    private function resolveStoredOptionGroups(
+        array $groups,
+        array $selectedOptions,
+        int $itemIndex,
+        bool $chargePrice,
+    ): array {
 
         $rows = [];
         $countsByGroup = [];
@@ -550,7 +613,9 @@ final class CreateOrder
                     ? (string) $option['option_cluster_name']
                     : null,
                 'option_type' => $groupType,
-                'price_modifier' => '0.00',
+                'price_modifier' => $chargePrice && $action !== OptionSelectionAction::Removed
+                ? number_format((float) ($option['price_modifier'] ?? 0), 2, '.', '')
+                : '0.00',
                 'selection_action' => $action,
                 'quantity' => $quantity,
             ];

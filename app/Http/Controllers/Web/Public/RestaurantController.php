@@ -220,6 +220,7 @@ class RestaurantController extends Controller
                 'name' => $promotion->name,
                 'description' => $promotion->description,
                 'price' => (float) $promotion->promotion_price,
+                'has_size_options' => $promotion->hasSizeOptions(),
                 'composition' => $promotion->items->pluck('name')->implode(' + '),
                 'image_url' => $promotion->imageUrl(),
             ])->values()->all(),

@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\FirebaseIdTokenVerifier;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
 use App\Enums\BusinessUserRole;
@@ -16,9 +17,9 @@ use App\Models\ProductOption;
 use App\Models\ProductOptionGroup;
 use App\Models\ProductPrice;
 use App\Models\User;
-use App\Notifications\Auth\CustomerEmailVerificationCode;
 use App\Notifications\Orders\NewBusinessOrderNotification;
 use App\Notifications\Orders\PlatformOrderPendingNotification;
+use App\Services\Auth\VerifiedFirebasePhone;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -111,12 +112,11 @@ function journeyPlatformCatalog(): array
  */
 function journeyRegisterAndVerify(mixed $test, string $email, string $phoneNational = '9611234567'): array
 {
-    Notification::fake();
+    $phone = '+52'.$phoneNational;
 
     $test->post(route('register.store'), [
         'first_name' => 'María',
         'last_name' => 'García',
-        'email' => $email,
         'phone_dial_code' => '+52',
         'phone_national' => $phoneNational,
         'password' => 'Clave123!',
@@ -129,23 +129,23 @@ function journeyRegisterAndVerify(mixed $test, string $email, string $phoneNatio
         'longitude' => -92.1342,
         'place_id' => 'ChIJjourney',
         'google_maps_url' => null,
-    ])->assertRedirect(route('register.verify-email'));
+    ])->assertRedirect(route('register.verify-phone'));
 
-    $user = User::query()->where('email', $email)->firstOrFail();
-    $code = '';
+    app()->instance(FirebaseIdTokenVerifier::class, new class($phone) implements FirebaseIdTokenVerifier
+    {
+        public function __construct(private string $phone) {}
 
-    Notification::assertSentTo(
-        $user,
-        CustomerEmailVerificationCode::class,
-        function (CustomerEmailVerificationCode $notification) use (&$code): bool {
-            $code = $notification->code;
+        public function verify(string $idToken): VerifiedFirebasePhone
+        {
+            return new VerifiedFirebasePhone($this->phone, 'firebase-uid');
+        }
+    });
 
-            return true;
-        },
-    );
+    $test->post(route('register.verify-phone.store'), [
+        'firebase_id_token' => 'valid-token',
+    ])->assertRedirect(route('cart'));
 
-    $test->post(route('register.verify-email.store'), ['code' => $code])
-        ->assertRedirect(route('cart'));
+    $user = User::query()->where('phone', $phone)->firstOrFail();
 
     $test->assertAuthenticatedAs($user);
 

@@ -43,6 +43,7 @@ export type PromotionCartLine = BaseCartLine & {
     promotionId: string;
     composition?: string;
     promotionItems: PromotionCartItemSelection[];
+    selectedOptions?: SelectedProductOption[];
     note?: string;
 };
 
@@ -347,6 +348,7 @@ function promotionLineKey(
     promotionId: string,
     promotionItems: PromotionCartItemSelection[],
     note?: string,
+    selectedOptions?: SelectedProductOption[],
 ): string {
     const itemSignature = promotionItems
         .map((item) => {
@@ -361,8 +363,17 @@ function promotionLineKey(
             return `${item.promotionItemId}|${options}|${item.note ?? ''}`;
         })
         .join(';');
+    const optionSignature = (selectedOptions ?? [])
+        .map(
+            (option) =>
+                `${option.option_id}:${option.action}:${option.quantity ?? 1}`,
+        )
+        .sort()
+        .join(',');
 
-    return ['promotion', promotionId, itemSignature, note ?? ''].join('|');
+    return ['promotion', promotionId, itemSignature, optionSignature, note ?? ''].join(
+        '|',
+    );
 }
 
 function lineKey(
@@ -415,6 +426,8 @@ export type AddPromotionToCartInput = {
     promotion: AddToCartPromotion;
     quantity: number;
     promotionItems: PromotionCartItemSelection[];
+    selectedOptions?: SelectedProductOption[];
+    unitPrice?: number;
     note?: string;
 };
 
@@ -567,6 +580,7 @@ export function useStorefrontCart(options?: {
                 String(input.promotion.id),
                 input.promotionItems,
                 input.note,
+                input.selectedOptions,
             );
 
             const existing = current.lines.find((line) => line.key === key);
@@ -589,10 +603,11 @@ export function useStorefrontCart(options?: {
                           restaurantSlug: input.promotion.restaurantSlug,
                           restaurantName: input.promotion.restaurantName,
                           name: input.promotion.name,
-                          unitPrice: input.promotion.price,
+                          unitPrice: input.unitPrice ?? input.promotion.price,
                           quantity: input.quantity,
                           composition: input.promotion.composition,
                           promotionItems: input.promotionItems,
+                          selectedOptions: input.selectedOptions,
                           note: input.note,
                       },
                   ];
@@ -622,6 +637,7 @@ export function useStorefrontCart(options?: {
                         String(input.promotion.id),
                         input.promotionItems,
                         input.note,
+                        input.selectedOptions,
                     ),
                     lineType: 'promotion',
                     promotionId: String(input.promotion.id),
@@ -629,10 +645,11 @@ export function useStorefrontCart(options?: {
                     restaurantSlug: input.promotion.restaurantSlug,
                     restaurantName: input.promotion.restaurantName,
                     name: input.promotion.name,
-                    unitPrice: input.promotion.price,
+                    unitPrice: input.unitPrice ?? input.promotion.price,
                     quantity: input.quantity,
                     composition: input.promotion.composition,
                     promotionItems: input.promotionItems,
+                    selectedOptions: input.selectedOptions,
                     note: input.note,
                 },
             ],
@@ -699,6 +716,7 @@ export function useStorefrontCart(options?: {
                     String(input.promotion.id),
                     input.promotionItems,
                     input.note,
+                    input.selectedOptions,
                 );
                 const existingIndex = filtered.findIndex(
                     (line) => line.key === key,
@@ -732,10 +750,11 @@ export function useStorefrontCart(options?: {
                             restaurantSlug: input.promotion.restaurantSlug,
                             restaurantName: input.promotion.restaurantName,
                             name: input.promotion.name,
-                            unitPrice: input.promotion.price,
+                            unitPrice: input.unitPrice ?? input.promotion.price,
                             quantity: input.quantity,
                             composition: input.promotion.composition,
                             promotionItems: input.promotionItems,
+                            selectedOptions: input.selectedOptions,
                             note: input.note,
                         },
                     ],

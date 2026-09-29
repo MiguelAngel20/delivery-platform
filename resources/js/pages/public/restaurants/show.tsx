@@ -31,6 +31,7 @@ type Promotion = {
     name: string;
     description: string | null;
     price: number;
+    has_size_options?: boolean;
     composition: string;
     image_url?: string | null;
 };
@@ -101,6 +102,7 @@ export default function RestaurantShow({
                                     name: promotion.name,
                                     description: promotion.description ?? '',
                                     price: promotion.price,
+                                    has_size_options: promotion.has_size_options,
                                     composition: promotion.composition,
                                     image_url: promotion.image_url,
                                 }),
@@ -178,7 +180,7 @@ export default function RestaurantShow({
                         setSelectedPromotionId(null);
                     }
                 }}
-                onConfirm={({ promotion, quantity, promotionItems }) => {
+                onConfirm={({ promotion, quantity, promotionItems, selectedOptions, unitPrice }) => {
                     confirmAdd({
                         promotion: {
                             id: promotion.id,
@@ -187,11 +189,13 @@ export default function RestaurantShow({
                             restaurantName: restaurant.name,
                             restaurantMode: restaurant.mode,
                             name: promotion.name,
-                            price: promotion.price,
+                            price: unitPrice ?? promotion.price,
                             composition: promotion.composition,
                         },
                         quantity,
                         promotionItems,
+                        selectedOptions,
+                        unitPrice,
                     });
                     setSelectedPromotionId(null);
                 }}

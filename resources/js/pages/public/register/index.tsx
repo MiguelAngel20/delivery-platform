@@ -14,13 +14,14 @@ import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PASSWORD_REQUIREMENTS_HINT } from '@/lib/auth/password-requirements';
 import {
     resolveFieldError,
-    validateCustomerRegisterForm,
-    type CustomerRegisterClientErrors,
-    type CustomerRegisterDialCode,
+    validateCustomerRegisterForm
+    
+    
 } from '@/lib/auth/validate-customer-register-form';
-import { PASSWORD_REQUIREMENTS_HINT } from '@/lib/auth/password-requirements';
+import type {CustomerRegisterClientErrors, CustomerRegisterDialCode} from '@/lib/auth/validate-customer-register-form';
 import type { AddressValue } from '@/lib/maps/types';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
@@ -34,7 +35,6 @@ type Props = {
 const REGISTER_FIELD_ORDER = [
     'first_name',
     'last_name',
-    'email',
     'phone_national',
     'phone_dial_code',
     'password',
@@ -49,7 +49,6 @@ const REGISTER_FIELD_ORDER = [
 const FIELD_ELEMENT_IDS: Record<string, string> = {
     first_name: 'first_name',
     last_name: 'last_name',
-    email: 'email',
     phone_national: 'phone_national',
     phone_dial_code: 'phone_dial_code',
     password: 'password',
@@ -92,14 +91,12 @@ function focusFirstRegisterError(
 
 export default function CustomerRegister({
     dialCodes,
-    defaultDialCode,
     passwordRules,
 }: Props) {
     const form = useForm({
         first_name: '',
         last_name: '',
-        email: '',
-        phone_dial_code: defaultDialCode,
+        phone_dial_code: '+52',
         phone_national: '',
         password: '',
         password_confirmation: '',
@@ -186,7 +183,6 @@ export default function CustomerRegister({
             {
                 first_name: form.data.first_name,
                 last_name: form.data.last_name,
-                email: form.data.email,
                 phone_dial_code: form.data.phone_dial_code,
                 phone_national: form.data.phone_national,
                 password: form.data.password,
@@ -309,7 +305,7 @@ export default function CustomerRegister({
                                         clearFieldError('first_name');
                                     }}
                                     autoComplete="given-name"
-                                    placeholder="Ej. María"
+                                    placeholder="Maria"
                                 />
                             </FormField>
                             <FormField
@@ -329,36 +325,15 @@ export default function CustomerRegister({
                                         clearFieldError('last_name');
                                     }}
                                     autoComplete="family-name"
-                                    placeholder="Ej. García López"
+                                    placeholder="Garcias"
                                 />
                             </FormField>
                         </div>
 
                         <FormField
-                            label="Correo electrónico"
-                            htmlFor="email"
-                            required
-                            hint="Formato completo: tucorreo@ejemplo.com (el @ es obligatorio)."
-                            error={fieldError('email')}
-                        >
-                            <Input
-                                id="email"
-                                type="email"
-                                value={form.data.email}
-                                onChange={(event) => {
-                                    form.setData('email', event.target.value);
-                                    clearFieldError('email');
-                                }}
-                                autoComplete="email"
-                                placeholder="tucorreo@ejemplo.com"
-                            />
-                        </FormField>
-
-                        <FormField
                             label="Teléfono"
                             htmlFor="phone_national"
                             required
-                            hint="Solo dígitos del número local (sin espacios ni guiones)."
                             error={
                                 fieldError('phone_national') ??
                                 fieldError('phone') ??
@@ -368,26 +343,13 @@ export default function CustomerRegister({
                             <div className="flex gap-2">
                                 <select
                                     id="phone_dial_code"
-                                    className="border-input flex h-9 w-[4.25rem] shrink-0 rounded-md border bg-background px-1 text-sm font-medium tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                                    value={form.data.phone_dial_code}
-                                    onChange={(event) => {
-                                        form.setData(
-                                            'phone_dial_code',
-                                            event.target.value,
-                                        );
-                                        clearFieldError('phone_dial_code');
-                                        clearFieldError('phone_national');
-                                    }}
+                                    className="border-input flex h-9 w-[4.25rem] shrink-0 rounded-md border bg-muted px-1 text-sm font-medium tabular-nums shadow-xs outline-none disabled:cursor-not-allowed disabled:opacity-100"
+                                    value="+52"
+                                    disabled
                                     aria-label="Código de país"
+                                    aria-disabled="true"
                                 >
-                                    {dialCodes.map((item) => (
-                                        <option
-                                            key={item.dial}
-                                            value={item.dial}
-                                        >
-                                            {item.dial}
-                                        </option>
-                                    ))}
+                                    <option value="+52">+52</option>
                                 </select>
                                 <Input
                                     id="phone_national"
@@ -406,7 +368,7 @@ export default function CustomerRegister({
                                         clearFieldError('phone');
                                     }}
                                     autoComplete="tel-national"
-                                    placeholder="Ej. 9611234567"
+                                    placeholder="9631234567"
                                 />
                             </div>
                         </FormField>
@@ -416,7 +378,6 @@ export default function CustomerRegister({
                                 label="Contraseña"
                                 htmlFor="password"
                                 required
-                                hint={PASSWORD_REQUIREMENTS_HINT}
                                 error={fieldError('password')}
                             >
                                 <PasswordInput
@@ -461,6 +422,9 @@ export default function CustomerRegister({
                                     passwordrules={passwordRules}
                                 />
                             </FormField>
+                            <p className="text-sm text-muted-foreground sm:col-span-2">
+                                {PASSWORD_REQUIREMENTS_HINT}
+                            </p>
                         </div>
                     </section>
 
@@ -474,9 +438,7 @@ export default function CustomerRegister({
                             </h2>
                             <p className="text-sm text-muted-foreground">
                                 Esta ubicación se guarda para tus entregas y la
-                                usaremos en tu primer pedido. Después de
-                                completar un pedido podrás agregar hasta 3
-                                direcciones más desde tu perfil.
+                                usaremos en tu primer pedido.
                             </p>
                         </div>
                         <FormField

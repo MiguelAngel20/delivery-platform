@@ -4,6 +4,7 @@ namespace App\Services\Push;
 
 use App\Contracts\PushProvider;
 use App\Enums\NotificationPriority;
+use App\Support\Portal;
 use App\Support\PushMessage;
 use Google\Auth\Credentials\ServiceAccountCredentials;
 use Illuminate\Support\Facades\Cache;
@@ -174,24 +175,6 @@ final class FcmHttpV1PushProvider implements PushProvider
 
     private function httpsWebPushLink(?string $clickPath): ?string
     {
-        if (! is_string($clickPath) || $clickPath === '') {
-            return null;
-        }
-
-        if (str_starts_with($clickPath, 'https://')) {
-            return $clickPath;
-        }
-
-        if (! str_starts_with($clickPath, '/') || str_starts_with($clickPath, '//')) {
-            return null;
-        }
-
-        $appUrl = rtrim((string) config('app.url'), '/');
-
-        if (! str_starts_with($appUrl, 'https://')) {
-            return null;
-        }
-
-        return $appUrl.$clickPath;
+        return Portal::notificationUrl($clickPath);
     }
 }

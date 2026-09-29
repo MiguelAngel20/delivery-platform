@@ -11,7 +11,6 @@ export type CustomerRegisterDialCode = {
 export type CustomerRegisterFormInput = {
     first_name: string;
     last_name: string;
-    email: string;
     phone_dial_code: string;
     phone_national: string;
     password: string;
@@ -29,22 +28,6 @@ export function resolveFieldError(
     serverErrors: Record<string, string>,
 ): string | undefined {
     return clientErrors[key] ?? serverErrors[key];
-}
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function emailValidationMessage(email: string): string {
-    if (!email.includes('@')) {
-        return 'El correo debe incluir @ (ej. tucorreo@gmail.com).';
-    }
-
-    const [, domain = ''] = email.split('@');
-
-    if (domain === '' || !domain.includes('.')) {
-        return 'Completa el correo después del @ (ej. gmail.com).';
-    }
-
-    return 'El correo no es válido. Usa el formato tucorreo@ejemplo.com.';
 }
 
 export function validateCustomerRegisterForm(
@@ -69,19 +52,11 @@ export function validateCustomerRegisterForm(
         errors.last_name = 'Los apellidos no pueden superar 100 caracteres.';
     }
 
-    const email = input.email.trim();
-
-    if (email === '') {
-        errors.email = 'Indica tu correo electrónico.';
-    } else if (email.length > 255) {
-        errors.email = 'El correo electrónico no puede superar 255 caracteres.';
-    } else if (!EMAIL_PATTERN.test(email)) {
-        errors.email = emailValidationMessage(email);
-    }
-
     const dial = dialCodes.find((item) => item.dial === input.phone_dial_code);
 
-    if (!dial) {
+    if (input.phone_dial_code !== '+52') {
+        errors.phone_dial_code = 'Por ahora solo puedes usar la lada +52.';
+    } else if (!dial) {
         errors.phone_dial_code = 'Selecciona el código de país.';
     }
 

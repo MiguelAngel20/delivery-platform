@@ -37,7 +37,18 @@ class Customer extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
+    }
+
+    public function hasOrderHistory(): bool
+    {
+        if (array_key_exists('orders_count', $this->attributes)) {
+            return (int) $this->orders_count > 0
+                || (int) ($this->custom_order_requests_count ?? 0) > 0;
+        }
+
+        return $this->orders()->exists()
+            || $this->customOrderRequests()->exists();
     }
 
     public function addresses(): HasMany

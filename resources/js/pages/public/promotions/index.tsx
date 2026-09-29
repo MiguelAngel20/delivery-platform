@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { Percent } from 'lucide-react';
-import { PromotionCard } from '@/apps/storefront/components/promotion-card';
+import { MobilePromotionCard } from '@/apps/storefront/components/mobile-promotion-card';
 import type { MockPromotion } from '@/apps/storefront/mocks';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PageContainer } from '@/components/layout/page';
@@ -31,7 +31,7 @@ export default function PromotionsIndex({ promotions = [] }: Props) {
                 ) : (
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {promotions.map((promotion) => (
-                            <PromotionCard
+                            <MobilePromotionCard
                                 key={promotion.id}
                                 promotion={promotion}
                             />

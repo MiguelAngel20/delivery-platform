@@ -1,6 +1,7 @@
 import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
+import { create as register } from '@/actions/App/Http/Controllers/Web/Auth/CustomerRegisterController';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -9,7 +10,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { create as register } from '@/actions/App/Http/Controllers/Web/Auth/CustomerRegisterController';
 import { home } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
@@ -70,16 +70,31 @@ export default function Login({
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Correo</Label>
+                                <Label htmlFor="email">
+                                    {portal === 'customer'
+                                        ? 'Correo o teléfono'
+                                        : 'Correo'}
+                                </Label>
                                 <Input
                                     id="email"
-                                    type="email"
+                                    type={portal === 'customer' ? 'text' : 'email'}
                                     name="email"
                                     required
                                     autoFocus
                                     tabIndex={1}
-                                    autoComplete="email"
-                                    placeholder="correo@ejemplo.com"
+                                    autoComplete={
+                                        portal === 'customer'
+                                            ? 'username'
+                                            : 'email'
+                                    }
+                                    inputMode={
+                                        portal === 'customer' ? 'text' : 'email'
+                                    }
+                                    placeholder={
+                                        portal === 'customer'
+                                            ? 'correo@ejemplo.com o 9611234567'
+                                            : 'correo@ejemplo.com'
+                                    }
                                 />
                                 <InputError message={errors.email} />
                             </div>

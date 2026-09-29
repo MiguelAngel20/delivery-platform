@@ -85,3 +85,65 @@ test('user cannot deactivate another users device', function () {
         'is_active' => true,
     ]);
 });
+
+test('guests cannot register a push device', function () {
+    $this->postJson('/push/devices', [
+        'token' => 'guest-token',
+        'device_type' => 'web',
+    ])->assertUnauthorized();
+
+    $this->assertDatabaseMissing('push_devices', [
+        'token' => 'guest-token',
+    ]);
+});
+
+test('deactivating the current browser token leaves the users other devices active', function () {
+    $user = User::factory()->customer()->create();
+
+    PushDevice::factory()->create([
+        'user_id' => $user->id,
+        'token' => 'this-browser',
+        'is_active' => true,
+    ]);
+    PushDevice::factory()->create([
+        'user_id' => $user->id,
+        'token' => 'other-phone',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->deleteJson('/push/devices', ['token' => 'this-browser'])
+        ->assertOk();
+
+    $this->assertDatabaseHas('push_devices', [
+        'user_id' => $user->id,
+        'token' => 'this-browser',
+        'is_active' => false,
+    ]);
+    $this->assertDatabaseHas('push_devices', [
+        'user_id' => $user->id,
+        'token' => 'other-phone',
+        'is_active' => true,
+    ]);
+});
+
+test('logout without a push token keeps the users devices active', function () {
+    $user = User::factory()->customer()->create();
+
+    PushDevice::factory()->create([
+        'user_id' => $user->id,
+        'token' => 'keep-me',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('logout'))
+        ->assertRedirect();
+
+    $this->assertGuest();
+    $this->assertDatabaseHas('push_devices', [
+        'user_id' => $user->id,
+        'token' => 'keep-me',
+        'is_active' => true,
+    ]);
+});

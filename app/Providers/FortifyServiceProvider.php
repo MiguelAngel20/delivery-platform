@@ -7,6 +7,8 @@ use App\Enums\UserRole;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
 use App\Models\User;
+use App\Support\PhoneDialCodes;
+use App\Support\PhoneNumber;
 use App\Support\Portal;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -46,10 +48,13 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureAuthentication(): void
     {
         Fortify::authenticateUsing(function (Request $request): ?User {
+            $login = trim((string) $request->input(Fortify::username()));
+            $portal = Portal::current($request);
+
             /** @var User|null $user */
-            $user = User::query()
-                ->where(Fortify::username(), $request->input(Fortify::username()))
-                ->first();
+            $user = $portal === Portal::STOREFRONT && ! str_contains($login, '@')
+                ? $this->customerByPhone($login)
+                : User::query()->where(Fortify::username(), $login)->first();
 
             if ($user === null || ! Hash::check((string) $request->input('password'), $user->password)) {
                 return null;
@@ -60,8 +65,6 @@ class FortifyServiceProvider extends ServiceProvider
                     Fortify::username() => __('Tu cuenta no está disponible actualmente.'),
                 ]);
             }
-
-            $portal = Portal::current($request);
 
             if (! Portal::allowsRole($portal, $user->role)) {
                 throw ValidationException::withMessages([
@@ -75,8 +78,36 @@ class FortifyServiceProvider extends ServiceProvider
                 ]);
             }
 
+            if (
+                $user->role === UserRole::Customer
+                && $user->email_verified_at === null
+                && $user->phone_verified_at === null
+            ) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => __('Confirma tu teléfono para activar la cuenta.'),
+                ]);
+            }
+
             return $user;
         });
+    }
+
+    private function customerByPhone(string $login): ?User
+    {
+        $candidates = [PhoneNumber::canonicalize($login)];
+        $digits = preg_replace('/\D+/', '', $login) ?? '';
+
+        if ($digits !== '' && ! str_starts_with($login, '+')) {
+            $candidates[] = PhoneDialCodes::e164(PhoneDialCodes::defaultDial(), $digits);
+        }
+
+        $candidates = array_values(array_unique(array_filter($candidates)));
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        return User::query()->whereIn('phone', $candidates)->first();
     }
 
     private function configureViews(): void

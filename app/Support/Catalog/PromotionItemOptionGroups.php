@@ -3,6 +3,7 @@
 namespace App\Support\Catalog;
 
 use App\Enums\ProductOptionGroupType;
+use Illuminate\Validation\Rule;
 
 final class PromotionItemOptionGroups
 {
@@ -162,5 +163,29 @@ final class PromotionItemOptionGroups
         }
 
         return $errors;
+    }
+
+    /**
+     * @return array<string, list<mixed>>
+     */
+    public static function optionGroupRules(string $prefix): array
+    {
+        return [
+            $prefix => ['nullable', 'array'],
+            "{$prefix}.*.name" => ['required_with:'.$prefix, 'string', 'max:100'],
+            "{$prefix}.*.type" => ['required_with:'.$prefix, Rule::enum(ProductOptionGroupType::class)],
+            "{$prefix}.*.is_required" => ['sometimes', 'boolean'],
+            "{$prefix}.*.min_selection" => ['required_with:'.$prefix, 'integer', 'min:0'],
+            "{$prefix}.*.max_selection" => ['required_with:'.$prefix, 'integer', 'gte:'.$prefix.'.*.min_selection'],
+            "{$prefix}.*.sort_order" => ['nullable', 'integer', 'min:0'],
+            "{$prefix}.*.is_active" => ['sometimes', 'boolean'],
+            "{$prefix}.*.options" => ['required', 'array', 'min:1'],
+            "{$prefix}.*.options.*.name" => ['required', 'string', 'max:100'],
+            "{$prefix}.*.options.*.description" => ['nullable', 'string'],
+            "{$prefix}.*.options.*.price_modifier" => ['nullable', 'numeric'],
+            "{$prefix}.*.options.*.is_default" => ['sometimes', 'boolean'],
+            "{$prefix}.*.options.*.is_available" => ['sometimes', 'boolean'],
+            "{$prefix}.*.options.*.sort_order" => ['nullable', 'integer', 'min:0'],
+        ];
     }
 }

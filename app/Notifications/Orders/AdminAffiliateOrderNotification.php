@@ -6,6 +6,7 @@ use App\Enums\NotificationCategory;
 use App\Enums\NotificationPriority;
 use App\Models\Order;
 use App\Notifications\RideNotification;
+use App\Support\NotificationPaths;
 
 final class AdminAffiliateOrderNotification extends RideNotification
 {
@@ -50,6 +51,6 @@ final class AdminAffiliateOrderNotification extends RideNotification
 
     public function clickPath(): ?string
     {
-        return '/admin/orders/'.$this->order->order_number;
+        return NotificationPaths::adminOrder($this->order);
     }
 }

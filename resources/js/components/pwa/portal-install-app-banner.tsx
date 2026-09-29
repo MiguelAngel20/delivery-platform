@@ -1,6 +1,9 @@
+import { usePage } from '@inertiajs/react';
 import { Download, Share2, Smartphone, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import type { PushWebConfig } from '@/lib/push/firebase';
+import { registerSharedServiceWorker } from '@/lib/push/service-worker';
 import {
     detectInstallPlatform,
     dismissInstallBanner,
@@ -8,11 +11,11 @@ import {
     INSTALL_BANNER_INITIAL_DELAY_MS,
     INSTALL_BANNER_REMINDER_MS,
     isMobileUserAgent,
-    isStandaloneApp,
-    registerPwaServiceWorker,
-    type InstallBannerScope,
-    type InstallPlatform,
+    isStandaloneApp
+    
+    
 } from '@/lib/pwa/platform';
+import type {InstallBannerScope, InstallPlatform} from '@/lib/pwa/platform';
 import { useInstallPrompt } from '@/lib/pwa/use-install-prompt';
 import { cn } from '@/lib/utils';
 
@@ -138,9 +141,13 @@ export function PortalInstallAppBanner({
         [clearReminderTimer, tryShowBanner],
     );
 
+    const { push } = usePage().props as {
+        push?: { web?: PushWebConfig };
+    };
+
     useEffect(() => {
-        void registerPwaServiceWorker();
-    }, []);
+        void registerSharedServiceWorker(push?.web);
+    }, [push?.web]);
 
     useEffect(() => {
         if ((mobileOnly && !isMobileUserAgent()) || isStandaloneApp()) {

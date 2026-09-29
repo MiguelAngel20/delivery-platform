@@ -46,7 +46,7 @@ final class SendDriverRatingPromptJob implements ShouldBeUnique, ShouldQueue
             ->with('customer.user')
             ->find($this->orderId);
 
-        if ($order === null || $order->customer?->user === null) {
+        if ($order === null || $order->customer?->user === null || $order->customer->user->trashed()) {
             return;
         }
 

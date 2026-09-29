@@ -30,6 +30,28 @@ final class PhoneDialCodes
     }
 
     /**
+     * Country code currently enabled for customer SMS verification.
+     */
+    public static function customerSmsDial(): string
+    {
+        return '+52';
+    }
+
+    /**
+     * @return array{dial: string, national: string}
+     */
+    public static function customerSmsParts(string $phone): array
+    {
+        $split = self::split($phone);
+        $dial = self::customerSmsDial();
+
+        return [
+            'dial' => $dial,
+            'national' => $split['dial'] === $dial ? $split['national'] : '',
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     public static function dials(): array
@@ -52,17 +74,57 @@ final class PhoneDialCodes
     }
 
     /**
+     * @return array{dial: string, national: string}
+     */
+    public static function split(string $phone): array
+    {
+        $canonical = PhoneNumber::canonicalize($phone);
+        $dials = collect(self::dials())->sortByDesc(fn (string $dial): int => strlen($dial));
+
+        foreach ($dials as $dial) {
+            if (str_starts_with($canonical, $dial)) {
+                return [
+                    'dial' => $dial,
+                    'national' => substr($canonical, strlen($dial)),
+                ];
+            }
+        }
+
+        return [
+            'dial' => self::defaultDial(),
+            'national' => ltrim($canonical, '+'),
+        ];
+    }
+
+    /**
      * @return list<array{dial: string, label: string, national_length: int}>
      */
     public static function options(): array
     {
-        return collect(self::all())
-            ->map(fn (array $row): array => [
-                'dial' => $row['dial'],
-                'label' => $row['dial'],
-                'national_length' => $row['national_length'],
-            ])
-            ->values()
-            ->all();
+        return self::present(self::all());
+    }
+
+    /**
+     * @return list<array{dial: string, label: string, national_length: int}>
+     */
+    public static function customerSmsOptions(): array
+    {
+        return self::present(array_values(array_filter(
+            self::all(),
+            fn (array $row): bool => $row['dial'] === self::customerSmsDial(),
+        )));
+    }
+
+    /**
+     * @param  list<array{iso: string, dial: string, label: string, national_length: int}>  $rows
+     * @return list<array{dial: string, label: string, national_length: int}>
+     */
+    private static function present(array $rows): array
+    {
+        return array_map(fn (array $row): array => [
+            'dial' => $row['dial'],
+            'label' => $row['dial'],
+            'national_length' => $row['national_length'],
+        ], $rows);
     }
 }

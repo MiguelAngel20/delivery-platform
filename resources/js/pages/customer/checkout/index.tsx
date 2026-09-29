@@ -177,6 +177,13 @@ export default function CustomerCheckout({
                                 }),
                             ),
                         })),
+                        selected_options: (line.selectedOptions ?? []).map(
+                            (option) => ({
+                                option_id: option.option_id,
+                                action: option.action,
+                                quantity: option.quantity ?? 1,
+                            }),
+                        ),
                     };
                 }
 

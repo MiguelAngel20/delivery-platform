@@ -2,6 +2,7 @@
 
 namespace App\Actions\Catalog;
 
+use App\Enums\ProductOptionGroupType;
 use App\Enums\PromotionStatus;
 use App\Models\BusinessBranch;
 use App\Models\Product;
@@ -34,12 +35,16 @@ final class CreatePromotion
             }
 
             $schedule = PromotionSchedule::attributesFromValidated($data);
+            $data = $this->applySizePricing($data);
 
             $promotion = Promotion::query()->create([
                 'branch_id' => $branch->id,
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
                 'promotion_price' => $data['promotion_price'],
+                'option_groups' => PromotionItemOptionGroups::sanitize(
+                    is_array($data['option_groups'] ?? null) ? $data['option_groups'] : null,
+                ),
                 'image_path' => $imagePath,
                 ...$schedule,
                 'status' => $data['status'] ?? PromotionStatus::Draft->value,
@@ -106,5 +111,102 @@ final class CreatePromotion
                 'option_groups' => null,
             ]);
         }
+    }
+
+    /**
+     * When a size group is present, treat option prices as absolute amounts,
+     * set the promotional price to the cheapest size, and store the difference.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function applySizePricing(array $data): array
+    {
+        if (! is_array($data['option_groups'] ?? null)) {
+            return $data;
+        }
+
+        $normalizedGroups = [];
+        $sizeMin = null;
+
+        foreach (array_values($data['option_groups']) as $groupIndex => $groupData) {
+            if (! is_array($groupData)) {
+                continue;
+            }
+
+            $type = ProductOptionGroupType::tryFrom((string) ($groupData['type'] ?? ''));
+
+            if ($type !== ProductOptionGroupType::Size) {
+                $normalizedGroups[] = $groupData;
+
+                continue;
+            }
+
+            $options = array_values(array_filter(
+                $groupData['options'] ?? [],
+                fn (mixed $option): bool => is_array($option) && filled(trim((string) ($option['name'] ?? ''))),
+            ));
+
+            if ($options === []) {
+                continue;
+            }
+
+            $absolutePrices = [];
+
+            foreach ($options as $optionIndex => $optionData) {
+                $absolute = trim((string) ($optionData['price_modifier'] ?? ''));
+
+                if ($absolute === '' || ! is_numeric($absolute) || bccomp($absolute, '0', 2) === -1) {
+                    throw ValidationException::withMessages([
+                        "option_groups.{$groupIndex}.options.{$optionIndex}.price_modifier" => 'Cada tamaño debe tener un precio válido mayor o igual a 0.',
+                    ]);
+                }
+
+                $absolutePrices[] = number_format((float) $absolute, 2, '.', '');
+            }
+
+            $min = $absolutePrices[0];
+
+            foreach ($absolutePrices as $absolutePrice) {
+                if (bccomp($absolutePrice, $min, 2) === -1) {
+                    $min = $absolutePrice;
+                }
+            }
+
+            $convertedOptions = [];
+
+            foreach ($options as $optionIndex => $optionData) {
+                $absolute = $absolutePrices[$optionIndex];
+                $convertedOptions[] = [
+                    ...$optionData,
+                    'price_modifier' => bcsub($absolute, $min, 2),
+                    'is_default' => (bool) ($optionData['is_default'] ?? false),
+                    'is_available' => (bool) ($optionData['is_available'] ?? true),
+                ];
+            }
+
+            $normalizedGroups[] = [
+                ...$groupData,
+                'name' => filled(trim((string) ($groupData['name'] ?? '')))
+                    ? $groupData['name']
+                    : ProductOptionGroupType::Size->label(),
+                'type' => ProductOptionGroupType::Size->value,
+                'is_required' => true,
+                'min_selection' => 1,
+                'max_selection' => 1,
+                'is_active' => (bool) ($groupData['is_active'] ?? true),
+                'options' => $convertedOptions,
+            ];
+
+            $sizeMin = $min;
+        }
+
+        $data['option_groups'] = $normalizedGroups;
+
+        if ($sizeMin !== null) {
+            $data['promotion_price'] = $sizeMin;
+        }
+
+        return $data;
     }
 }

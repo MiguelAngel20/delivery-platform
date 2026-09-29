@@ -16,6 +16,7 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\Promotion;
 use App\Support\Catalog\CatalogListPagination;
+use App\Support\Catalog\PromotionItemOptionGroups;
 use App\Support\CatalogData;
 use App\Support\CategorySchedule;
 use App\Support\ProductImageStorage;
@@ -686,6 +687,11 @@ class CatalogController extends Controller
             $request->merge(['items' => is_array($decoded) ? $decoded : []]);
         }
 
+        if (is_string($request->input('option_groups'))) {
+            $decodedGroups = json_decode($request->input('option_groups'), true);
+            $request->merge(['option_groups' => is_array($decodedGroups) ? $decodedGroups : []]);
+        }
+
         if (is_string($request->input('recurring_hours'))) {
             $request->merge([
                 'recurring_hours' => PromotionSchedule::prepareInput($request->input('recurring_hours')),
@@ -727,6 +733,7 @@ class CatalogController extends Controller
             'items.*.description' => ['nullable', 'string'],
             'items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.original_price' => ['nullable', 'numeric', 'min:0'],
+            ...PromotionItemOptionGroups::optionGroupRules('option_groups'),
         ];
 
         if ($isRecurring) {
@@ -744,6 +751,17 @@ class CatalogController extends Controller
         }
 
         $validator = Validator::make($request->all(), $rules);
+
+        $validator->after(function ($validator) use ($request): void {
+            foreach (
+                PromotionItemOptionGroups::validationErrors(
+                    is_array($request->input('option_groups')) ? $request->input('option_groups') : null,
+                    'option_groups',
+                ) as $key => $message
+            ) {
+                $validator->errors()->add($key, $message);
+            }
+        });
 
         foreach (PromotionSchedule::afterValidation() as $callback) {
             $validator->after($callback);

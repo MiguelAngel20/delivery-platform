@@ -1,12 +1,20 @@
 import { Form } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CatalogFormOptions } from '@/components/catalog/category-form';
 import {
     mapApiOptionGroupsToDrafts,
     type ProductOptionGroupApi,
+    type ProductOptionGroupDraft,
 } from '@/components/catalog/product-option-group-types';
-import type { ProductOptionGroupDraft } from '@/components/catalog/product-option-group-types';
+import { ProductOptionGroupsFields } from '@/components/catalog/product-option-groups-fields';
+import {
+    buildGroup,
+    emptyOption,
+    findGroupIndex,
+    SECTION_CONFIG,
+} from '@/components/catalog/product-option-groups-config';
 import {
     clonePromotionItem,
     createEmptyPromotionItem,
@@ -28,6 +36,11 @@ import {
     validatePromotionForm,
     type PromotionFormClientErrors,
 } from '@/lib/catalog/validate-promotion-form';
+import {
+    sanitizeProductOptionGroups,
+    sizeGroupMinPrice,
+    validateProductOptionGroups,
+} from '@/lib/catalog/validate-product-form';
 
 export type PromotionItemDraft = {
     is_external_item: boolean;
@@ -53,6 +66,7 @@ export type PromotionFormValues = {
     recurring_hours?: PromotionRecurringHour[];
     status: string;
     image_url?: string | null;
+    option_groups?: ProductOptionGroupApi[] | null;
     items?: PromotionItemDraft[];
 };
 
@@ -63,16 +77,6 @@ type PromotionFormProps = {
     submitLabel: string;
     cancelSlot?: ReactNode;
 };
-
-function normalizeOptionGroups(
-    groups: ProductOptionGroupDraft[] | undefined,
-): ProductOptionGroupDraft[] {
-    if (!groups?.length) {
-        return [];
-    }
-
-    return mapApiOptionGroupsToDrafts(groups as ProductOptionGroupApi[]);
-}
 
 export function PromotionForm({
     options,
@@ -85,12 +89,18 @@ export function PromotionForm({
     const [items, setItems] = useState<PromotionItemDraft[]>(
         promotion?.items?.length
             ? promotion.items.map((item) => ({
-                  ...item,
-                  option_groups: item.is_external_item
-                      ? normalizeOptionGroups(item.option_groups)
-                      : undefined,
+                  is_external_item: true,
+                  name: item.name,
+                  description: item.description ?? '',
+                  quantity: String(item.quantity ?? '1'),
               }))
             : [],
+    );
+    const [groups, setGroups] = useState<ProductOptionGroupDraft[]>(() =>
+        mapApiOptionGroupsToDrafts(promotion?.option_groups ?? []),
+    );
+    const [promotionPrice, setPromotionPrice] = useState(
+        promotion?.promotion_price ?? '',
     );
     const [clientErrors, setClientErrors] = useState<PromotionFormClientErrors>(
         {},
@@ -104,6 +114,7 @@ export function PromotionForm({
         createEmptyPromotionItem(),
     );
     const itemsInputRef = useRef<HTMLInputElement>(null);
+    const optionGroupsInputRef = useRef<HTMLInputElement>(null);
     const formRef = useRef<{ getData: () => Record<string, unknown> } | null>(
         null,
     );
@@ -112,9 +123,17 @@ export function PromotionForm({
         setClientErrors({});
     }, [promotion?.id]);
 
-    const products = options.products.filter(
-        (product) => String(product.branch_id) === branchId,
-    );
+    const sizeGroupIndex = findGroupIndex(groups, 'size');
+    const sizeGroup =
+        sizeGroupIndex === -1 ? undefined : groups[sizeGroupIndex];
+    const sizesEnabled = sizeGroup !== undefined;
+    const derivedPromotionPrice = sizeGroupMinPrice(groups);
+
+    useEffect(() => {
+        if (derivedPromotionPrice !== null) {
+            setPromotionPrice(derivedPromotionPrice);
+        }
+    }, [derivedPromotionPrice]);
 
     function clearFieldError(key: string) {
         setClientErrors((current) => {
@@ -161,20 +180,25 @@ export function PromotionForm({
 
     function validateBeforeSubmit(): boolean {
         const data = formRef.current?.getData() ?? {};
-        const validationErrors = validatePromotionForm({
-            branchId,
-            name: String(data.name ?? ''),
-            promotionPrice: String(data.promotion_price ?? ''),
-            status: String(data.status ?? ''),
-            startsAt: String(data.starts_at ?? ''),
-            endsAt: String(data.ends_at ?? ''),
-            isRecurring,
-            recurrenceStartsOn: String(data.recurrence_starts_on ?? ''),
-            recurrenceEndsOn: String(data.recurrence_ends_on ?? ''),
-            recurringHoursRaw: String(data.recurring_hours ?? ''),
-            isEditing: Boolean(promotion?.id),
-            items,
-        });
+        const validationErrors = {
+            ...validatePromotionForm({
+                branchId,
+                name: String(data.name ?? ''),
+                promotionPrice: sizesEnabled
+                    ? (derivedPromotionPrice ?? promotionPrice)
+                    : promotionPrice || String(data.promotion_price ?? ''),
+                status: String(data.status ?? ''),
+                startsAt: String(data.starts_at ?? ''),
+                endsAt: String(data.ends_at ?? ''),
+                isRecurring,
+                recurrenceStartsOn: String(data.recurrence_starts_on ?? ''),
+                recurrenceEndsOn: String(data.recurrence_ends_on ?? ''),
+                recurringHoursRaw: String(data.recurring_hours ?? ''),
+                isEditing: Boolean(promotion?.id),
+                items,
+            }),
+            ...validateProductOptionGroups(groups),
+        };
 
         if (Object.keys(validationErrors).length > 0) {
             setClientErrors(validationErrors);
@@ -190,7 +214,82 @@ export function PromotionForm({
             );
         }
 
+        if (optionGroupsInputRef.current) {
+            optionGroupsInputRef.current.value = JSON.stringify(
+                sanitizeProductOptionGroups(groups),
+            );
+        }
+
         return true;
+    }
+
+    function toggleSizes(enabled: boolean) {
+        if (enabled) {
+            if (findGroupIndex(groups, 'size') !== -1) {
+                return;
+            }
+
+            setGroups([...groups, buildGroup('size')]);
+
+            return;
+        }
+
+        setGroups(groups.filter((group) => group.type !== 'size'));
+    }
+
+    function updateSizeOption(
+        optionIndex: number,
+        patch: Partial<ProductOptionGroupDraft['options'][number]>,
+    ) {
+        setGroups(
+            groups.map((group) => {
+                if (group.type !== 'size') {
+                    return group;
+                }
+
+                return {
+                    ...group,
+                    options: group.options.map((option, index) =>
+                        index === optionIndex ? { ...option, ...patch } : option,
+                    ),
+                };
+            }),
+        );
+    }
+
+    function addSizeOption() {
+        setGroups(
+            groups.map((group) =>
+                group.type === 'size'
+                    ? {
+                          ...group,
+                          options: [...group.options, emptyOption('size')],
+                      }
+                    : group,
+            ),
+        );
+    }
+
+    function removeSizeOption(optionIndex: number) {
+        setGroups(
+            groups.map((group) => {
+                if (group.type !== 'size') {
+                    return group;
+                }
+
+                const filtered = group.options.filter(
+                    (_, index) => index !== optionIndex,
+                );
+
+                return {
+                    ...group,
+                    options:
+                        filtered.length === 0
+                            ? [emptyOption('size')]
+                            : filtered,
+                };
+            }),
+        );
     }
 
     function openAddDialog() {
@@ -255,6 +354,12 @@ export function PromotionForm({
                         name="items"
                         value={JSON.stringify(items)}
                     />
+                    <input
+                        ref={optionGroupsInputRef}
+                        type="hidden"
+                        name="option_groups"
+                        value={JSON.stringify(sanitizeProductOptionGroups(groups))}
+                    />
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <FormField
@@ -316,7 +421,7 @@ export function PromotionForm({
                         </FormField>
 
                         <FormField
-                            label="Nombre"
+                            label="Nombre de la promoción"
                             htmlFor="name"
                             required
                             error={resolveFieldError('name', clientErrors, errors)}
@@ -358,6 +463,11 @@ export function PromotionForm({
                                 clientErrors,
                                 errors,
                             )}
+                            hint={
+                                sizesEnabled
+                                    ? 'Se toma del tamaño más económico.'
+                                    : undefined
+                            }
                         >
                             <Input
                                 id="promotion_price"
@@ -365,8 +475,16 @@ export function PromotionForm({
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                defaultValue={promotion?.promotion_price ?? ''}
-                                onChange={() => clearFieldError('promotion_price')}
+                                value={promotionPrice}
+                                readOnly={sizesEnabled}
+                                onChange={(event) => {
+                                    if (sizesEnabled) {
+                                        return;
+                                    }
+
+                                    setPromotionPrice(event.target.value);
+                                    clearFieldError('promotion_price');
+                                }}
                             />
                         </FormField>
 
@@ -378,6 +496,159 @@ export function PromotionForm({
                         >
                             <Input id="image" name="image" type="file" accept="image/*" />
                         </FormField>
+
+                        <div className="space-y-3 rounded-xl border border-border bg-surface p-4 md:col-span-2">
+                            <label className="flex cursor-pointer items-start gap-3 text-foreground">
+                                <Checkbox
+                                    checked={sizesEnabled}
+                                    onCheckedChange={(checked) =>
+                                        toggleSizes(checked === true)
+                                    }
+                                    className="mt-0.5"
+                                />
+                                <div>
+                                    <span className="text-sm font-medium">
+                                        {SECTION_CONFIG.size.label}
+                                    </span>
+                                    <p className="text-sm text-muted-foreground">
+                                        Opcional. Actívalo si la promoción tiene
+                                        presentaciones con precios distintos.
+                                    </p>
+                                </div>
+                            </label>
+
+                            {sizesEnabled && sizeGroup ? (
+                                <div className="space-y-3 border-t border-border pt-3">
+                                    {resolveFieldError(
+                                        `option_groups.${sizeGroupIndex}.options`,
+                                        clientErrors,
+                                        errors,
+                                    ) ? (
+                                        <p className="text-sm text-destructive">
+                                            {resolveFieldError(
+                                                `option_groups.${sizeGroupIndex}.options`,
+                                                clientErrors,
+                                                errors,
+                                            )}
+                                        </p>
+                                    ) : null}
+
+                                    {sizeGroup.options.map(
+                                        (option, optionIndex) => (
+                                            <div
+                                                key={`size-${optionIndex}`}
+                                                className="grid gap-3 sm:grid-cols-[1fr_8rem_auto]"
+                                            >
+                                                <FormField
+                                                    label={
+                                                        optionIndex === 0
+                                                            ? 'Nombre'
+                                                            : undefined
+                                                    }
+                                                    htmlFor={`size-name-${optionIndex}`}
+                                                    error={resolveFieldError(
+                                                        `option_groups.${sizeGroupIndex}.options.${optionIndex}.name`,
+                                                        clientErrors,
+                                                        errors,
+                                                    )}
+                                                >
+                                                    <Input
+                                                        id={`size-name-${optionIndex}`}
+                                                        placeholder={
+                                                            SECTION_CONFIG.size
+                                                                .optionPlaceholder
+                                                        }
+                                                        value={option.name}
+                                                        onChange={(event) => {
+                                                            updateSizeOption(
+                                                                optionIndex,
+                                                                {
+                                                                    name: event
+                                                                        .target
+                                                                        .value,
+                                                                },
+                                                            );
+                                                            clearFieldError(
+                                                                `option_groups.${sizeGroupIndex}.options.${optionIndex}.name`,
+                                                            );
+                                                        }}
+                                                    />
+                                                </FormField>
+                                                <FormField
+                                                    label={
+                                                        optionIndex === 0
+                                                            ? 'Precio (MXN)'
+                                                            : undefined
+                                                    }
+                                                    htmlFor={`size-price-${optionIndex}`}
+                                                    error={resolveFieldError(
+                                                        `option_groups.${sizeGroupIndex}.options.${optionIndex}.price_modifier`,
+                                                        clientErrors,
+                                                        errors,
+                                                    )}
+                                                >
+                                                    <Input
+                                                        id={`size-price-${optionIndex}`}
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder="0.00"
+                                                        value={
+                                                            option.price_modifier
+                                                        }
+                                                        onChange={(event) => {
+                                                            updateSizeOption(
+                                                                optionIndex,
+                                                                {
+                                                                    price_modifier:
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                },
+                                                            );
+                                                            clearFieldError(
+                                                                `option_groups.${sizeGroupIndex}.options.${optionIndex}.price_modifier`,
+                                                            );
+                                                        }}
+                                                    />
+                                                </FormField>
+                                                <div
+                                                    className={
+                                                        optionIndex === 0
+                                                            ? 'flex items-end pb-0.5'
+                                                            : 'flex items-center'
+                                                    }
+                                                >
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-muted-foreground hover:text-destructive"
+                                                        aria-label="Quitar tamaño"
+                                                        onClick={() =>
+                                                            removeSizeOption(
+                                                                optionIndex,
+                                                            )
+                                                        }
+                                                    >
+                                                        <Trash2 className="size-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ),
+                                    )}
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={addSizeOption}
+                                    >
+                                        Agregar tamaño
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </div>
 
                         <div className="md:col-span-2 space-y-4 rounded-lg border border-border p-4">
                             <input
@@ -557,13 +828,20 @@ export function PromotionForm({
                         addDisabled={branchId.trim() === ''}
                     />
 
+                    <ProductOptionGroupsFields
+                        groups={groups}
+                        onChange={setGroups}
+                        clientErrors={clientErrors}
+                        serverErrors={errors}
+                        onClearError={clearFieldError}
+                    />
+
                     <PromotionItemDialog
                         open={itemDialogOpen}
                         onOpenChange={setItemDialogOpen}
                         mode={editingIndex === null ? 'create' : 'edit'}
                         item={draftItem}
                         onItemChange={setDraftItem}
-                        products={products}
                         onSave={saveDialogItem}
                     />
 

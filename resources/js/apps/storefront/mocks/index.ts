@@ -53,6 +53,7 @@ export type MockPromotion = {
     name: string;
     description: string;
     price: number;
+    has_size_options?: boolean;
     composition: string;
     image_url?: string | null;
     is_affiliated?: boolean;

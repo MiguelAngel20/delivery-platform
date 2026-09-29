@@ -182,3 +182,67 @@ test('business admin can fetch product customization json', function () {
         ->assertJsonPath('option_groups.0.options.0.name', 'Queso extra')
         ->assertJsonPath('option_groups.0.options.0.price_modifier', '15.00');
 });
+
+test('promotion stores sizes and customizations on the promotion and keeps items descriptive', function () {
+    ['admin' => $admin, 'branch' => $branch] = seedPromotionCustomizationAdmin();
+
+    $this->actingAs($admin)
+        ->post(route('business.promotions.store'), [
+            'branch_id' => $branch->id,
+            'name' => 'Carne asada mixta',
+            'description' => 'Para compartir',
+            'promotion_price' => 180,
+            'status' => PromotionStatus::Active->value,
+            'items' => [
+                [
+                    'is_external_item' => true,
+                    'name' => '250g Carne de res',
+                    'description' => 'Corte de res',
+                    'quantity' => 1,
+                ],
+                [
+                    'is_external_item' => true,
+                    'name' => '1 kg Tortilla',
+                    'quantity' => 1,
+                ],
+            ],
+            'option_groups' => [
+                [
+                    'name' => 'Tamaños / porciones',
+                    'type' => ProductOptionGroupType::Size->value,
+                    'is_required' => true,
+                    'min_selection' => 1,
+                    'max_selection' => 1,
+                    'is_active' => true,
+                    'options' => [
+                        ['name' => 'Media', 'price_modifier' => 180, 'is_default' => true, 'is_available' => true],
+                        ['name' => 'Orden', 'price_modifier' => 220, 'is_default' => false, 'is_available' => true],
+                    ],
+                ],
+                [
+                    'name' => 'Quitar ingredientes',
+                    'type' => ProductOptionGroupType::Removable->value,
+                    'is_required' => false,
+                    'min_selection' => 0,
+                    'max_selection' => 99,
+                    'is_active' => true,
+                    'options' => [
+                        ['name' => 'Sin cebolla', 'price_modifier' => 0, 'is_default' => true, 'is_available' => true],
+                    ],
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $promotion = Promotion::query()->where('name', 'Carne asada mixta')->first();
+    $size = collect($promotion?->option_groups)->firstWhere('type', ProductOptionGroupType::Size->value);
+
+    expect($promotion)->not->toBeNull()
+        ->and((string) $promotion?->promotion_price)->toBe('180.00')
+        ->and($size['options'][1]['price_modifier'])->toEqual('40.00')
+        ->and($promotion?->items)->toHaveCount(2)
+        ->and($promotion?->items->first()?->is_external_item)->toBeTrue()
+        ->and($promotion?->items->first()?->option_groups)->toBeNull()
+        ->and($promotion?->items->first()?->description)->toBe('Corte de res')
+        ->and($promotion?->hasSizeOptions())->toBeTrue();
+});

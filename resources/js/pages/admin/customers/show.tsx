@@ -1,12 +1,15 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, router } from '@inertiajs/react';
+import { useState } from 'react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import type { StatusTone } from '@/components/data-display/status-badge';
+import { DeleteConfirmDialog } from '@/components/dialogs/modal';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { BackButton } from '@/components/navigation/back-button';
 import { Button } from '@/components/ui/button';
 import admin from '@/routes/admin';
 import {
     blockTrust,
+    destroy,
     index,
     unblockTrust,
 } from '@/routes/admin/customers';
@@ -31,6 +34,7 @@ type CustomerDetail = {
     payment_incidents: number;
     requires_review: boolean;
     last_recalculated_at: string | null;
+    has_order_history: boolean;
 };
 
 type Props = {
@@ -49,6 +53,8 @@ function formatDateTime(value: string | null): string {
 }
 
 export default function AdminCustomerShow({ customer }: Props) {
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const metrics: Array<{ label: string; value: string | number }> = [
         { label: 'Pedidos totales', value: customer.total_orders },
         { label: 'Completados', value: customer.completed_orders },
@@ -100,6 +106,15 @@ export default function AdminCustomerShow({ customer }: Props) {
                             </div>
                         </dl>
                         <div className="flex flex-wrap gap-2 pt-2">
+                            {customer.has_order_history ? (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    onClick={() => setConfirmOpen(true)}
+                                >
+                                    Eliminar cliente
+                                </Button>
+                            ) : null}
                             {customer.trust_level !== 'blocked' ? (
                                 <Form {...blockTrust.form(customer.id)}>
                                     <Button type="submit" variant="destructive">
@@ -137,6 +152,23 @@ export default function AdminCustomerShow({ customer }: Props) {
                     </section>
                 </div>
             </PageContainer>
+
+            <DeleteConfirmDialog
+                open={confirmOpen}
+                onOpenChange={setConfirmOpen}
+                title="Eliminar cliente"
+                description="Esta cuenta tiene pedidos. Se cerrará el acceso y el teléfono quedará libre para otro registro. El historial de pedidos se conserva."
+                loading={deleting}
+                onConfirm={() => {
+                    setDeleting(true);
+                    router.delete(destroy.url(customer.id), {
+                        onFinish: () => {
+                            setDeleting(false);
+                            setConfirmOpen(false);
+                        },
+                    });
+                }}
+            />
         </>
     );
 }

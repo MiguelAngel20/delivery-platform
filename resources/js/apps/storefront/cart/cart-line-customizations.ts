@@ -61,6 +61,33 @@ export function getCartLineCustomizations(
             }
         }
 
+        for (const option of line.selectedOptions ?? []) {
+            if (option.action === 'selected') {
+                variants.push({
+                    name: option.name,
+                    price:
+                        option.price_modifier !== 0
+                            ? option.price_modifier
+                            : undefined,
+                });
+            }
+
+            if (option.action === 'added') {
+                const quantity = Math.max(1, option.quantity ?? 1);
+                extras.push({
+                    name: formatExtraLabel(option.name, quantity),
+                    price:
+                        option.price_modifier !== 0
+                            ? option.price_modifier * quantity
+                            : undefined,
+                });
+            }
+
+            if (option.action === 'removed') {
+                removed.push(option.name);
+            }
+        }
+
         return {
             variants,
             extras,

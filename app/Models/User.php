@@ -6,6 +6,7 @@ use App\Enums\BusinessUserRole;
 use App\Enums\BusinessUserStatus;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
+use App\Support\PhoneNumber;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -22,7 +23,7 @@ use Illuminate\Support\Carbon;
  * @property string $first_name
  * @property string $last_name
  * @property string $name
- * @property string $email
+ * @property string|null $email
  * @property string $phone
  * @property UserRole $role
  * @property UserStatus $status
@@ -73,6 +74,19 @@ class User extends Authenticatable
                 $parts = preg_split('/\s+/', trim((string) $user->name), 2) ?: [];
                 $user->first_name = ($parts[0] ?? '') !== '' ? $parts[0] : $user->first_name;
                 $user->last_name = $parts[1] ?? ($user->last_name ?: 'RIDE');
+            }
+        });
+
+        static::updating(function (User $user): void {
+            if (! $user->isDirty('phone')) {
+                return;
+            }
+
+            $previous = PhoneNumber::canonicalize((string) $user->getOriginal('phone'));
+            $next = PhoneNumber::canonicalize((string) $user->phone);
+
+            if ($previous !== $next) {
+                $user->phone_verified_at = null;
             }
         });
     }

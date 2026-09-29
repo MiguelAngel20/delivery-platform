@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureCustomerPhoneIsVerified;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
@@ -35,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
+            'customer.phone' => EnsureCustomerPhoneIsVerified::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request): string {

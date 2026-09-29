@@ -1,9 +1,10 @@
 <?php
 
+use App\Contracts\FirebaseIdTokenVerifier;
 use App\Enums\CoverageScopeType;
 use App\Models\CoverageZone;
 use App\Models\User;
-use App\Notifications\Auth\CustomerEmailVerificationCode;
+use App\Services\Auth\VerifiedFirebasePhone;
 use Illuminate\Support\Facades\Notification;
 
 function customerRegistrationPayload(array $overrides = []): array
@@ -11,7 +12,6 @@ function customerRegistrationPayload(array $overrides = []): array
     return [
         'first_name' => 'Ana',
         'last_name' => 'López',
-        'email' => 'ana.lopez@example.com',
         'phone_dial_code' => '+52',
         'phone_national' => '9611234567',
         'password' => 'Clave123!',
@@ -28,6 +28,19 @@ function customerRegistrationPayload(array $overrides = []): array
     ];
 }
 
+function fakeRegistrationPhone(string $phone): void
+{
+    app()->instance(FirebaseIdTokenVerifier::class, new class($phone) implements FirebaseIdTokenVerifier
+    {
+        public function __construct(private string $phone) {}
+
+        public function verify(string $idToken): VerifiedFirebasePhone
+        {
+            return new VerifiedFirebasePhone($this->phone, 'firebase-uid');
+        }
+    });
+}
+
 test('registration screen can be rendered', function () {
     $this->get(route('register'))
         ->assertOk()
@@ -39,24 +52,24 @@ test('registration screen can be rendered', function () {
 });
 
 test('verification screen redirects guests without a pending registration', function () {
-    $this->get(route('register.verify-email'))
+    $this->get(route('register.verify-phone'))
         ->assertRedirect(route('register'));
 });
 
-test('a guest can register and must verify email before checkout', function () {
+test('a guest can register without an email and must verify the phone', function () {
     Notification::fake();
 
     $this->post(route('register.store'), customerRegistrationPayload())
-        ->assertRedirect(route('register.verify-email'));
+        ->assertRedirect(route('register.verify-phone'));
 
     $this->assertGuest();
 
-    $user = User::query()->where('email', 'ana.lopez@example.com')->first();
+    $user = User::query()->where('phone', '+529611234567')->first();
 
     expect($user)->not->toBeNull()
         ->and($user->first_name)->toBe('Ana')
         ->and($user->last_name)->toBe('López')
-        ->and($user->phone)->toBe('+529611234567')
+        ->and($user->email)->toBeNull()
         ->and($user->email_verified_at)->toBeNull()
         ->and($user->phone_verified_at)->toBeNull()
         ->and($user->customer)->not->toBeNull();
@@ -67,7 +80,7 @@ test('a guest can register and must verify email before checkout', function () {
         ->and($address->is_default)->toBeTrue()
         ->and($address->address_text)->toBe('Calle Central 12, Comitán');
 
-    Notification::assertSentTo($user, CustomerEmailVerificationCode::class);
+    Notification::assertNothingSent();
 });
 
 test('registration rejects weak passwords', function () {
@@ -77,104 +90,84 @@ test('registration rejects weak passwords', function () {
     ]))->assertSessionHasErrors(['password']);
 });
 
-test('registration requires a valid email and matching country phone length', function () {
+test('registration rejects a country code other than mexico', function () {
     $this->post(route('register.store'), customerRegistrationPayload([
-        'email' => 'no-es-correo',
-        'phone_national' => '123',
-    ]))->assertSessionHasErrors(['email', 'phone_national']);
+        'phone_dial_code' => '+502',
+        'phone_national' => '55551234',
+    ]))->assertSessionHasErrors(['phone_dial_code']);
 });
 
-test('registration rejects an email that already exists', function () {
-    User::factory()->create(['email' => 'ana.lopez@example.com']);
+test('registration requires a phone with the country length', function () {
+    $this->post(route('register.store'), customerRegistrationPayload([
+        'phone_national' => '123',
+    ]))->assertSessionHasErrors(['phone_national']);
+});
+
+test('registration rejects a phone that already belongs to an account', function () {
+    User::factory()->customer()->create(['phone' => '+529611234567']);
 
     $this->post(route('register.store'), customerRegistrationPayload())
-        ->assertSessionHasErrors(['email']);
+        ->assertSessionHasErrors(['phone']);
 });
 
-test('a customer can verify the email code and continue to the cart', function () {
-    Notification::fake();
-
+test('an unfinished registration can be continued with the same phone', function () {
     $this->post(route('register.store'), customerRegistrationPayload());
 
-    $user = User::query()->where('email', 'ana.lopez@example.com')->firstOrFail();
-    $code = '';
+    $this->post(route('register.store'), customerRegistrationPayload([
+        'first_name' => 'Anita',
+    ]))->assertRedirect(route('register.verify-phone'));
 
-    Notification::assertSentTo(
-        $user,
-        CustomerEmailVerificationCode::class,
-        function (CustomerEmailVerificationCode $notification) use (&$code): bool {
-            $code = $notification->code;
-
-            return true;
-        },
-    );
-
-    $this->get(route('register.verify-email'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('public/register/verify-email')
-            ->where('email', 'ana.lopez@example.com'));
-
-    $this->post(route('register.verify-email.store'), ['code' => $code])
-        ->assertRedirect(route('cart'));
-
-    $this->assertAuthenticatedAs($user);
-    expect($user->fresh()->email_verified_at)->not->toBeNull();
+    expect(User::query()->where('phone', '+529611234567')->count())->toBe(1)
+        ->and(User::query()->where('phone', '+529611234567')->value('first_name'))->toBe('Anita');
 });
 
-test('registration from custom order continues to the custom order form after verify', function () {
-    Notification::fake();
+test('a customer can verify the phone and continue to the cart', function () {
+    $this->post(route('register.store'), customerRegistrationPayload());
+    fakeRegistrationPhone('+529611234567');
 
+    $this->get(route('register.verify-phone'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('public/register/verify-phone')
+            ->where('phone', '+529611234567'));
+
+    $this->post(route('register.verify-phone.store'), [
+        'firebase_id_token' => 'valid-token',
+    ])->assertRedirect(route('cart'));
+
+    $user = User::query()->where('phone', '+529611234567')->firstOrFail();
+
+    $this->assertAuthenticatedAs($user);
+    expect($user->fresh()->phone_verified_at)->not->toBeNull()
+        ->and($user->email)->toBeNull();
+});
+
+test('registration from custom order continues there after the phone is verified', function () {
     $this->get(route('register', ['continue' => 'custom-order']))
         ->assertOk()
         ->assertSessionHas('register.continue', route('customer.custom-orders.create'));
 
     $this->post(route('register.store'), customerRegistrationPayload([
-        'email' => 'pedido.custom@example.com',
         'phone_national' => '9617654321',
-    ]))->assertRedirect(route('register.verify-email'));
+    ]))->assertRedirect(route('register.verify-phone'));
 
-    $user = User::query()->where('email', 'pedido.custom@example.com')->firstOrFail();
-    $code = '';
+    fakeRegistrationPhone('+529617654321');
 
-    Notification::assertSentTo(
-        $user,
-        CustomerEmailVerificationCode::class,
-        function (CustomerEmailVerificationCode $notification) use (&$code): bool {
-            $code = $notification->code;
-
-            return true;
-        },
-    );
-
-    $this->post(route('register.verify-email.store'), ['code' => $code])
-        ->assertRedirect(route('customer.custom-orders.create'));
-
-    $this->assertAuthenticatedAs($user);
+    $this->post(route('register.verify-phone.store'), [
+        'firebase_id_token' => 'valid-token',
+    ])->assertRedirect(route('customer.custom-orders.create'));
 });
 
-test('an invalid verification code is rejected', function () {
-    Notification::fake();
-
+test('a firebase token for another phone does not activate the account', function () {
     $this->post(route('register.store'), customerRegistrationPayload());
+    fakeRegistrationPhone('+529600000000');
 
-    $this->post(route('register.verify-email.store'), ['code' => '000000'])
-        ->assertSessionHasErrors(['code']);
+    $this->post(route('register.verify-phone.store'), [
+        'firebase_id_token' => 'valid-token',
+    ])->assertSessionHasErrors(['firebase_id_token']);
 
     $this->assertGuest();
-});
-
-test('the verification code can be resent', function () {
-    Notification::fake();
-
-    $this->post(route('register.store'), customerRegistrationPayload());
-
-    $user = User::query()->where('email', 'ana.lopez@example.com')->firstOrFail();
-
-    $this->post(route('register.verify-email.resend'))
-        ->assertRedirect();
-
-    Notification::assertSentToTimes($user, CustomerEmailVerificationCode::class, 2);
+    expect(User::query()->where('phone', '+529611234567')->value('phone_verified_at'))->toBeNull();
 });
 
 test('registration rejects an address outside platform coverage', function () {
@@ -192,5 +185,80 @@ test('registration rejects an address outside platform coverage', function () {
         'address_text' => 'Fuera de zona',
     ]))->assertSessionHasErrors(['latitude']);
 
-    expect(User::query()->where('email', 'ana.lopez@example.com')->exists())->toBeFalse();
+    expect(User::query()->where('phone', '+529611234567')->exists())->toBeFalse();
+});
+
+test('an existing customer can sign in with email or phone', function () {
+    $user = User::factory()->customer()->create([
+        'email' => 'ana.vieja@example.com',
+        'phone' => '+529611234567',
+        'email_verified_at' => now(),
+        'phone_verified_at' => null,
+        'password' => 'password',
+    ]);
+
+    $this->post(route('login.store'), [
+        'email' => 'ana.vieja@example.com',
+        'password' => 'password',
+    ])->assertRedirect();
+
+    $this->assertAuthenticatedAs($user);
+    auth()->logout();
+
+    $this->post(route('login.store'), [
+        'email' => '9611234567',
+        'password' => 'password',
+    ])->assertRedirect();
+
+    $this->assertAuthenticatedAs($user);
+});
+
+test('a new customer signs in with the verified phone', function () {
+    $user = User::factory()->customer()->create([
+        'email' => null,
+        'phone' => '+529611234567',
+        'email_verified_at' => null,
+        'phone_verified_at' => now(),
+        'password' => 'password',
+    ]);
+
+    $this->post(route('login.store'), [
+        'email' => '+529611234567',
+        'password' => 'password',
+    ])->assertRedirect();
+
+    $this->assertAuthenticatedAs($user);
+});
+
+test('a customer without a verified email or phone cannot sign in', function () {
+    User::factory()->customer()->create([
+        'email' => null,
+        'phone' => '+529611234567',
+        'email_verified_at' => null,
+        'phone_verified_at' => null,
+        'password' => 'password',
+    ]);
+
+    $this->post(route('login.store'), [
+        'email' => '9611234567',
+        'password' => 'password',
+    ])->assertSessionHasErrors('email');
+
+    $this->assertGuest();
+});
+
+test('checkout sends an unverified customer to confirm the phone', function () {
+    $user = User::factory()->customer()->create([
+        'phone_verified_at' => null,
+        'email_verified_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('customer.checkout'))
+        ->assertRedirect(route('customer.phone.confirm'));
+
+    $this->actingAs($user)
+        ->get(route('customer.phone.confirm'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('customer/phone/confirm'));
 });

@@ -12,19 +12,20 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
-    LoyaltyProgressCard,
-    type LoyaltyProgress,
+    LoyaltyProgressCard
+    
 } from '@/apps/customer/components/loyalty-progress-card';
+import type {LoyaltyProgress} from '@/apps/customer/components/loyalty-progress-card';
 import { useStorefrontCart } from '@/apps/storefront/cart/use-storefront-cart';
 import { applyStorefrontCategoryFilter } from '@/apps/storefront/components/category-card';
 import { DeliveryLocationCue } from '@/apps/storefront/components/delivery-location-cue';
 import { MobileCategoryTabs } from '@/apps/storefront/components/mobile-category-tabs';
 import { SearchBar } from '@/apps/storefront/components/search-bar';
+import { clearAccountBoundDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-location';
 import {
     storefrontGoBack,
     useStorefrontShell,
 } from '@/apps/storefront/hooks/use-storefront-shell';
-import { clearAccountBoundDeliveryLocation } from '@/apps/storefront/hooks/use-delivery-location';
 import type { MockCategory } from '@/apps/storefront/mocks';
 import { BrandLogo } from '@/components/brand-logo';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -37,9 +38,9 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { deactivateStoredPushDevice } from '@/lib/push/devices';
+import { logoutAfterPushCleanup } from '@/lib/auth/logout';
 import { cn } from '@/lib/utils';
-import { cart, home, login, logout } from '@/routes';
+import { cart, home, login } from '@/routes';
 import customer from '@/routes/customer';
 import promotions from '@/routes/promotions';
 import restaurants from '@/routes/restaurants';
@@ -361,20 +362,19 @@ export function StorefrontHeader() {
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem asChild>
-                                        <Link
-                                            href={logout()}
-                                            as="button"
+                                        <button
+                                            type="button"
                                             className="w-full text-destructive focus:text-destructive"
                                             data-test="customer-logout-button"
                                             onClick={() => {
-                                                clearAccountBoundDeliveryLocation();
-                                                void deactivateStoredPushDevice();
-                                                router.flushAll();
+                                                void logoutAfterPushCleanup(
+                                                    clearAccountBoundDeliveryLocation,
+                                                );
                                             }}
                                         >
                                             <LogOut className="size-4" />
                                             Cerrar sesión
-                                        </Link>
+                                        </button>
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>

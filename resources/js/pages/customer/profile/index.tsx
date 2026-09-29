@@ -1,14 +1,15 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { LogOut } from 'lucide-react';
 import {
-    LoyaltyProgressCard,
-    type LoyaltyProgress,
+    LoyaltyProgressCard
+    
 } from '@/apps/customer/components/loyalty-progress-card';
+import type {LoyaltyProgress} from '@/apps/customer/components/loyalty-progress-card';
+import { PhoneVerificationCard } from '@/apps/customer/components/phone-verification-card';
 import { ContentCard, PageContainer } from '@/components/layout/page';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { deactivateStoredPushDevice } from '@/lib/push/devices';
-import { logout } from '@/routes';
+import { logoutAfterPushCleanup } from '@/lib/auth/logout';
 import type { Auth } from '@/types';
 
 function initials(name: string): string {
@@ -29,12 +30,26 @@ type Props = {
     };
     loyalty?: LoyaltyProgress | null;
     phone?: string | null;
+    phone_verified?: boolean;
+    phone_dial_code?: string;
+    phone_national?: string;
+    phone_dial_options?: Array<{
+        dial: string;
+        label: string;
+        national_length: number;
+    }>;
+    firebase_phone_auth_ready?: boolean;
 };
 
 export default function CustomerProfileIndex({
     reputation,
     loyalty,
     phone,
+    phone_verified = false,
+    phone_dial_code = '+52',
+    phone_national = '',
+    phone_dial_options = [],
+    firebase_phone_auth_ready = false,
 }: Props) {
     const { auth } = usePage().props as { auth: Auth };
     const user = auth.user;
@@ -89,6 +104,14 @@ export default function CustomerProfileIndex({
                             </dd>
                         </div>
                     </dl>
+                    <PhoneVerificationCard
+                        key={`${phone_dial_code}-${phone_national}-${phone_verified ? '1' : '0'}`}
+                        phoneDialCode={phone_dial_code}
+                        phoneNational={phone_national}
+                        phoneVerified={phone_verified}
+                        dialOptions={phone_dial_options}
+                        firebaseReady={firebase_phone_auth_ready}
+                    />
                 </ContentCard>
 
                 {loyalty ? <LoyaltyProgressCard loyalty={loyalty} /> : null}
@@ -99,22 +122,16 @@ export default function CustomerProfileIndex({
                 </Button>
 
                 <Button
-                    asChild
+                    type="button"
                     variant="outline"
                     className="min-h-12 w-full text-destructive hover:bg-destructive/5 hover:text-destructive"
+                    data-test="customer-logout-button"
+                    onClick={() => {
+                        void logoutAfterPushCleanup();
+                    }}
                 >
-                    <Link
-                        href={logout()}
-                        as="button"
-                        data-test="customer-logout-button"
-                        onClick={() => {
-                            void deactivateStoredPushDevice();
-                            router.flushAll();
-                        }}
-                    >
-                        <LogOut className="size-4" />
-                        Cerrar sesión
-                    </Link>
+                    <LogOut className="size-4" />
+                    Cerrar sesión
                 </Button>
             </PageContainer>
         </>

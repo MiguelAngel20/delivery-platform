@@ -43,7 +43,7 @@ return [
 
     'customers' => [
         'email_verification_ttl_minutes' => (int) env('CUSTOMER_EMAIL_VERIFICATION_TTL', 15),
-        // SMS verification needs a provider (Twilio, etc.). Keep email-only until configured.
+        // Account activation stays on email. SMS phone proof uses Firebase Authentication.
         'phone_verification_enabled' => (bool) env('CUSTOMER_PHONE_VERIFICATION_ENABLED', false),
     ],
 

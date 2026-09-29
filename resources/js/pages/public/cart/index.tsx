@@ -305,6 +305,7 @@ export default function CartIndex() {
                 promotionId={editingPromotionId}
                 open={promotionEditLine !== null}
                 editSelections={promotionEditLine?.promotionItems}
+                editSelectedOptions={promotionEditLine?.selectedOptions}
                 editQuantity={promotionEditLine?.quantity}
                 confirmLabel="Guardar cambios"
                 onOpenChange={(open) => {
@@ -312,7 +313,7 @@ export default function CartIndex() {
                         closeEdit();
                     }
                 }}
-                onConfirm={({ promotion, quantity, promotionItems }) => {
+                onConfirm={({ promotion, quantity, promotionItems, selectedOptions, unitPrice }) => {
                     if (!promotionEditLine) {
                         return;
                     }
@@ -324,11 +325,13 @@ export default function CartIndex() {
                             restaurantSlug: promotionEditLine.restaurantSlug,
                             restaurantName: promotionEditLine.restaurantName,
                             name: promotion.name,
-                            price: promotion.price,
+                            price: unitPrice ?? promotion.price,
                             composition: promotion.composition,
                         },
                         quantity,
                         promotionItems,
+                        selectedOptions,
+                        unitPrice,
                     });
 
                     notify.success('Promoción actualizada.');

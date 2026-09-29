@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Web\Auth;
 use App\Actions\Customers\RegisterCustomer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterCustomerRequest;
-use App\Services\Auth\EmailVerificationCodeService;
 use App\Support\ApplicationPassword;
 use App\Support\PhoneDialCodes;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +24,7 @@ class CustomerRegisterController extends Controller
         }
 
         return Inertia::render('public/register/index', [
-            'dialCodes' => PhoneDialCodes::options(),
+            'dialCodes' => PhoneDialCodes::customerSmsOptions(),
             'defaultDialCode' => PhoneDialCodes::defaultDial(),
             'passwordRules' => ApplicationPassword::rule()->toPasswordRulesString(),
         ]);
@@ -34,11 +33,8 @@ class CustomerRegisterController extends Controller
     public function store(
         RegisterCustomerRequest $request,
         RegisterCustomer $register,
-        EmailVerificationCodeService $codes,
     ): RedirectResponse {
         $user = $register->handle($request->validated());
-
-        $codes->issue($user);
 
         $request->session()->put('pending_customer_user_id', $user->id);
 
@@ -48,6 +44,6 @@ class CustomerRegisterController extends Controller
             $request->session()->put('register.continue', route('cart'));
         }
 
-        return redirect()->route('register.verify-email');
+        return redirect()->route('register.verify-phone');
     }
 }

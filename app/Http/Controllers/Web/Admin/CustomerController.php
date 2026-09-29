@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Web\Admin;
 
+use App\Actions\Customers\DeleteCustomer;
 use App\Enums\CustomerTrustLevel;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
@@ -23,6 +24,10 @@ class CustomerController extends Controller
 
         $customers = Customer::query()
             ->with(['user', 'metrics'])
+            ->withCount(['orders', 'customOrderRequests'])
+            ->whereHas('user', function (Builder $query): void {
+                $query->whereNull('users.deleted_at');
+            })
             ->when(
                 filled($request->input('search')),
                 function (Builder $query) use ($request): void {
@@ -60,10 +65,28 @@ class CustomerController extends Controller
     {
         $this->authorizeAdmin();
         $customer->loadMissing(['user', 'metrics']);
+        $customer->loadCount(['orders', 'customOrderRequests']);
+        abort_if($customer->user === null || $customer->user->trashed(), 404);
 
         return Inertia::render('admin/customers/show', [
             'customer' => ReputationPresenter::customerForAdmin($customer),
         ]);
+    }
+
+    public function destroy(Customer $customer, DeleteCustomer $delete): RedirectResponse
+    {
+        $this->authorizeAdmin();
+        $customer->loadMissing('user');
+        abort_if($customer->user === null || $customer->user->trashed(), 404);
+
+        $delete->handle($customer);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Cliente eliminado.',
+        ]);
+
+        return to_route('admin.customers.index');
     }
 
     public function blockTrust(BlockCustomerTrustRequest $request, Customer $customer, CustomerReputationService $reputation): RedirectResponse

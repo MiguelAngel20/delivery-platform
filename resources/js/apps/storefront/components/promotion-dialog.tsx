@@ -23,6 +23,7 @@ export type StorefrontPromotionItem = {
     id: number;
     name: string;
     quantity: number;
+    description?: string | null;
     is_external_item: boolean;
     product_id?: number | null;
     allow_special_instructions?: boolean;
@@ -50,6 +51,7 @@ export type StorefrontPromotion = {
     price: number;
     composition: string;
     image_url?: string | null;
+    option_groups?: StorefrontPromotionItem['option_groups'];
     items: StorefrontPromotionItem[];
 };
 
@@ -58,12 +60,15 @@ type PromotionDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     editSelections?: PromotionCartItemSelection[];
+    editSelectedOptions?: ReturnType<typeof buildSelectedProductOptions>;
     editQuantity?: number;
     confirmLabel?: string;
     onConfirm: (payload: {
         promotion: StorefrontPromotion;
         quantity: number;
         promotionItems: PromotionCartItemSelection[];
+        selectedOptions?: ReturnType<typeof buildSelectedProductOptions>;
+        unitPrice?: number;
         note?: string;
     }) => void;
 };
@@ -73,6 +78,20 @@ type ItemDraft = {
     optionQuantities: Record<number, number>;
     note: string;
 };
+
+function formatIncludedItem(item: StorefrontPromotionItem): string {
+    const quantity = Number(item.quantity);
+
+    if (!Number.isFinite(quantity) || quantity === 1) {
+        return item.name;
+    }
+
+    const label = Number.isInteger(quantity)
+        ? String(quantity)
+        : String(quantity);
+
+    return `${label} × ${item.name}`;
+}
 
 function summarizeItemSelections(
     item: StorefrontPromotionItem,
@@ -140,6 +159,7 @@ export function PromotionDialog({
     open,
     onOpenChange,
     editSelections,
+    editSelectedOptions,
     editQuantity,
     confirmLabel,
     onConfirm,
@@ -150,6 +170,11 @@ export function PromotionDialog({
     const [quantity, setQuantity] = useState(1);
     const [stepIndex, setStepIndex] = useState(0);
     const [itemDrafts, setItemDrafts] = useState<Record<number, ItemDraft>>({});
+    const [promotionDraft, setPromotionDraft] = useState<ItemDraft>({
+        selectedByGroup: {},
+        optionQuantities: {},
+        note: '',
+    });
 
     const items = promotion?.items ?? [];
     const confirmStepIndex = items.length;
@@ -243,6 +268,53 @@ export function PromotionDialog({
 
                 setPromotion(data.promotion);
                 setItemDrafts(drafts);
+
+                const promotionGroups = data.promotion.option_groups ?? [];
+                const initial = buildInitialOptionSelection(promotionGroups);
+                const optionQuantities: Record<number, number> = {};
+
+                if (editSelectedOptions?.length) {
+                    for (const group of promotionGroups) {
+                        initial[group.id] = group.options
+                            .filter((option) =>
+                                editSelectedOptions.some((selected) => {
+                                    if (selected.option_id !== option.id) {
+                                        return false;
+                                    }
+
+                                    if (group.type === 'removable') {
+                                        return selected.action === 'removed';
+                                    }
+
+                                    return (
+                                        selected.action === 'added' ||
+                                        selected.action === 'selected'
+                                    );
+                                }),
+                            )
+                            .map((option) => option.id);
+
+                        if (group.type === 'addon') {
+                            for (const optionId of initial[group.id] ?? []) {
+                                const selected = editSelectedOptions.find(
+                                    (entry) =>
+                                        entry.option_id === optionId &&
+                                        entry.action === 'added',
+                                );
+                                optionQuantities[optionId] = Math.max(
+                                    1,
+                                    selected?.quantity ?? 1,
+                                );
+                            }
+                        }
+                    }
+                }
+
+                setPromotionDraft({
+                    selectedByGroup: initial,
+                    optionQuantities,
+                    note: '',
+                });
             })
             .catch(() => {
                 setError('No se pudo cargar la promoción.');
@@ -251,7 +323,7 @@ export function PromotionDialog({
             .finally(() => {
                 setLoading(false);
             });
-    }, [open, promotionId, editQuantity, editSelections]);
+    }, [open, promotionId, editQuantity, editSelections, editSelectedOptions]);
 
     const currentDraft = currentItem ? itemDrafts[currentItem.id] : null;
     const currentGroups = currentItem?.option_groups ?? [];
@@ -286,6 +358,38 @@ export function PromotionDialog({
         });
     }, [promotion, itemDrafts]);
 
+    const promotionGroups = promotion?.option_groups ?? [];
+    const customizesPromotion = promotionGroups.length > 0;
+    const promotionSelected = useMemo(
+        () =>
+            buildSelectedProductOptions(
+                promotionGroups,
+                promotionDraft.selectedByGroup,
+                promotionDraft.optionQuantities,
+            ),
+        [promotionGroups, promotionDraft],
+    );
+    const promotionSelectionValid = isOptionSelectionValid(
+        promotionGroups,
+        promotionDraft.selectedByGroup,
+        promotionDraft.optionQuantities,
+    );
+    const unitPrice = useMemo(() => {
+        if (!promotion) {
+            return 0;
+        }
+
+        const modifiers = promotionSelected.reduce((sum, option) => {
+            if (option.action === 'removed') {
+                return sum;
+            }
+
+            return sum + option.price_modifier * Math.max(1, option.quantity ?? 1);
+        }, 0);
+
+        return promotion.price + modifiers;
+    }, [promotion, promotionSelected]);
+
     function handleConfirm() {
         if (!promotion) {
             return;
@@ -295,6 +399,8 @@ export function PromotionDialog({
             promotion,
             quantity,
             promotionItems: builtItems,
+            selectedOptions: customizesPromotion ? promotionSelected : undefined,
+            unitPrice: customizesPromotion ? unitPrice : promotion.price,
         });
         onOpenChange(false);
     }
@@ -316,7 +422,92 @@ export function PromotionDialog({
                     <p className="text-sm text-destructive">{error}</p>
                 ) : null}
 
-                {promotion && !loading && !error ? (
+                {promotion && !loading && !error && customizesPromotion ? (
+                    <div className="space-y-5">
+                        {promotion.description ? (
+                            <p className="text-sm text-muted-foreground">
+                                {promotion.description}
+                            </p>
+                        ) : null}
+                        {promotion.items.length > 0 ? (
+                            <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
+                                <p className="text-sm font-medium text-navy">
+                                    Incluye
+                                </p>
+                                {promotion.items.map((item) => (
+                                    <div key={item.id} className="space-y-0.5">
+                                        <p className="text-sm font-medium text-foreground">
+                                            {formatIncludedItem(item)}
+                                        </p>
+                                        {item.description ? (
+                                            <p className="text-xs text-muted-foreground">
+                                                {item.description}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : null}
+                        <ProductOptionGroupsSelector
+                            basePrice={promotion.price}
+                            groups={
+                                itemToCustomizerProduct({
+                                    id: promotion.id,
+                                    name: promotion.name,
+                                    option_groups: promotionGroups,
+                                }).option_groups ?? []
+                            }
+                            selectedByGroup={promotionDraft.selectedByGroup}
+                            optionQuantities={promotionDraft.optionQuantities}
+                            onChange={(selectedByGroup) =>
+                                setPromotionDraft((current) => ({
+                                    ...current,
+                                    selectedByGroup,
+                                }))
+                            }
+                            onOptionQuantitiesChange={(optionQuantities) =>
+                                setPromotionDraft((current) => ({
+                                    ...current,
+                                    optionQuantities,
+                                }))
+                            }
+                        />
+                        <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium text-navy">
+                                Cantidad
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="min-h-11 min-w-11"
+                                    onClick={() =>
+                                        setQuantity((value) =>
+                                            Math.max(1, value - 1),
+                                        )
+                                    }
+                                >
+                                    -
+                                </Button>
+                                <span className="w-8 text-center font-semibold">
+                                    {quantity}
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="min-h-11 min-w-11"
+                                    onClick={() =>
+                                        setQuantity((value) => value + 1)
+                                    }
+                                >
+                                    +
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
+
+                {promotion && !loading && !error && !customizesPromotion ? (
                     <div className="space-y-5">
                         {isConfirmStep ? (
                             <>
@@ -492,7 +683,18 @@ export function PromotionDialog({
                 ) : null}
 
                 <DialogFooter className="gap-3 sm:justify-stretch">
-                    {promotion && !loading && !error ? (
+                    {promotion && !loading && !error && customizesPromotion ? (
+                        <Button
+                            type="button"
+                            className="min-h-12 flex-1"
+                            disabled={!promotionSelectionValid}
+                            onClick={handleConfirm}
+                        >
+                            {confirmLabel ?? 'Agregar al carrito'} ·{' '}
+                            {formatMoney(unitPrice * quantity)}
+                        </Button>
+                    ) : null}
+                    {promotion && !loading && !error && !customizesPromotion ? (
                         <>
                             {stepIndex > 0 ? (
                                 <Button

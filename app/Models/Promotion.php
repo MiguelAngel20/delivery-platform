@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProductOptionGroupType;
 use App\Enums\PromotionStatus;
 use App\Support\PromotionImageStorage;
 use App\Support\PromotionSchedule;
@@ -22,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string|null $description
  * @property string $promotion_price
+ * @property list<array<string, mixed>>|null $option_groups
  * @property string|null $image_path
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
@@ -40,6 +42,7 @@ use Illuminate\Support\Carbon;
     'name',
     'description',
     'promotion_price',
+    'option_groups',
     'image_path',
     'starts_at',
     'ends_at',
@@ -70,6 +73,7 @@ class Promotion extends Model
     {
         return [
             'promotion_price' => 'decimal:2',
+            'option_groups' => 'array',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'is_recurring' => 'boolean',
@@ -146,5 +150,27 @@ class Promotion extends Model
     public function imageUrl(): ?string
     {
         return app(PromotionImageStorage::class)->url($this->image_path);
+    }
+
+    public function hasSizeOptions(): bool
+    {
+        if (! is_array($this->option_groups)) {
+            return false;
+        }
+
+        foreach ($this->option_groups as $group) {
+            if (! is_array($group)) {
+                continue;
+            }
+
+            if (
+                ($group['type'] ?? '') === ProductOptionGroupType::Size->value
+                && ($group['is_active'] ?? true)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

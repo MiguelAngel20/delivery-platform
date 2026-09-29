@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Form, Head, router, useForm } from '@inertiajs/react';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer, PageHeader } from '@/components/layout/page';
@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { useAdminOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { formatMoney } from '@/lib/money';
 import admin from '@/routes/admin';
-import { index } from '@/routes/admin/drivers';
+import { index, resendVerification } from '@/routes/admin/drivers';
 
 type DriverDetail = {
     id: number;
     name: string | null;
     email: string | null;
+    email_verified: boolean;
     phone: string | null;
     user_status_label: string | null;
     approval_status_label: string | null;
@@ -100,6 +101,22 @@ export default function AdminDriverShow({ driver }: Props) {
                     <section className="space-y-3 rounded-xl border border-border bg-white p-4">
                         <h2 className="font-semibold text-navy">Cuenta</h2>
                         <dl className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                                <dt>Correo</dt>
+                                <dd>
+                                    <StatusBadge
+                                        tone={
+                                            driver.email_verified
+                                                ? 'success'
+                                                : 'warning'
+                                        }
+                                    >
+                                        {driver.email_verified
+                                            ? 'Verificado'
+                                            : 'Pendiente'}
+                                    </StatusBadge>
+                                </dd>
+                            </div>
                             <div className="flex justify-between gap-3">
                                 <dt>Estado de usuario</dt>
                                 <dd>{driver.user_status_label ?? '—'}</dd>
@@ -132,6 +149,26 @@ export default function AdminDriverShow({ driver }: Props) {
                                 </dd>
                             </div>
                         </dl>
+                        {driver.email_verified ? null : (
+                            <Form {...resendVerification.form(driver.id)}>
+                                {({ processing, errors }) => (
+                                    <div className="space-y-2">
+                                        <Button
+                                            type="submit"
+                                            variant="outline"
+                                            disabled={processing}
+                                        >
+                                            Reenviar verificación de correo
+                                        </Button>
+                                        {errors.email ? (
+                                            <p className="text-sm text-destructive">
+                                                {errors.email}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                )}
+                            </Form>
+                        )}
                     </section>
 
                     <section className="space-y-3 rounded-xl border border-border bg-white p-4">

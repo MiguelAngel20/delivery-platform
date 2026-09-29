@@ -102,6 +102,60 @@ test('admin can delete a platform driver', function () {
         ->and(User::withTrashed()->whereKey($user->id)->first()?->status)->toBe(UserStatus::Inactive);
 });
 
+test('admin can resend the driver verification email', function () {
+    Notification::fake();
+
+    $admin = User::factory()->systemAdmin()->create();
+    $user = User::factory()->driver()->unverified()->create([
+        'email' => 'pendiente@example.com',
+        'phone' => '+529666666666',
+    ]);
+    $driver = Driver::factory()->forUser($user)->approved($admin)->create();
+
+    $this->actingAs($admin)
+        ->post(route('admin.drivers.resend-verification', $driver))
+        ->assertRedirect();
+
+    Notification::assertSentTo($user, DriverEmailVerification::class);
+    expect($user->fresh()->email_verified_at)->toBeNull();
+});
+
+test('admin cannot resend verification when the driver email is already verified', function () {
+    Notification::fake();
+
+    $admin = User::factory()->systemAdmin()->create();
+    $user = User::factory()->driver()->create([
+        'email' => 'listo@example.com',
+        'phone' => '+529677777777',
+        'email_verified_at' => now(),
+    ]);
+    $driver = Driver::factory()->forUser($user)->approved($admin)->create();
+
+    $this->actingAs($admin)
+        ->from(route('admin.drivers.show', $driver))
+        ->post(route('admin.drivers.resend-verification', $driver))
+        ->assertRedirect(route('admin.drivers.show', $driver))
+        ->assertSessionHasErrors('email');
+
+    Notification::assertNothingSent();
+});
+
+test('a driver cannot resend their own verification email from the admin', function () {
+    Notification::fake();
+
+    $admin = User::factory()->systemAdmin()->create();
+    $user = User::factory()->driver()->unverified()->create([
+        'phone' => '+529688888888',
+    ]);
+    $driver = Driver::factory()->forUser($user)->approved($admin)->create();
+
+    $this->actingAs($user)
+        ->post(route('admin.drivers.resend-verification', $driver))
+        ->assertForbidden();
+
+    Notification::assertNothingSent();
+});
+
 test('admin drivers index includes create form fields', function () {
     $admin = User::factory()->systemAdmin()->create();
     $user = User::factory()->driver()->create();

@@ -135,8 +135,11 @@ Route::middleware([
         Route::post('drivers/{driver}/commission/mark-paid', [DriverController::class, 'markCommissionPaid'])
             ->name('drivers.commission.mark-paid');
         Route::delete('drivers/{driver}', [DriverController::class, 'destroy'])->name('drivers.destroy');
+        Route::post('drivers/{driver}/resend-verification', [DriverController::class, 'resendVerification'])
+            ->name('drivers.resend-verification');
         Route::get('drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
         Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+        Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
         Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
         Route::post('customers/{customer}/block-trust', [CustomerController::class, 'blockTrust'])->name('customers.block-trust');
         Route::post('customers/{customer}/unblock-trust', [CustomerController::class, 'unblockTrust'])->name('customers.unblock-trust');

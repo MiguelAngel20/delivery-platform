@@ -18,6 +18,7 @@ type ProductOptionGroupsSelectorProps = {
     groups: StorefrontOptionGroup[];
     selectedByGroup: Record<number, number[]>;
     optionQuantities?: Record<number, number>;
+    basePrice?: number;
     onChange: (selectedByGroup: Record<number, number[]>) => void;
     onOptionQuantitiesChange?: (optionQuantities: Record<number, number>) => void;
 };
@@ -26,6 +27,7 @@ export function ProductOptionGroupsSelector({
     groups,
     selectedByGroup,
     optionQuantities = {},
+    basePrice,
     onChange,
     onOptionQuantitiesChange,
 }: ProductOptionGroupsSelectorProps) {
@@ -117,6 +119,18 @@ export function ProductOptionGroupsSelector({
         const selected = selectedIds.includes(option.id);
         const optionDisabled =
             !selected && atMax && group.type !== 'removable';
+        const showAbsolutePrice =
+            group.type === 'size' && basePrice !== undefined;
+        const absolutePrice = (basePrice ?? 0) + option.price_modifier;
+        const priceLabel = showAbsolutePrice ? (
+            <span className="shrink-0 text-sm font-medium text-navy">
+                {formatMoney(absolutePrice)}
+            </span>
+        ) : option.price_modifier !== 0 ? (
+            <span className="shrink-0 text-sm text-muted-foreground">
+                +{formatMoney(option.price_modifier)}
+            </span>
+        ) : null;
 
         if (isSingleChoiceGroup(group)) {
             return (
@@ -133,11 +147,7 @@ export function ProductOptionGroupsSelector({
                         />
                         {option.name}
                     </label>
-                    {option.price_modifier !== 0 ? (
-                        <span className="text-sm text-muted-foreground">
-                            +{formatMoney(option.price_modifier)}
-                        </span>
-                    ) : null}
+                    {priceLabel}
                 </li>
             );
         }
@@ -239,6 +249,7 @@ export function ProductOptionGroupsSelector({
                         {option.name}
                     </Label>
                 </div>
+                {priceLabel}
             </li>
         );
     };

@@ -1,12 +1,15 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { initializeApp  } from 'firebase/app';
+import type {FirebaseApp} from 'firebase/app';
 import {
     getMessaging,
     getToken,
     isSupported,
-    onMessage,
-    type Messaging,
+    onMessage
+    
 } from 'firebase/messaging';
+import type {Messaging} from 'firebase/messaging';
 import { showBrowserNotification } from '@/lib/push/browser-notification';
+import { registerSharedServiceWorker } from '@/lib/push/service-worker';
 
 export type PushWebConfig = {
     apiKey: string;
@@ -41,6 +44,18 @@ export async function pushSupported(): Promise<boolean> {
     }
 }
 
+export function getFirebaseApp(config: PushWebConfig): FirebaseApp | null {
+    if (!hasConfig(config)) {
+        return null;
+    }
+
+    if (!app) {
+        app = initializeApp(config);
+    }
+
+    return app;
+}
+
 export async function getFirebaseMessaging(
     config: PushWebConfig,
 ): Promise<Messaging | null> {
@@ -52,40 +67,23 @@ export async function getFirebaseMessaging(
         return null;
     }
 
-    if (!app) {
-        app = initializeApp(config);
+    const firebaseApp = getFirebaseApp(config);
+
+    if (!firebaseApp) {
+        return null;
     }
 
     if (!messaging) {
-        messaging = getMessaging(app);
+        messaging = getMessaging(firebaseApp);
     }
 
     return messaging;
 }
 
-function serviceWorkerUrl(config: PushWebConfig): string {
-    const params = new URLSearchParams({
-        apiKey: config.apiKey,
-        authDomain: config.authDomain,
-        projectId: config.projectId,
-        storageBucket: config.storageBucket,
-        messagingSenderId: config.messagingSenderId,
-        appId: config.appId,
-    });
-
-    return `/sw.js?${params.toString()}`;
-}
-
 export async function registerMessagingServiceWorker(
     config: PushWebConfig,
 ): Promise<ServiceWorkerRegistration | null> {
-    if (!('serviceWorker' in navigator) || !hasConfig(config)) {
-        return null;
-    }
-
-    return navigator.serviceWorker.register(serviceWorkerUrl(config), {
-        scope: '/',
-    });
+    return registerSharedServiceWorker(config);
 }
 
 export async function requestFcmToken(

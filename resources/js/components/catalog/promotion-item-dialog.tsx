@@ -1,13 +1,5 @@
 import { Pencil, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import type { CatalogFormOptions } from '@/components/catalog/category-form';
-import {
-    mapApiOptionGroupsToDrafts,
-    type ProductOptionGroupApi,
-    type ProductOptionGroupDraft,
-} from '@/components/catalog/product-option-group-types';
-import { ProductOptionGroupsFields } from '@/components/catalog/product-option-groups-fields';
-import { ProductOptionGroupsReadonly } from '@/components/catalog/product-option-groups-readonly';
+import { useEffect, useState } from 'react';
 import type { PromotionItemDraft } from '@/components/catalog/promotion-form';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
@@ -20,8 +12,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { validatePromotionItemDraft } from '@/lib/catalog/validate-promotion-form';
-import { customization } from '@/routes/business/products';
 
 type PromotionItemDialogProps = {
     open: boolean;
@@ -29,7 +21,6 @@ type PromotionItemDialogProps = {
     mode: 'create' | 'edit';
     item: PromotionItemDraft;
     onItemChange: (item: PromotionItemDraft) => void;
-    products: CatalogFormOptions['products'];
     onSave: () => void;
 };
 
@@ -39,9 +30,9 @@ function clonePromotionItem(item: PromotionItemDraft): PromotionItemDraft {
 
 export function createEmptyPromotionItem(): PromotionItemDraft {
     return {
-        is_external_item: false,
-        product_id: '',
+        is_external_item: true,
         name: '',
+        description: '',
         quantity: '1',
     };
 }
@@ -54,66 +45,15 @@ export function PromotionItemDialog({
     mode,
     item,
     onItemChange,
-    products,
     onSave,
 }: PromotionItemDialogProps) {
     const [modalErrors, setModalErrors] = useState<Record<string, string>>({});
-    const [menuOptionGroups, setMenuOptionGroups] = useState<
-        ProductOptionGroupDraft[]
-    >([]);
-    const [menuCustomizationLoading, setMenuCustomizationLoading] =
-        useState(false);
-
-    const loadMenuCustomization = useCallback(async (productId: string) => {
-        if (productId.trim() === '') {
-            setMenuOptionGroups([]);
-
-            return;
-        }
-
-        setMenuCustomizationLoading(true);
-
-        try {
-            const response = await fetch(customization.url(Number(productId)), {
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-
-            if (!response.ok) {
-                throw new Error('No se pudo cargar la personalización.');
-            }
-
-            const payload = (await response.json()) as {
-                option_groups: ProductOptionGroupApi[];
-            };
-
-            setMenuOptionGroups(
-                mapApiOptionGroupsToDrafts(payload.option_groups ?? []),
-            );
-        } catch {
-            setMenuOptionGroups([]);
-        } finally {
-            setMenuCustomizationLoading(false);
-        }
-    }, []);
 
     useEffect(() => {
         if (!open) {
             setModalErrors({});
-
-            return;
         }
-
-        if (!item.is_external_item) {
-            const productId = String(item.product_id ?? '').trim();
-            void loadMenuCustomization(productId);
-        } else {
-            setMenuOptionGroups([]);
-        }
-    }, [open, item.is_external_item, item.product_id, loadMenuCustomization]);
+    }, [open]);
 
     function clearModalError(key: string) {
         setModalErrors((current) => {
@@ -145,128 +85,43 @@ export function PromotionItemDialog({
                         {mode === 'create' ? 'Agregar ítem' : 'Editar ítem'}
                     </DialogTitle>
                     <DialogDescription>
-                        Producto del menú o elemento externo con su cantidad y
-                        personalización.
+                        Describe lo que incluye la promoción. El cliente solo
+                        ve esta lista; la personalización va en la promoción.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                    <div className="flex flex-wrap gap-4 text-sm text-foreground">
-                        <label className="flex items-center gap-2">
-                            <input
-                                type="radio"
-                                checked={!item.is_external_item}
-                                onChange={() => {
-                                    onItemChange({
-                                        ...item,
-                                        is_external_item: false,
-                                        name: '',
-                                        option_groups: undefined,
-                                    });
-                                    clearModalError('name');
-                                    clearModalError('product_id');
-                                }}
-                            />
-                            Producto del menú
-                        </label>
-                        <label className="flex items-center gap-2">
-                            <input
-                                type="radio"
-                                checked={item.is_external_item}
-                                onChange={() => {
-                                    onItemChange({
-                                        ...item,
-                                        is_external_item: true,
-                                        product_id: null,
-                                        option_groups: item.option_groups?.length
-                                            ? item.option_groups
-                                            : [],
-                                    });
-                                    clearModalError('name');
-                                    clearModalError('product_id');
-                                }}
-                            />
-                            Elemento externo
-                        </label>
-                    </div>
-
-                    {item.is_external_item ? (
-                        <>
-                            <FormField
-                                label="Nombre del ítem"
-                                error={modalErrors.name}
-                            >
-                                <Input
-                                    value={item.name}
-                                    onChange={(event) => {
-                                        onItemChange({
-                                            ...item,
-                                            name: event.target.value,
-                                        });
-                                        clearModalError('name');
-                                    }}
-                                    placeholder="Ej. Jugo"
-                                />
-                            </FormField>
-                            <ProductOptionGroupsFields
-                                groups={item.option_groups ?? []}
-                                onChange={(groups) =>
-                                    onItemChange({ ...item, option_groups: groups })
-                                }
-                                errorPrefix="option_groups"
-                                clientErrors={modalErrors}
-                                serverErrors={{}}
-                                onClearError={clearModalError}
-                                heading="Personalización del ítem"
-                                description="Configura variantes, extras o ingredientes removibles para este elemento externo."
-                            />
-                        </>
-                    ) : (
-                        <>
-                            <FormField
-                                label="Producto"
-                                error={modalErrors.product_id}
-                            >
-                                <select
-                                    value={item.product_id ?? ''}
-                                    onChange={(event) => {
-                                        const selected = products.find(
-                                            (product) =>
-                                                product.value ===
-                                                event.target.value,
-                                        );
-                                        onItemChange({
-                                            ...item,
-                                            product_id: event.target.value,
-                                            name: selected?.label ?? '',
-                                        });
-                                        void loadMenuCustomization(
-                                            event.target.value,
-                                        );
-                                        clearModalError('product_id');
-                                    }}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                >
-                                    <option value="">Selecciona producto</option>
-                                    {products.map((product) => (
-                                        <option
-                                            key={product.value}
-                                            value={product.value}
-                                        >
-                                            {product.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </FormField>
-                            {String(item.product_id ?? '').trim() !== '' ? (
-                                <ProductOptionGroupsReadonly
-                                    groups={menuOptionGroups}
-                                    loading={menuCustomizationLoading}
-                                />
-                            ) : null}
-                        </>
-                    )}
-
+                    <FormField label="Nombre" error={modalErrors.name}>
+                        <Input
+                            value={item.name}
+                            onChange={(event) => {
+                                onItemChange({
+                                    ...item,
+                                    is_external_item: true,
+                                    name: event.target.value,
+                                });
+                                clearModalError('name');
+                            }}
+                            placeholder="Ej. 250g Carne de res"
+                        />
+                    </FormField>
+                    <FormField
+                        label="Descripción"
+                        error={modalErrors.description}
+                    >
+                        <Textarea
+                            value={item.description ?? ''}
+                            rows={2}
+                            onChange={(event) => {
+                                onItemChange({
+                                    ...item,
+                                    is_external_item: true,
+                                    description: event.target.value,
+                                });
+                            }}
+                            placeholder="Opcional. Se muestra si la escribes."
+                        />
+                    </FormField>
                     <FormField label="Cantidad" error={modalErrors.quantity}>
                         <Input
                             type="number"
@@ -276,6 +131,7 @@ export function PromotionItemDialog({
                             onChange={(event) => {
                                 onItemChange({
                                     ...item,
+                                    is_external_item: true,
                                     quantity: event.target.value,
                                 });
                                 clearModalError('quantity');
@@ -312,18 +168,14 @@ type PromotionItemListProps = {
 };
 
 function itemSubtitle(item: PromotionItemDraft): string {
-    const parts = [
-        item.is_external_item ? 'Externo' : 'Menú',
-        `Cantidad: ${item.quantity}`,
-    ];
+    const quantity = item.quantity.trim();
+    const parts = [quantity !== '' && quantity !== '1' ? `${quantity} × ${item.name}` : item.name];
 
-    if (item.is_external_item && (item.option_groups?.length ?? 0) > 0) {
-        parts.push(
-            `${item.option_groups?.length} sección(es) de personalización`,
-        );
+    if (item.description?.trim()) {
+        parts.push(item.description.trim());
     }
 
-    return parts.join(' · ');
+    return parts.filter(Boolean).join(' · ');
 }
 
 export function PromotionItemList({
@@ -340,12 +192,12 @@ export function PromotionItemList({
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <h2 className="text-base font-semibold text-foreground">
-                        Ítems de la promoción
+                        Lo que incluye
                     </h2>
                     <p className="text-sm text-muted-foreground">
                         {items.length === 0
-                            ? 'Opcional. El cliente ve nombre, descripción y precio. Agrega ítems solo si hay productos o extras por configurar.'
-                            : `${items.length} ítem${items.length === 1 ? '' : 's'} configurado${items.length === 1 ? '' : 's'} (personalización al pedir).`}
+                            ? 'Opcional. Lista lo que lleva la promoción para que el cliente lo vea. Ejemplo: 250g Carne de res.'
+                            : `${items.length} incluido${items.length === 1 ? '' : 's'}. Solo se muestran como descripción.`}
                     </p>
                 </div>
                 <Button

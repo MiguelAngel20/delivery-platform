@@ -66,12 +66,11 @@ export function ProductCard({
                         <Button
                             type="button"
                             size="sm"
-                            className="size-8 shrink-0 rounded-full p-0 md:h-10 md:w-auto md:min-h-10 md:px-4"
+                            className="size-8 shrink-0 rounded-full p-0"
                             aria-label={`Agregar ${product.name}`}
                             onClick={onAdd}
                         >
                             <Plus className="size-4" />
-                            <span className="hidden md:inline">Agregar</span>
                         </Button>
                     ) : null}
                 </div>

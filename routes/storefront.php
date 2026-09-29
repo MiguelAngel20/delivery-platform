@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Web\Auth\CustomerEmailVerificationController;
 use App\Http\Controllers\Web\Auth\CustomerRegisterController;
+use App\Http\Controllers\Web\Auth\CustomerRegistrationPhoneController;
 use App\Http\Controllers\Web\Public\CartController;
 use App\Http\Controllers\Web\Public\HomeController;
 use App\Http\Controllers\Web\Public\LegalPageController;
@@ -52,6 +53,11 @@ Route::middleware('guest')->group(function () {
     Route::post('registro', [CustomerRegisterController::class, 'store'])
         ->middleware('throttle:customer-register')
         ->name('register.store');
+    Route::get('registro/verificar-telefono', [CustomerRegistrationPhoneController::class, 'show'])
+        ->name('register.verify-phone');
+    Route::post('registro/verificar-telefono', [CustomerRegistrationPhoneController::class, 'store'])
+        ->middleware('throttle:customer-verify-phone')
+        ->name('register.verify-phone.store');
     Route::get('registro/verificar-correo', [CustomerEmailVerificationController::class, 'show'])
         ->name('register.verify-email');
     Route::post('registro/verificar-correo', [CustomerEmailVerificationController::class, 'store'])

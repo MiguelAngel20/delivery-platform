@@ -6,6 +6,7 @@ use App\Enums\ProductOptionGroupType;
 use App\Enums\PromotionStatus;
 use App\Models\Promotion;
 use App\Support\Catalog\PromotionFormValidation;
+use App\Support\Catalog\PromotionItemOptionGroups;
 use App\Support\CatalogAccess;
 use App\Support\PromotionSchedule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -46,6 +47,13 @@ class StorePromotionRequest extends FormRequest
             $decoded = json_decode($this->input('items'), true);
             $this->merge([
                 'items' => is_array($decoded) ? $decoded : [],
+            ]);
+        }
+
+        if (is_string($this->input('option_groups'))) {
+            $decodedGroups = json_decode($this->input('option_groups'), true);
+            $this->merge([
+                'option_groups' => is_array($decodedGroups) ? $decodedGroups : [],
             ]);
         }
 
@@ -111,6 +119,7 @@ class StorePromotionRequest extends FormRequest
             'items.*.option_groups.*.options.*.is_default' => ['sometimes', 'boolean'],
             'items.*.option_groups.*.options.*.is_available' => ['sometimes', 'boolean'],
             'items.*.option_groups.*.options.*.sort_order' => ['nullable', 'integer', 'min:0'],
+            ...PromotionItemOptionGroups::optionGroupRules('option_groups'),
         ];
 
         if ($isRecurring) {

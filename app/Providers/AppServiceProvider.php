@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Contracts\FirebaseIdTokenVerifier;
 use App\Contracts\MapsClient;
 use App\Contracts\PushProvider;
+use App\Services\Auth\GoogleFirebaseIdTokenVerifier;
 use App\Services\Geo\GoogleMapsClient;
 use App\Services\Loyalty\LoyaltyDiscountCalculator;
 use App\Services\Loyalty\UnlockRangeLoyaltyDiscountCalculator;
@@ -28,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(MapsClient::class, GoogleMapsClient::class);
+        $this->app->singleton(FirebaseIdTokenVerifier::class, GoogleFirebaseIdTokenVerifier::class);
         $this->app->bind(LoyaltyDiscountCalculator::class, UnlockRangeLoyaltyDiscountCalculator::class);
         $this->app->bind(PushProvider::class, function (): PushProvider {
             if (! (bool) config('push.enabled', false)) {
@@ -101,6 +104,30 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('customer-verify-email', function (Request $request) {
             return Limit::perMinute(8)->by($request->ip());
+        });
+
+        RateLimiter::for('customer-verify-phone', function (Request $request) {
+            return Limit::perMinute(8)->by($request->ip());
+        });
+
+        RateLimiter::for('customer-phone-update', function (Request $request) {
+            return Limit::perMinute(5)
+                ->by('phone-update:'.($request->user()?->id ?: $request->ip()))
+                ->response(function (Request $request, array $headers) {
+                    return back()->withErrors([
+                        'phone' => 'Se realizaron demasiados intentos. Espera un momento antes de volver a intentarlo.',
+                    ])->withHeaders($headers);
+                });
+        });
+
+        RateLimiter::for('customer-phone-verification', function (Request $request) {
+            return Limit::perMinute(5)
+                ->by('phone-verify:'.($request->user()?->id ?: $request->ip()))
+                ->response(function (Request $request, array $headers) {
+                    return back()->withErrors([
+                        'firebase_id_token' => 'Se realizaron demasiados intentos. Espera un momento antes de volver a intentarlo.',
+                    ])->withHeaders($headers);
+                });
         });
     }
 }

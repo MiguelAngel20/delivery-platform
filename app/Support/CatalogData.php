@@ -176,6 +176,7 @@ final class CatalogData
             'name' => $promotion->name,
             'description' => $promotion->description,
             'promotion_price' => (string) $promotion->promotion_price,
+            'option_groups' => self::promotionOptionGroupsForForm($promotion),
             'image_url' => $promotion->imageUrl(),
             'starts_at' => $promotion->starts_at?->toIso8601String(),
             'ends_at' => $promotion->ends_at?->toIso8601String(),
@@ -198,6 +199,37 @@ final class CatalogData
                 'option_groups' => $item->is_external_item ? $item->option_groups : null,
             ])->values()->all(),
         ];
+    }
+
+    /**
+     * Size prices are stored as the difference from the promotional price.
+     * The form edits them as absolute amounts.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    public static function promotionOptionGroupsForForm(Promotion $promotion): ?array
+    {
+        $groups = $promotion->option_groups;
+
+        if (! is_array($groups) || $groups === []) {
+            return null;
+        }
+
+        $base = (string) $promotion->promotion_price;
+
+        return array_map(function (array $group) use ($base): array {
+            if (($group['type'] ?? '') !== ProductOptionGroupType::Size->value) {
+                return $group;
+            }
+
+            $group['options'] = array_map(function (array $option) use ($base): array {
+                $option['price_modifier'] = bcadd($base, (string) ($option['price_modifier'] ?? '0'), 2);
+
+                return $option;
+            }, is_array($group['options'] ?? null) ? $group['options'] : []);
+
+            return $group;
+        }, $groups);
     }
 
     /**

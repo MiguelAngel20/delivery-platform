@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DataTable } from '@/components/data-display/data-table';
 import type { DataTableColumn } from '@/components/data-display/data-table';
@@ -217,8 +217,13 @@ export default function AdminDriversIndex({ drivers, filters }: Props) {
             className: 'text-right',
             cell: (row) => (
                 <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link href={show.url(row.id)}>Ver</Link>
+                    <Button variant="ghost" size="icon" asChild>
+                        <Link
+                            href={show.url(row.id)}
+                            aria-label={`Ver ${row.name ?? 'repartidor'}`}
+                        >
+                            <Eye className="size-4" />
+                        </Link>
                     </Button>
                     <Button
                         type="button"

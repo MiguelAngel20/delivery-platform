@@ -1,9 +1,10 @@
 import {
     persistFcmToken,
     requestFcmToken,
-    storedFcmToken,
-    type PushWebConfig,
+    storedFcmToken
+    
 } from '@/lib/push/firebase';
+import type {PushWebConfig} from '@/lib/push/firebase';
 
 function xsrfToken(): string {
     const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
@@ -143,5 +144,9 @@ export async function deactivateStoredPushDevice(): Promise<void> {
         return;
     }
 
-    await deactivatePushDevice(token);
+    try {
+        await deactivatePushDevice(token);
+    } catch {
+        persistFcmToken(null);
+    }
 }

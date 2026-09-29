@@ -21,16 +21,13 @@ export function MobilePromotionCard({
     canOrder = false,
     onAdd,
 }: MobilePromotionCardProps) {
-    const title =
-        variant === 'restaurant'
-            ? promotion.name
-            : (promotion.restaurant_name ?? promotion.name);
-    const categoryLine =
-        variant === 'restaurant'
-            ? promotion.composition
-            : [promotion.business_type, promotion.composition]
-                  .filter(Boolean)
-                  .join(' · ');
+    const title = promotion.name;
+    const priceLabel =
+        promotion.price > 0
+            ? promotion.has_size_options
+                ? `Desde ${formatMoney(promotion.price)}`
+                : formatMoney(promotion.price)
+            : 'Promoción';
 
     const content = (
         <article
@@ -39,49 +36,50 @@ export function MobilePromotionCard({
                 className,
             )}
         >
-            <div className="relative size-24 shrink-0 overflow-hidden rounded-lg bg-secondary sm:size-28 md:size-32">
+            <div className="relative w-16 min-h-16 shrink-0 self-stretch overflow-hidden rounded-lg bg-secondary sm:w-[4.5rem]">
                 {promotion.image_url ? (
                     <img
                         src={promotion.image_url}
                         alt={promotion.name}
-                        className="size-full object-cover"
+                        className="absolute inset-0 size-full object-cover"
                     />
                 ) : (
-                    <div className="flex size-full items-center justify-center text-lg font-semibold text-navy">
+                    <div className="absolute inset-0 flex items-center justify-center text-lg font-semibold text-navy">
                         {title.slice(0, 1)}
                     </div>
                 )}
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-                <h3 className="line-clamp-2 text-base font-semibold leading-snug text-navy">
-                    {title}
-                </h3>
-                {categoryLine ? (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {categoryLine}
-                    </p>
-                ) : null}
-                {variant === 'home' ? (
-                    <p className="line-clamp-1 text-xs text-muted-foreground">
-                        {promotion.name}
-                    </p>
-                ) : null}
-                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                    {promotion.price > 0 ? (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                            {formatMoney(promotion.price)}
-                        </span>
-                    ) : (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                            Promoción
-                        </span>
-                    )}
+            <div className="flex min-w-0 flex-1 flex-col justify-between gap-1.5">
+                <div className="space-y-1.5">
+                    <h3 className="line-clamp-2 text-base font-semibold leading-snug text-navy">
+                        {title}
+                    </h3>
+                    {promotion.description ? (
+                        <p className="line-clamp-2 break-words text-sm text-muted-foreground">
+                            {promotion.description}
+                        </p>
+                    ) : null}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                    {variant === 'home' && promotion.restaurant_name ? (
+                        <p className="min-w-0 truncate text-xs text-muted-foreground">
+                            {promotion.restaurant_name}
+                        </p>
+                    ) : null}
+                    <span
+                        className={cn(
+                            'shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary',
+                            canOrder && onAdd && 'mr-auto',
+                        )}
+                    >
+                        {priceLabel}
+                    </span>
                     {canOrder && onAdd ? (
                         <Button
                             type="button"
                             size="sm"
-                            className="ml-auto size-8 rounded-full p-0"
+                            className="size-8 rounded-full p-0"
                             aria-label={`Agregar ${promotion.name}`}
                             onClick={(event) => {
                                 event.preventDefault();

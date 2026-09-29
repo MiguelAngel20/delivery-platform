@@ -189,6 +189,39 @@ final class Portal
     }
 
     /**
+     * Relative in-app path. Rejects protocol-relative and absolute URLs.
+     */
+    public static function isSafeClickPath(string $path): bool
+    {
+        return str_starts_with($path, '/')
+            && ! str_starts_with($path, '//')
+            && ! str_contains($path, '\\')
+            && ! str_contains($path, '://');
+    }
+
+    /**
+     * HTTPS link for a notification, on the portal that owns the path.
+     */
+    public static function notificationUrl(?string $path): ?string
+    {
+        if (! is_string($path) || $path === '' || ! self::isSafeClickPath($path)) {
+            return null;
+        }
+
+        $portal = self::fromPathPrefix($path) ?? self::STOREFRONT;
+
+        $base = self::enabled()
+            ? rtrim(self::baseUrl($portal), '/')
+            : rtrim((string) config('app.url'), '/');
+
+        if (! str_starts_with($base, 'https://')) {
+            return null;
+        }
+
+        return $base.$path;
+    }
+
+    /**
      * Map a path prefix to its portal for cross-host redirects.
      */
     public static function fromPathPrefix(string $path): ?string

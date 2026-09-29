@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Actions\Drivers\CreatePlatformDriver;
 use App\Actions\Drivers\DeletePlatformDriver;
+use App\Actions\Drivers\ResendDriverEmailVerification;
 use App\Actions\Drivers\UpdatePlatformDriver;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
@@ -99,6 +100,23 @@ class DriverController extends Controller
         $delete->handle($driver);
 
         return back()->with('success', 'Repartidor eliminado.');
+    }
+
+    public function resendVerification(
+        Request $request,
+        Driver $driver,
+        ResendDriverEmailVerification $resend,
+    ): RedirectResponse {
+        abort_unless($request->user()?->hasRole(UserRole::SystemAdmin), 403);
+
+        $resend->handle($driver);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Se reenvió el correo de verificación.',
+        ]);
+
+        return back();
     }
 
     public function show(Driver $driver, DriverCommissionService $commissions): Response

@@ -588,7 +588,7 @@ export function AddressPicker({
                     ? 'Para continuar, comparte tu ubicación actual. El mapa aparecerá cuando se detecte.'
                     : locationIsApproximate
                       ? 'En esta computadora la ubicación suele ser aproximada. Mueve el mapa para colocar el pin en tu punto exacto.'
-                      : 'Ubicación detectada. El mapa es solo de consulta; si no es correcta, vuelve a usar tu ubicación actual.'
+                      : 'Ubicación detectada. El mapa es solo de consulta; si no es correcta, vuelve a actualizar tu ubicación actual.'
                 : radiusMeters != null && radiusMeters > 0
                   ? `Mueve el mapa para centrar la zona. El círculo naranja muestra el radio (${(radiusMeters / 1000).toFixed(1)} km).`
                   : locationIsApproximate
@@ -700,7 +700,7 @@ export function AddressPicker({
                     <AddressMapView
                         key={
                             currentLocationOnly
-                                ? `${resolvedLocation?.latitude ?? value?.latitude},${resolvedLocation?.longitude ?? value?.longitude}`
+                                ? 'current-location-map'
                                 : 'interactive-map'
                         }
                         ref={inlineMapRef}
@@ -743,11 +743,6 @@ export function AddressPicker({
                     label="Referencia"
                     htmlFor="address_reference"
                     required={referenceRequired}
-                    hint={
-                        referenceRequired
-                            ? 'Ej. casa azul, portón negro.'
-                            : undefined
-                    }
                 >
                     <Textarea
                         id="address_reference"

@@ -117,23 +117,3 @@ export function dismissInstallBanner(
         // ignore
     }
 }
-
-export async function registerPwaServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-    if (!('serviceWorker' in navigator)) {
-        return null;
-    }
-
-    try {
-        const existing = await navigator.serviceWorker.getRegistration('/');
-
-        if (existing) {
-            return existing;
-        }
-
-        return await navigator.serviceWorker.register('/sw.js', {
-            scope: '/',
-        });
-    } catch {
-        return null;
-    }
-}

@@ -8,6 +8,7 @@ use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Models\Order;
 use App\Notifications\RideNotification;
+use App\Support\NotificationPaths;
 
 final class OrderStatusChangedNotification extends RideNotification
 {
@@ -142,7 +143,7 @@ final class OrderStatusChangedNotification extends RideNotification
             UserRole::Customer => '/customer/orders/'.$this->order->order_number,
             UserRole::Driver => '/driver/orders',
             UserRole::BusinessAdmin, UserRole::BusinessEmployee => '/business/orders/'.$this->order->order_number,
-            UserRole::SystemAdmin => '/admin/orders/'.$this->order->id,
+            UserRole::SystemAdmin => NotificationPaths::adminOrder($this->order),
         };
     }
 }

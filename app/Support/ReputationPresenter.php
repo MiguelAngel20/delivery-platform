@@ -76,6 +76,9 @@ final class ReputationPresenter
             'name' => $customer->user?->name,
             'email' => $customer->user?->email,
             'phone' => $customer->user?->phone,
+            'phone_verified' => $customer->user?->phone_verified_at !== null,
+            'email_verified' => $customer->user?->email_verified_at !== null,
+            'has_email' => filled($customer->user?->email),
             'user_status' => $customer->user?->status->value,
             'user_status_label' => $customer->user?->status->label(),
             'trust_level' => $customer->trust_level->value,
@@ -92,6 +95,7 @@ final class ReputationPresenter
             'payment_incidents' => $metrics?->payment_incidents ?? 0,
             'requires_review' => $customer->trust_level->isRestricted() || $customer->trust_level->isBlocked(),
             'last_recalculated_at' => $metrics?->last_recalculated_at?->toIso8601String(),
+            'has_order_history' => $customer->hasOrderHistory(),
         ];
     }
 

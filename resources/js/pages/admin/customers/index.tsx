@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { Eye, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DataTable } from '@/components/data-display/data-table';
 import type { DataTableColumn } from '@/components/data-display/data-table';
@@ -8,7 +9,7 @@ import { FilterSelect } from '@/components/forms/filter-select';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
 import admin from '@/routes/admin';
-import { index, show } from '@/routes/admin/customers';
+import { destroy, index, show } from '@/routes/admin/customers';
 
 type Option = { value: string; label: string };
 
@@ -16,6 +17,9 @@ type CustomerRow = {
     id: number;
     name: string | null;
     email: string | null;
+    phone_verified: boolean;
+    email_verified: boolean;
+    has_email: boolean;
     completed_orders: number;
     cancelled_orders: number;
     trust_level: string;
@@ -23,6 +27,7 @@ type CustomerRow = {
     trust_level_tone: StatusTone;
     trust_score: string | number | null;
     requires_review: boolean;
+    has_order_history: boolean;
 };
 
 type Paginated<T> = {
@@ -40,7 +45,10 @@ type Props = {
     trustLevels: Option[];
 };
 
-const columns: DataTableColumn<CustomerRow>[] = [
+function customerColumns(
+    onDelete: (row: CustomerRow) => void,
+): DataTableColumn<CustomerRow>[] {
+    return [
     {
         key: 'name',
         header: 'Cliente',
@@ -48,6 +56,34 @@ const columns: DataTableColumn<CustomerRow>[] = [
             <div>
                 <p className="font-medium text-navy">{row.name ?? '—'}</p>
                 <p className="text-xs text-muted-foreground">{row.email}</p>
+            </div>
+        ),
+    },
+    {
+        key: 'verification',
+        header: 'Verificación',
+        cell: (row) => (
+            <div className="flex flex-col items-start gap-1">
+                <StatusBadge tone={row.phone_verified ? 'success' : 'warning'}>
+                    {row.phone_verified
+                        ? 'Teléfono verificado'
+                        : 'Teléfono pendiente'}
+                </StatusBadge>
+                <StatusBadge
+                    tone={
+                        row.email_verified
+                            ? 'success'
+                            : row.has_email
+                              ? 'warning'
+                              : 'neutral'
+                    }
+                >
+                    {row.email_verified
+                        ? 'Correo verificado'
+                        : row.has_email
+                          ? 'Correo pendiente'
+                          : 'Sin correo'}
+                </StatusBadge>
             </div>
         ),
     },
@@ -80,12 +116,32 @@ const columns: DataTableColumn<CustomerRow>[] = [
         header: 'Acciones',
         className: 'text-right',
         cell: (row) => (
-            <Button variant="ghost" size="sm" asChild>
-                <Link href={show.url(row.id)}>Ver</Link>
-            </Button>
+            <div className="flex items-center justify-end gap-1">
+                <Button variant="ghost" size="icon" asChild>
+                    <Link
+                        href={show.url(row.id)}
+                        aria-label={`Ver ${row.name ?? 'cliente'}`}
+                    >
+                        <Eye className="size-4" />
+                    </Link>
+                </Button>
+                {row.has_order_history ? null : (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label={`Eliminar ${row.name ?? 'cliente'}`}
+                        onClick={() => onDelete(row)}
+                    >
+                        <Trash2 className="size-4" />
+                    </Button>
+                )}
+            </div>
         ),
     },
-];
+    ];
+}
 
 function visitFilters(
     next: Props['filters'] & { page?: number },
@@ -114,6 +170,20 @@ export default function AdminCustomersIndex({
 }: Props) {
     const [search, setSearch] = useState(filters.search);
 
+    const deleteCustomer = (row: CustomerRow) => {
+        const label = row.name ?? row.email ?? 'este cliente';
+
+        if (
+            !window.confirm(
+                `¿Eliminar a "${label}"? No tiene pedidos. Esta acción no se puede deshacer.`,
+            )
+        ) {
+            return;
+        }
+
+        router.delete(destroy.url(row.id));
+    };
+
     useEffect(() => {
         const timeout = window.setTimeout(() => {
             if (search === filters.search) {
@@ -135,7 +205,7 @@ export default function AdminCustomersIndex({
             <PageContainer>
                 <PageHeader title="Clientes" />
                 <DataTable
-                    columns={columns}
+                    columns={customerColumns(deleteCustomer)}
                     data={customers.data}
                     rowKey={(row) => row.id}
                     search={{

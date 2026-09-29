@@ -34,8 +34,21 @@ final class StorefrontPromotionData
             'price' => (float) $promotion->promotion_price,
             'image_url' => $promotion->imageUrl(),
             'composition' => $promotion->items->pluck('name')->implode(' + '),
+            'option_groups' => self::externalOptionGroups(
+                is_array($promotion->option_groups) ? $promotion->option_groups : [],
+                $promotion->id,
+            ),
             'items' => $promotion->items
-                ->map(fn (PromotionItem $item): array => self::cartPromotionItem($item))
+                ->map(function (PromotionItem $item) use ($promotion): array {
+                    $payload = self::cartPromotionItem($item);
+
+                    if (is_array($promotion->option_groups) && $promotion->option_groups !== []) {
+                        $payload['option_groups'] = [];
+                        $payload['description'] = $item->description;
+                    }
+
+                    return $payload;
+                })
                 ->values()
                 ->all(),
         ];
