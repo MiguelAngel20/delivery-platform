@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\NotificationPriority;
 use App\Services\Push\FcmHttpV1PushProvider;
 use App\Support\Portal;
+use App\Support\PushMessage;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -64,4 +66,24 @@ test('fcm web push link uses the trusted portal host', function () {
         ->toBeNull()
         ->and($method->invoke($provider, '//evil.example'))
         ->toBeNull();
+});
+
+test('customer order push reuses one notification tag', function () {
+    $method = new ReflectionMethod(FcmHttpV1PushProvider::class, 'payload');
+    $provider = new FcmHttpV1PushProvider;
+    $message = new PushMessage(
+        title: 'Entregado',
+        body: 'Tu pedido fue entregado.',
+        data: ['tag' => 'customer-order:15'],
+        priority: NotificationPriority::High,
+        tag: 'customer-order:15',
+    );
+
+    $payload = $method->invoke($provider, 'token', $message);
+
+    expect($payload['android']['notification']['tag'])->toBe('customer-order:15')
+        ->and($payload['webpush']['notification']['tag'])->toBe('customer-order:15')
+        ->and($payload['webpush']['notification']['renotify'])->toBeTrue()
+        ->and($payload['apns']['headers']['apns-collapse-id'])->toBe('customer-order:15')
+        ->and($payload['data']['tag'])->toBe('customer-order:15');
 });

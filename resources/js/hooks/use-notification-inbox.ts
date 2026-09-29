@@ -93,6 +93,8 @@ export function useNotificationInbox() {
                     unread_count: number;
                     title?: string | null;
                     body?: string | null;
+                    thread_key?: string | null;
+                    notification_id?: string | null;
                 };
 
                 setUnreadCount(data.unread_count);
@@ -102,7 +104,11 @@ export function useNotificationInbox() {
 
                 if (title) {
                     notify.info(body ? `${title}. ${body}` : title);
-                    void showBrowserNotification(title, body);
+                    void showBrowserNotification(
+                        title,
+                        body,
+                        data.thread_key || data.notification_id,
+                    );
                 }
 
                 if (openRef.current) {

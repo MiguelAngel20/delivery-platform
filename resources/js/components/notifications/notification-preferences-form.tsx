@@ -28,10 +28,12 @@ type PageProps = {
 export function NotificationPreferencesForm({
     preferences,
     editable_keys,
+    role,
     update_url,
     back_href,
 }: Props) {
     const { push } = usePage().props as PageProps;
+    const alertsStayOn = role === 'system_admin';
     const [supported, setSupported] = useState(true);
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -96,9 +98,9 @@ export function NotificationPreferencesForm({
                     ) : (
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-muted-foreground">
-                                Activa avisos cuando la app esté en segundo
-                                plano. Con la app abierta, Reverb actualiza la
-                                interfaz.
+                                {alertsStayOn
+                                    ? 'Las alertas de administración permanecen activas. Este botón solo autoriza este navegador; el aviso del sistema pide ese permiso una sola vez.'
+                                    : 'Activa avisos cuando la app esté en segundo plano. Con la app abierta, Reverb actualiza la interfaz.'}
                             </p>
                             <Button
                                 type="button"
@@ -116,6 +118,15 @@ export function NotificationPreferencesForm({
                     ) : null}
                 </ContentCard>
 
+                {alertsStayOn ? (
+                    <ContentCard title="Preferencias">
+                        <p className="text-sm text-muted-foreground">
+                            Pedidos, incidencias y avisos operativos se envían
+                            siempre a las cuentas de administración. No se
+                            pueden apagar desde aquí.
+                        </p>
+                    </ContentCard>
+                ) : (
                 <ContentCard title="Preferencias">
                     <form
                         className="space-y-4"
@@ -150,6 +161,7 @@ export function NotificationPreferencesForm({
                         </Button>
                     </form>
                 </ContentCard>
+                )}
             </PageContainer>
         </>
     );

@@ -15,5 +15,6 @@ final class PushMessage
         public readonly array $data = [],
         public readonly NotificationPriority $priority = NotificationPriority::Normal,
         public readonly ?int $ttlSeconds = null,
+        public readonly ?string $tag = null,
     ) {}
 }

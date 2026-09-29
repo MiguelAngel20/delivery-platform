@@ -58,7 +58,7 @@ test('order accepted notifies customer with estimated time', function () {
         $customerUser,
         OrderStatusChangedNotification::class,
         fn (OrderStatusChangedNotification $n): bool => $n->status === OrderStatus::Preparing
-            && $n->title() === 'Tu pedido fue aceptado'
+            && $n->title() === 'Tu pedido se está preparando'
             && $n->body() === 'Estará listo en aproximadamente 15 minutos.',
     );
 });
@@ -357,7 +357,7 @@ test('on the way notifies customer that the driver is outside', function () {
         $customerUser,
         OrderStatusChangedNotification::class,
         fn (OrderStatusChangedNotification $n): bool => $n->status === OrderStatus::OnTheWay
-            && $n->title() === 'Tu pedido ya está afuera',
+            && $n->title() === 'Tu pedido ya está afuera de tu domicilio',
     );
 });
 

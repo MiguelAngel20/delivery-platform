@@ -33,14 +33,22 @@ final class FcmChannel
             return;
         }
 
+        $data = $notification->pushData();
+        $tag = $notification->threadKey();
+
+        if (is_string($tag) && $tag !== '') {
+            $data['tag'] = $tag;
+        }
+
         SendPushToUserJob::dispatchAfterResponse(
             $notifiable->id,
             new PushMessage(
                 title: $notification->title(),
                 body: $notification->body(),
-                data: $notification->pushData(),
+                data: $data,
                 priority: $notification->priority(),
                 ttlSeconds: $notification->ttlSeconds(),
+                tag: is_string($tag) && $tag !== '' ? $tag : null,
             ),
             $notification->dedupeKey(),
             $notification->requiresPersistentDedupe(),

@@ -23,6 +23,14 @@ final class NotificationPreferenceService
     public function update(User $user, array $input): NotificationPreference
     {
         $preference = $this->forUser($user);
+
+        if ($user->hasRole(UserRole::SystemAdmin)) {
+            $preference->fill($this->defaultsForRole(UserRole::SystemAdmin));
+            $preference->save();
+
+            return $preference->fresh();
+        }
+
         $allowed = array_flip($this->editableKeysForRole($user->role));
 
         $preference->fill(array_intersect_key($input, $allowed));
@@ -33,6 +41,10 @@ final class NotificationPreferenceService
 
     public function allowsPush(User $user, NotificationCategory $category, bool $critical = false): bool
     {
+        if ($user->hasRole(UserRole::SystemAdmin)) {
+            return true;
+        }
+
         $preference = $this->forUser($user);
 
         if (! $preference->push_enabled && ! $critical) {
@@ -130,14 +142,7 @@ final class NotificationPreferenceService
                 'incident_updates',
                 'system_updates',
             ],
-            UserRole::SystemAdmin => [
-                'push_enabled',
-                'new_orders',
-                'order_updates',
-                'custom_order_updates',
-                'incident_updates',
-                'system_updates',
-            ],
+            UserRole::SystemAdmin => [],
         };
     }
 }

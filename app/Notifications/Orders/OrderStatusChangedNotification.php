@@ -26,16 +26,7 @@ final class OrderStatusChangedNotification extends RideNotification
     public function title(): string
     {
         if ($this->audience === UserRole::Customer) {
-            return match ($this->status) {
-                OrderStatus::Accepted => 'Tu pedido está en confirmación',
-                OrderStatus::Preparing => 'Tu pedido fue aceptado',
-                OrderStatus::PickedUp => 'Tu pedido va en camino',
-                OrderStatus::OnTheWay => 'Tu pedido ya está afuera',
-                OrderStatus::Delivered => 'Pedido entregado',
-                OrderStatus::Rejected => 'Pedido rechazado',
-                OrderStatus::Cancelled => 'Pedido cancelado',
-                default => 'Actualización de pedido',
-            };
+            return $this->status->customerLabel();
         }
 
         return match ($this->status) {
@@ -107,6 +98,15 @@ final class OrderStatusChangedNotification extends RideNotification
         return $this->isCritical()
             ? NotificationPriority::High
             : NotificationPriority::Normal;
+    }
+
+    public function threadKey(): ?string
+    {
+        if ($this->audience !== UserRole::Customer) {
+            return null;
+        }
+
+        return 'customer-order:'.$this->order->id;
     }
 
     public function dedupeKey(): ?string

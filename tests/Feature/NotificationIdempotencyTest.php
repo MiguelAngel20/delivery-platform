@@ -42,7 +42,7 @@ test('critical order status notify twice produces a single database notification
         ->and(NotificationIdempotencyKey::query()->count())->toBe(1);
 });
 
-test('distinct notification types for the same order are both allowed', function () {
+test('customer order statuses update the same notification', function () {
     Queue::fake();
 
     $customerUser = User::factory()->customer()->create();
@@ -57,13 +57,20 @@ test('distinct notification types for the same order are both allowed', function
         OrderStatus::Preparing,
         UserRole::Customer,
     ));
+    $firstId = $customerUser->notifications()->first()?->id;
+
     $customerUser->notify(new OrderStatusChangedNotification(
         $order,
         OrderStatus::Delivered,
         UserRole::Customer,
     ));
 
-    expect($customerUser->fresh()->notifications()->count())->toBe(2);
+    $notification = $customerUser->fresh()->notifications()->first();
+
+    expect($customerUser->notifications()->count())->toBe(1)
+        ->and($notification?->id)->toBe($firstId)
+        ->and($notification?->data['title'])->toBe('Entregado')
+        ->and($notification?->data['thread_key'])->toBe('customer-order:'.$order->id);
 });
 
 test('different recipients each receive their own critical notification', function () {

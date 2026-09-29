@@ -30,4 +30,6 @@ interface RideNotificationContract
     public function requiresPersistentDedupe(): bool;
 
     public function dedupeKey(): ?string;
+
+    public function threadKey(): ?string;
 }

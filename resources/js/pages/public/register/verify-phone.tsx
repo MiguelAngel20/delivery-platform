@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import type { ConfirmationResult } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
+import { RecaptchaNotice } from '@/components/auth/recaptcha-notice';
 import { FormField } from '@/components/forms/form-field';
 import { PageContainer } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
@@ -269,6 +270,8 @@ export default function VerifyCustomerPhone({
                             La verificación por SMS todavía no está disponible.
                         </p>
                     ) : null}
+
+                    <RecaptchaNotice />
                 </div>
             </PageContainer>
         </>

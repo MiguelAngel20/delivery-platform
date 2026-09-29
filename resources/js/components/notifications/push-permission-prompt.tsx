@@ -82,16 +82,29 @@ export function PushPermissionPrompt({
                 return;
             }
 
+            if (Notification.permission === 'denied') {
+                if (tone === 'admin' && !cancelled) {
+                    setMessage(
+                        'El navegador bloqueó las notificaciones. Actívalas en la configuración del sitio para este dominio.',
+                    );
+                    setVisible(true);
+                }
+
+                return;
+            }
+
             if (Notification.permission !== 'default') {
                 return;
             }
 
-            try {
-                if (localStorage.getItem(copy[tone].storageKey) === 'dismissed') {
-                    return;
+            if (tone !== 'admin') {
+                try {
+                    if (localStorage.getItem(copy[tone].storageKey) === 'dismissed') {
+                        return;
+                    }
+                } catch {
+                    // ignore
                 }
-            } catch {
-                // ignore
             }
 
             if (!cancelled) {
@@ -135,15 +148,22 @@ export function PushPermissionPrompt({
         setBusy(false);
 
         if (result === 'granted') {
-            dismiss();
+            setVisible(false);
+
             return;
         }
 
         if (result === 'denied') {
-            dismiss();
+            if (tone !== 'admin') {
+                dismiss();
+            }
+
             setMessage(
-                'Permiso denegado. Puedes activarlo después en Configuración → Notificaciones.',
+                tone === 'admin'
+                    ? 'El navegador bloqueó las notificaciones. Actívalas en la configuración del sitio para este dominio.'
+                    : 'Permiso denegado. Puedes activarlo después en Configuración → Notificaciones.',
             );
+
             return;
         }
 
@@ -173,15 +193,17 @@ export function PushPermissionPrompt({
                     ) : null}
                 </div>
                 <div className="flex gap-2">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={dismiss}
-                        disabled={busy}
-                    >
-                        Ahora no
-                    </Button>
+                    {tone === 'admin' ? null : (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={dismiss}
+                            disabled={busy}
+                        >
+                            Ahora no
+                        </Button>
+                    )}
                     <Button
                         type="button"
                         size="sm"

@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\PushDevice;
 use App\Models\User;
 use App\Notifications\Orders\OrderStatusChangedNotification;
+use App\Notifications\Orders\PlatformOrderPendingNotification;
 use App\Services\Notifications\NotificationPreferenceService;
 
 test('disabled optional notification does not send push', function () {
@@ -77,4 +78,45 @@ test('user can update own notification preferences', function () {
     expect($preference->push_enabled)->toBeFalse()
         ->and($preference->order_updates)->toBeFalse()
         ->and($preference->system_updates)->toBeTrue();
+});
+
+test('system admin push is sent even when preferences are off', function () {
+    $user = User::factory()->systemAdmin()->create();
+    NotificationPreference::factory()->create([
+        'user_id' => $user->id,
+        'push_enabled' => false,
+        'order_updates' => false,
+    ]);
+    PushDevice::factory()->create(['user_id' => $user->id, 'token' => 'admin-token']);
+
+    $provider = Mockery::mock(PushProvider::class);
+    $provider->shouldReceive('sendToMany')
+        ->once()
+        ->andReturn(['sent' => 1, 'failed' => 0, 'invalidated' => []]);
+    $this->app->instance(PushProvider::class, $provider);
+
+    $user->notify(new PlatformOrderPendingNotification(Order::factory()->create()));
+
+    $this->app->terminate();
+});
+
+test('saving admin notification preferences cannot turn them off', function () {
+    $user = User::factory()->systemAdmin()->create();
+    NotificationPreference::factory()->create([
+        'user_id' => $user->id,
+        'push_enabled' => false,
+        'order_updates' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('admin.settings.notifications.update'), [
+            'push_enabled' => false,
+            'order_updates' => false,
+        ])
+        ->assertRedirect();
+
+    $preference = app(NotificationPreferenceService::class)->forUser($user->fresh());
+
+    expect($preference->push_enabled)->toBeTrue()
+        ->and($preference->order_updates)->toBeTrue();
 });

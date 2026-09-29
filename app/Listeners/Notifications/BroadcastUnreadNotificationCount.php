@@ -30,6 +30,7 @@ final class BroadcastUnreadNotificationCount
             isset($data['title']) && is_string($data['title']) ? $data['title'] : null,
             isset($data['body']) && is_string($data['body']) ? $data['body'] : null,
             $latest?->id,
+            isset($data['thread_key']) && is_string($data['thread_key']) ? $data['thread_key'] : null,
         ));
     }
 }

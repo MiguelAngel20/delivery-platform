@@ -82,31 +82,50 @@ final class FcmHttpV1PushProvider implements PushProvider
             $data[(string) $key] = (string) $value;
         }
 
-        return [
+        $android = [
+            'priority' => $message->priority === NotificationPriority::High ? 'HIGH' : 'NORMAL',
+            'ttl' => "{$ttl}s",
+        ];
+        $webNotification = [
+            'title' => $message->title,
+            'body' => $message->body,
+        ];
+
+        if ($message->tag !== null && $message->tag !== '') {
+            $android['notification'] = ['tag' => $message->tag];
+            $webNotification['tag'] = $message->tag;
+            $webNotification['renotify'] = true;
+        }
+
+        $payload = [
             'token' => $token,
             'notification' => [
                 'title' => $message->title,
                 'body' => $message->body,
             ],
             'data' => $data,
-            'android' => [
-                'priority' => $message->priority === NotificationPriority::High ? 'HIGH' : 'NORMAL',
-                'ttl' => "{$ttl}s",
-            ],
+            'android' => $android,
             'webpush' => [
                 'headers' => [
                     'TTL' => (string) $ttl,
                     'Urgency' => $message->priority === NotificationPriority::High ? 'high' : 'normal',
                 ],
-                'notification' => [
-                    'title' => $message->title,
-                    'body' => $message->body,
-                ],
+                'notification' => $webNotification,
                 'fcm_options' => array_filter([
                     'link' => $this->httpsWebPushLink($data['click_path'] ?? null),
                 ]),
             ],
         ];
+
+        if ($message->tag !== null && $message->tag !== '') {
+            $payload['apns'] = [
+                'headers' => [
+                    'apns-collapse-id' => substr($message->tag, 0, 64),
+                ],
+            ];
+        }
+
+        return $payload;
     }
 
     private function endpoint(): string

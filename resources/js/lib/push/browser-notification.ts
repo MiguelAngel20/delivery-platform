@@ -1,6 +1,7 @@
 export async function showBrowserNotification(
     title: string,
     body?: string,
+    tag?: string | null,
 ): Promise<void> {
     if (typeof window === 'undefined' || !('Notification' in window)) {
         return;
@@ -13,7 +14,8 @@ export async function showBrowserNotification(
     const options: NotificationOptions = {
         body: body || '',
         icon: '/assets/branding/app-icon.svg',
-        tag: `ride:${title}`,
+        tag: tag && tag !== '' ? tag : `ride:${title}`,
+        renotify: Boolean(tag),
     };
 
     try {

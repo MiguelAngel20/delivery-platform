@@ -10,6 +10,7 @@ import {
 import type { ConfirmationResult } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
 import { store, update } from '@/actions/App/Http/Controllers/Web/Customer/PhoneVerificationController';
+import { RecaptchaNotice } from '@/components/auth/recaptcha-notice';
 import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -406,6 +407,7 @@ export function PhoneVerificationCard({
             ) : null}
 
             <div id="customer-phone-recaptcha" />
+            <RecaptchaNotice />
         </div>
     );
 }

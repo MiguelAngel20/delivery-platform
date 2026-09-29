@@ -42,9 +42,15 @@ if (firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId) {
             payload.data?.body ||
             '';
         const clickPath = payload.data?.click_path || '/';
+        const tag =
+            typeof payload.data?.tag === 'string' && payload.data.tag !== ''
+                ? payload.data.tag
+                : undefined;
 
         self.registration.showNotification(title, {
             body,
+            tag,
+            renotify: Boolean(tag),
             data: {
                 click_path: clickPath,
                 target_type: payload.data?.target_type || '',

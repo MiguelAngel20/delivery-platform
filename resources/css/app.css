@@ -194,3 +194,9 @@
     z-index: 20000 !important;
     pointer-events: auto !important;
 }
+
+/* Firebase phone auth uses invisible reCAPTCHA. Hide the floating badge;
+   the verification screens include the required Google branding text. */
+.grecaptcha-badge {
+    visibility: hidden !important;
+}

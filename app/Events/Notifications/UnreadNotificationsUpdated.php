@@ -18,6 +18,7 @@ final class UnreadNotificationsUpdated implements ShouldBroadcastNow
         public ?string $title = null,
         public ?string $body = null,
         public ?string $notificationId = null,
+        public ?string $threadKey = null,
     ) {}
 
     /**
@@ -36,7 +37,7 @@ final class UnreadNotificationsUpdated implements ShouldBroadcastNow
     }
 
     /**
-     * @return array{unread_count: int, title: ?string, body: ?string, notification_id: ?string}
+     * @return array{unread_count: int, title: ?string, body: ?string, notification_id: ?string, thread_key: ?string}
      */
     public function broadcastWith(): array
     {
@@ -45,6 +46,7 @@ final class UnreadNotificationsUpdated implements ShouldBroadcastNow
             'title' => $this->title,
             'body' => $this->body,
             'notification_id' => $this->notificationId,
+            'thread_key' => $this->threadKey,
         ];
     }
 }

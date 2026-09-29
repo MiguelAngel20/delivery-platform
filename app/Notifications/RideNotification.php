@@ -67,6 +67,7 @@ abstract class RideNotification extends Notification implements RideNotification
             'click_path' => $this->clickPath(),
             'priority' => $this->priority()->value,
             'dedupe_key' => $this->dedupeKey(),
+            'thread_key' => $this->threadKey(),
         ];
     }
 
@@ -91,6 +92,14 @@ abstract class RideNotification extends Notification implements RideNotification
     }
 
     public function dedupeKey(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Stable id for one customer-facing card that later statuses update in place.
+     */
+    public function threadKey(): ?string
     {
         return null;
     }

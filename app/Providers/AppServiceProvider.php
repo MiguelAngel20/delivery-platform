@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Contracts\FirebaseIdTokenVerifier;
 use App\Contracts\MapsClient;
 use App\Contracts\PushProvider;
+use App\Notifications\Channels\UpsertDatabaseChannel;
 use App\Services\Auth\GoogleFirebaseIdTokenVerifier;
 use App\Services\Geo\GoogleMapsClient;
 use App\Services\Loyalty\LoyaltyDiscountCalculator;
@@ -18,6 +19,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -66,6 +68,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Notification::extend('database', fn () => new UpsertDatabaseChannel);
+
         $this->configureDefaults();
         $this->configureRateLimiting();
     }
