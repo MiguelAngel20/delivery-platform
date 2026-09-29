@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ClipboardList,
     Gift,
@@ -17,6 +17,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAdminCustomOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { useAdminOrderEvents } from '@/hooks/realtime/use-order-realtime';
+import { canAdmin  } from '@/lib/admin-access';
+import type {AdminAccess} from '@/lib/admin-access';
 import { formatMoney } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import admin from '@/routes/admin';
@@ -77,6 +79,9 @@ function formatClaimedAt(value: string | null): string {
 }
 
 export default function AdminHome({ operation, loyaltyLaunch }: Props) {
+    const { adminAccess } = usePage().props as {
+        adminAccess: AdminAccess | null;
+    };
     useAdminOrderEvents(true, ['operation']);
     useAdminCustomOrderEvents(['operation']);
 
@@ -117,19 +122,25 @@ export default function AdminHome({ operation, loyaltyLaunch }: Props) {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                    <Button asChild>
-                        <Link href={admin.orders.index()}>Ver pedidos</Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                        <Link href={admin.customOrders.index()}>
-                            Ver personalizados
-                        </Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                        <Link href={admin.incidents.index()}>
-                            Ver incidencias
-                        </Link>
-                    </Button>
+                    {canAdmin(adminAccess, 'orders') ? (
+                        <Button asChild>
+                            <Link href={admin.orders.index()}>Ver pedidos</Link>
+                        </Button>
+                    ) : null}
+                    {canAdmin(adminAccess, 'custom_orders') ? (
+                        <Button variant="outline" asChild>
+                            <Link href={admin.customOrders.index()}>
+                                Ver personalizados
+                            </Link>
+                        </Button>
+                    ) : null}
+                    {canAdmin(adminAccess, 'incidents') ? (
+                        <Button variant="outline" asChild>
+                            <Link href={admin.incidents.index()}>
+                                Ver incidencias
+                            </Link>
+                        </Button>
+                    ) : null}
                 </div>
 
                 <Section
@@ -229,21 +240,35 @@ export default function AdminHome({ operation, loyaltyLaunch }: Props) {
                                                         {index + 1}
                                                     </td>
                                                     <td className="py-3 pr-3">
-                                                        <Link
-                                                            href={showCustomer.url(
-                                                                row.customer_id,
-                                                            )}
-                                                            className="font-medium text-navy hover:underline"
-                                                        >
-                                                            {row.name ??
-                                                                'Cliente'}
-                                                        </Link>
+                                                        {canAdmin(
+                                                            adminAccess,
+                                                            'customers',
+                                                        ) ? (
+                                                            <Link
+                                                                href={showCustomer.url(
+                                                                    row.customer_id,
+                                                                )}
+                                                                className="font-medium text-navy hover:underline"
+                                                            >
+                                                                {row.name ??
+                                                                    'Cliente'}
+                                                            </Link>
+                                                        ) : (
+                                                            <span className="font-medium text-navy">
+                                                                {row.name ??
+                                                                    'Cliente'}
+                                                            </span>
+                                                        )}
                                                         <p className="text-xs text-muted-foreground">
                                                             {row.email ?? '—'}
                                                         </p>
                                                     </td>
                                                     <td className="py-3 pr-3">
-                                                        {row.order_number ? (
+                                                        {row.order_number &&
+                                                        canAdmin(
+                                                            adminAccess,
+                                                            'orders',
+                                                        ) ? (
                                                             <Link
                                                                 href={showOrder.url(
                                                                     row.order_number,
@@ -255,6 +280,10 @@ export default function AdminHome({ operation, loyaltyLaunch }: Props) {
                                                                     row.order_number
                                                                 }
                                                             </Link>
+                                                        ) : row.order_number ? (
+                                                            <span>
+                                                                #{row.order_number}
+                                                            </span>
                                                         ) : (
                                                             '—'
                                                         )}

@@ -14,4 +14,6 @@ export type NavItem = {
     isActive?: boolean;
     /** If set, item is shown only for these roles. */
     roles?: UserRole[];
+    /** Admin section required to show this item. */
+    access?: string;
 };

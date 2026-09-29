@@ -52,6 +52,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::SystemAdmin,
+            'is_platform_owner' => true,
         ]);
     }
 

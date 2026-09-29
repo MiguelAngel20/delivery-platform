@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Middleware\EnsureAdminRouteAccess;
 use App\Http\Middleware\EnsureCustomerPhoneIsVerified;
 use App\Http\Middleware\EnsurePasswordIsChanged;
+use App\Http\Middleware\EnsurePlatformOwner;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaCrossOriginRedirects;
@@ -36,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
+            'admin.access' => EnsureAdminRouteAccess::class,
+            'admin.owner' => EnsurePlatformOwner::class,
             'customer.phone' => EnsureCustomerPhoneIsVerified::class,
         ]);
 

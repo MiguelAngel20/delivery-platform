@@ -1,6 +1,7 @@
-import { echo, echoIsConfigured } from '@laravel/echo-react';
+import { echoIsConfigured } from '@laravel/echo-react';
 import { usePage } from '@inertiajs/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { listenOnPrivateChannel } from '@/hooks/realtime/private-channel-registry';
 import { notify } from '@/components/feedback/toast';
 import { showBrowserNotification } from '@/lib/push/browser-notification';
 import type { InboxNotification } from '@/lib/notifications/helpers';
@@ -40,39 +41,12 @@ export function useNotificationInbox() {
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+    const openRef = useRef(open);
+    openRef.current = open;
 
     useEffect(() => {
         setUnreadCount(shared?.unread_count ?? 0);
     }, [shared?.unread_count]);
-
-    useEffect(() => {
-        if (!auth.user || !echoIsConfigured()) {
-            return;
-        }
-
-        const channelName = `user.${auth.user.id}.notifications`;
-        const channel = echo().private(channelName);
-
-        channel.listen('.UnreadNotificationsUpdated', (payload: {
-            unread_count: number;
-            title?: string | null;
-            body?: string | null;
-        }) => {
-            setUnreadCount(payload.unread_count);
-
-            const title = payload.title?.trim();
-            const body = payload.body?.trim();
-
-            if (title) {
-                notify.info(body ? `${title}. ${body}` : title);
-                void showBrowserNotification(title, body);
-            }
-        });
-
-        return () => {
-            echo().leave(channelName);
-        };
-    }, [auth.user?.id]);
 
     const load = useCallback(async (nextPage = 1, append = false) => {
         setLoading(true);
@@ -102,6 +76,41 @@ export function useNotificationInbox() {
             setLoading(false);
         }
     }, []);
+
+    const loadRef = useRef(load);
+    loadRef.current = load;
+
+    useEffect(() => {
+        if (!auth.user || !echoIsConfigured()) {
+            return;
+        }
+
+        return listenOnPrivateChannel(
+            `user.${auth.user.id}.notifications`,
+            ['.UnreadNotificationsUpdated'],
+            (_eventName, payload) => {
+                const data = payload as {
+                    unread_count: number;
+                    title?: string | null;
+                    body?: string | null;
+                };
+
+                setUnreadCount(data.unread_count);
+
+                const title = data.title?.trim();
+                const body = data.body?.trim();
+
+                if (title) {
+                    notify.info(body ? `${title}. ${body}` : title);
+                    void showBrowserNotification(title, body);
+                }
+
+                if (openRef.current) {
+                    void loadRef.current(1, false);
+                }
+            },
+        );
+    }, [auth.user?.id]);
 
     const openPanel = useCallback(async () => {
         setOpen(true);

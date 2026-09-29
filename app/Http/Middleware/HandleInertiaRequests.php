@@ -14,6 +14,7 @@ use App\Services\Dispatch\DriverActiveOrderService;
 use App\Services\Drivers\DriverCommissionService;
 use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Platform\PlatformActivitySuspensionService;
+use App\Support\AdminAccess;
 use App\Support\BusinessAccess;
 use App\Support\BusinessTypes;
 use Illuminate\Http\Request;
@@ -59,6 +60,9 @@ class HandleInertiaRequests extends Middleware
                     'status' => $user->status->value,
                 ],
             ],
+            'adminAccess' => $user !== null && $user->hasRole(UserRole::SystemAdmin)
+                ? AdminAccess::forFrontend($user)
+                : null,
             'businessContext' => $this->businessContext($request),
             'realtime' => $this->realtimeContext($request),
             'loyalty' => $loyalty,

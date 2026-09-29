@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DataTable } from '@/components/data-display/data-table';
@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useAdminOrderEvents } from '@/hooks/realtime/use-order-realtime';
+import { canAdmin  } from '@/lib/admin-access';
+import type {AdminAccess} from '@/lib/admin-access';
 import admin from '@/routes/admin';
 import { destroy, index, show, store, update } from '@/routes/admin/drivers';
 
@@ -83,6 +85,12 @@ function visitFilters(next: Props['filters'] & { page?: number }) {
 }
 
 export default function AdminDriversIndex({ drivers, filters }: Props) {
+    const { adminAccess } = usePage().props as {
+        adminAccess: AdminAccess | null;
+    };
+    const canCreate = canAdmin(adminAccess, 'drivers', 'create');
+    const canUpdate = canAdmin(adminAccess, 'drivers', 'update');
+    const canDelete = canAdmin(adminAccess, 'drivers', 'delete');
     const [search, setSearch] = useState(filters.search);
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<DriverRow | null>(null);
@@ -225,26 +233,29 @@ export default function AdminDriversIndex({ drivers, filters }: Props) {
                             <Eye className="size-4" />
                         </Link>
                     </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-9"
-                        aria-label={`Editar ${row.name ?? 'repartidor'}`}
-                        onClick={() => openEdit(row)}
-                    >
-                        <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-9 text-muted-foreground hover:text-destructive"
-                        aria-label={`Eliminar ${row.name ?? 'repartidor'}`}
-                        onClick={() => deleteDriver(row)}
-                    >
-                        <Trash2 className="size-4" />
-                    </Button>
+                    {canUpdate ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Editar ${row.name ?? 'repartidor'}`}
+                            onClick={() => openEdit(row)}
+                        >
+                            <Pencil className="size-4" />
+                        </Button>
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label={`Eliminar ${row.name ?? 'repartidor'}`}
+                            onClick={() => deleteDriver(row)}
+                        >
+                            <Trash2 className="size-4" />
+                        </Button>
+                    ) : null}
                 </div>
             ),
         },
@@ -258,14 +269,16 @@ export default function AdminDriversIndex({ drivers, filters }: Props) {
                     title="Repartidores"
                     description="Alta de repartidores de plataforma. Deben verificar su correo antes de iniciar sesión."
                     actions={
-                        <Button
-                            type="button"
-                            className="gap-1.5"
-                            onClick={openCreate}
-                        >
-                            <Plus className="size-4" aria-hidden />
-                            Agregar
-                        </Button>
+                        canCreate ? (
+                            <Button
+                                type="button"
+                                className="gap-1.5"
+                                onClick={openCreate}
+                            >
+                                <Plus className="size-4" aria-hidden />
+                                Agregar
+                            </Button>
+                        ) : null
                     }
                 />
                 <DataTable
@@ -306,6 +319,7 @@ export default function AdminDriversIndex({ drivers, filters }: Props) {
                 open={open}
                 onOpenChange={(next) => {
                     setOpen(next);
+
                     if (!next) {
                         form.clearErrors();
                     }

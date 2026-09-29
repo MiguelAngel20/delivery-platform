@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
     businessStatusTone
@@ -16,6 +16,8 @@ import { StatusBadge } from '@/components/data-display/status-badge';
 import { FilterSelect } from '@/components/forms/filter-select';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
+import { canAdmin  } from '@/lib/admin-access';
+import type {AdminAccess} from '@/lib/admin-access';
 import admin from '@/routes/admin';
 import { create, index, show } from '@/routes/admin/businesses';
 
@@ -109,6 +111,9 @@ export default function AdminBusinessesIndex({
     filters,
     options,
 }: Props) {
+    const { adminAccess } = usePage().props as {
+        adminAccess: AdminAccess | null;
+    };
     const [search, setSearch] = useState(filters.search);
 
     useEffect(() => {
@@ -133,9 +138,11 @@ export default function AdminBusinessesIndex({
                 <PageHeader
                     title="Empresas"
                     actions={
-                        <Button asChild>
-                            <Link href={create.url()}>+ Nueva empresa</Link>
-                        </Button>
+                        canAdmin(adminAccess, 'businesses', 'create') ? (
+                            <Button asChild>
+                                <Link href={create.url()}>+ Nueva empresa</Link>
+                            </Button>
+                        ) : null
                     }
                 />
                 <DataTable

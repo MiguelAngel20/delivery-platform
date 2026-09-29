@@ -42,6 +42,33 @@ function playNewOrderChime(): void {
     }
 }
 
+const pendingReloadKeys = new Set<string>();
+let reloadTimer: number | null = null;
+
+function schedulePartialReload(only: string[]): void {
+    for (const key of only) {
+        pendingReloadKeys.add(key);
+    }
+
+    pendingReloadKeys.add('notifications');
+
+    if (reloadTimer !== null) {
+        window.clearTimeout(reloadTimer);
+    }
+
+    reloadTimer = window.setTimeout(() => {
+        const keys = [...pendingReloadKeys];
+        pendingReloadKeys.clear();
+        reloadTimer = null;
+
+        router.reload({
+            only: keys,
+            preserveScroll: true,
+            preserveState: true,
+        });
+    }, 80);
+}
+
 function usePartialReload(only: string[]): () => void {
     const onlyRef = useRef(only);
 
@@ -50,7 +77,7 @@ function usePartialReload(only: string[]): () => void {
     }, [only]);
 
     return useCallback(() => {
-        router.reload({ only: onlyRef.current });
+        schedulePartialReload(onlyRef.current);
     }, []);
 }
 
@@ -277,7 +304,13 @@ function useRealtimeSync(onReconnect: () => void, only: string[]): void {
     const status = useConnectionStatus();
     const wasConnected = useRef(false);
 
-    usePoll(REALTIME_POLL_MS, () => ({ only }), { keepAlive: true });
+    usePoll(
+        REALTIME_POLL_MS,
+        () => ({
+            only: [...new Set([...only, 'notifications'])],
+        }),
+        { keepAlive: true },
+    );
 
     useEffect(() => {
         if (status === 'connected') {

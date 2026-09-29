@@ -1,5 +1,6 @@
-import { echo, echoIsConfigured } from '@laravel/echo-react';
+import { echoIsConfigured } from '@laravel/echo-react';
 import { useEffect, useRef } from 'react';
+import { listenOnPrivateChannel } from '@/hooks/realtime/private-channel-registry';
 import {
     ORDER_REALTIME_EVENTS,
     type OrderRealtimePayload,
@@ -33,27 +34,23 @@ export function usePrivateChannelEvents({
             return;
         }
 
-        const instance = echo();
         const uniqueChannels = [...new Set(channelKey.split('|').filter(Boolean))];
         const eventNames = eventKey.split('|').filter(Boolean);
+        const stops = uniqueChannels.map((name) =>
+            listenOnPrivateChannel(name, eventNames, (eventName, payload) => {
+                const data = payload as OrderRealtimePayload;
 
-        for (const name of uniqueChannels) {
-            const channel = instance.private(name);
+                if (import.meta.env.DEV) {
+                    console.debug('[realtime]', name, eventName, data.order_number);
+                }
 
-            for (const eventName of eventNames) {
-                channel.listen(eventName, (payload: OrderRealtimePayload) => {
-                    if (import.meta.env.DEV) {
-                        console.debug('[realtime]', name, eventName, payload.order_number);
-                    }
-
-                    handlerRef.current(eventName, payload);
-                });
-            }
-        }
+                handlerRef.current(eventName, data);
+            }),
+        );
 
         return () => {
-            for (const name of uniqueChannels) {
-                instance.leave(name);
+            for (const stop of stops) {
+                stop();
             }
         };
     }, [channelKey, eventKey, enabled]);

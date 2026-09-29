@@ -4,6 +4,12 @@ import { adminNavItems } from '@/apps/admin/components/nav-config';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { PushPermissionPrompt } from '@/components/notifications/push-permission-prompt';
 import { PortalInstallAppBanner } from '@/components/pwa/portal-install-app-banner';
+import {
+    useAdminCustomOrderEvents,
+    useAdminOrderEvents,
+} from '@/hooks/realtime/use-order-realtime';
+import { canAdmin  } from '@/lib/admin-access';
+import type {AdminAccess} from '@/lib/admin-access';
 import { home } from '@/routes/admin';
 import type { Auth, BreadcrumbItem } from '@/types';
 import { userRoleLabels } from '@/types/auth';
@@ -17,11 +23,41 @@ export default function AdminLayout({
     breadcrumbs?: BreadcrumbItem[];
     title?: string;
 }) {
-    const { auth } = usePage().props as { auth: Auth };
+    const { auth, adminAccess } = usePage().props as {
+        auth: Auth;
+        adminAccess: AdminAccess | null;
+    };
+    const navItems = adminNavItems.filter((item) => {
+        if (!item.access) {
+            return true;
+        }
+
+        return canAdmin(adminAccess, item.access);
+    });
     const roleLabel =
         auth.user !== null
             ? userRoleLabels[auth.user.role]
             : 'Administrador';
+
+    useAdminOrderEvents(true, [
+        'orders',
+        'order',
+        'queue',
+        'operation',
+        'incidents',
+        'incident',
+        'drivers',
+        'driver',
+        'requests',
+        'request',
+        'financial',
+    ]);
+    useAdminCustomOrderEvents([
+        'requests',
+        'request',
+        'queue',
+        'operation',
+    ]);
 
     return (
         <>
@@ -46,7 +82,7 @@ export default function AdminLayout({
             />
             <DashboardShell
                 homeHref={home()}
-                mainNavItems={adminNavItems}
+                mainNavItems={navItems}
                 breadcrumbs={breadcrumbs}
                 title={title}
                 userRole={roleLabel}

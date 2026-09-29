@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\Web\Admin\AdminUserController;
 use App\Http\Controllers\Web\Admin\BusinessBranchController;
 use App\Http\Controllers\Web\Admin\BusinessController;
 use App\Http\Controllers\Web\Admin\BusinessDriverController;
@@ -31,6 +32,7 @@ Route::get('admin/manifest.webmanifest', function () {
 Route::middleware([
     'auth',
     'role:'.UserRole::SystemAdmin->value,
+    'admin.access',
 ])
     ->prefix('admin')
     ->name('admin.')
@@ -174,6 +176,16 @@ Route::middleware([
         Route::post('orders/{order}/cancel', [IncidentController::class, 'cancelOrder'])->name('orders.cancel');
         Route::inertia('promotions', 'admin/promotions/index')->name('promotions.index');
         Route::inertia('reports', 'admin/reports/index')->name('reports.index');
+        Route::middleware('admin.owner')->group(function () {
+            Route::get('settings/admins', [AdminUserController::class, 'index'])->name('settings.admins.index');
+            Route::get('settings/admins/create', [AdminUserController::class, 'create'])->name('settings.admins.create');
+            Route::post('settings/admins', [AdminUserController::class, 'store'])->name('settings.admins.store');
+            Route::get('settings/admins/{adminUser}/edit', [AdminUserController::class, 'edit'])->name('settings.admins.edit');
+            Route::put('settings/admins/{adminUser}', [AdminUserController::class, 'update'])->name('settings.admins.update');
+            Route::post('settings/admins/{adminUser}/deactivate', [AdminUserController::class, 'deactivate'])->name('settings.admins.deactivate');
+            Route::post('settings/admins/{adminUser}/activate', [AdminUserController::class, 'activate'])->name('settings.admins.activate');
+        });
+
         Route::inertia('settings', 'admin/settings/index')->name('settings.index');
         Route::get('settings/notifications', [NotificationPreferencesController::class, 'edit'])
             ->name('settings.notifications.edit');

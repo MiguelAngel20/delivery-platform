@@ -18,17 +18,38 @@ import { installMetaPixel } from '@/lib/meta-pixel';
 const broadcastConnection =
     import.meta.env.VITE_BROADCAST_CONNECTION || 'reverb';
 
+function envValue(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+
+    return trimmed ? trimmed : undefined;
+}
+
 if (broadcastConnection === 'pusher') {
+    const pusherHost = envValue(import.meta.env.VITE_PUSHER_HOST);
+    const pusherPort = envValue(import.meta.env.VITE_PUSHER_PORT);
+
     configureEcho({
         broadcaster: 'pusher',
         key: import.meta.env.VITE_PUSHER_APP_KEY,
         cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-        forceTLS: true,
+        forceTLS: (import.meta.env.VITE_PUSHER_SCHEME ?? 'https') !== 'http',
+        // An empty VITE_PUSHER_HOST must not override the cluster host.
+        wsHost: pusherHost,
+        wsPort: pusherHost && pusherPort ? Number(pusherPort) : undefined,
+        wssPort: pusherHost && pusherPort ? Number(pusherPort) : undefined,
     });
 } else {
     // Local / VPS: Laravel Reverb (requires `php artisan reverb:start`)
+    const reverbPort = Number(envValue(import.meta.env.VITE_REVERB_PORT) ?? 8080);
+
     configureEcho({
         broadcaster: 'reverb',
+        key: envValue(import.meta.env.VITE_REVERB_APP_KEY),
+        wsHost: envValue(import.meta.env.VITE_REVERB_HOST) ?? '127.0.0.1',
+        wsPort: reverbPort,
+        wssPort: reverbPort,
+        forceTLS: (envValue(import.meta.env.VITE_REVERB_SCHEME) ?? 'http') === 'https',
+        enabledTransports: ['ws', 'wss'],
     });
 }
 

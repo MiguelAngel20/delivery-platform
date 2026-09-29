@@ -31,6 +31,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $phone_verified_at
  * @property string $password
  * @property bool $must_change_password
+ * @property bool $is_platform_owner
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
@@ -101,6 +102,7 @@ class User extends Authenticatable
             'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'must_change_password' => 'boolean',
+            'is_platform_owner' => 'boolean',
             'role' => UserRole::class,
             'status' => UserStatus::class,
         ];
@@ -129,6 +131,16 @@ class User extends Authenticatable
     public function notificationPreference(): HasOne
     {
         return $this->hasOne(NotificationPreference::class);
+    }
+
+    public function adminPermissions(): HasMany
+    {
+        return $this->hasMany(AdminPermission::class);
+    }
+
+    public function isPlatformOwner(): bool
+    {
+        return $this->is_platform_owner;
     }
 
     public function todaysUnreadNotificationCount(): int

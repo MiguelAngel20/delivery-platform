@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Eye, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DataTable } from '@/components/data-display/data-table';
@@ -8,6 +8,8 @@ import type { StatusTone } from '@/components/data-display/status-badge';
 import { FilterSelect } from '@/components/forms/filter-select';
 import { PageContainer, PageHeader } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
+import { canAdmin  } from '@/lib/admin-access';
+import type {AdminAccess} from '@/lib/admin-access';
 import admin from '@/routes/admin';
 import { destroy, index, show } from '@/routes/admin/customers';
 
@@ -47,6 +49,7 @@ type Props = {
 
 function customerColumns(
     onDelete: (row: CustomerRow) => void,
+    canDelete: boolean,
 ): DataTableColumn<CustomerRow>[] {
     return [
     {
@@ -125,7 +128,7 @@ function customerColumns(
                         <Eye className="size-4" />
                     </Link>
                 </Button>
-                {row.has_order_history ? null : (
+                {row.has_order_history || !canDelete ? null : (
                     <Button
                         type="button"
                         variant="ghost"
@@ -168,6 +171,9 @@ export default function AdminCustomersIndex({
     filters,
     trustLevels,
 }: Props) {
+    const { adminAccess } = usePage().props as {
+        adminAccess: AdminAccess | null;
+    };
     const [search, setSearch] = useState(filters.search);
 
     const deleteCustomer = (row: CustomerRow) => {
@@ -205,7 +211,10 @@ export default function AdminCustomersIndex({
             <PageContainer>
                 <PageHeader title="Clientes" />
                 <DataTable
-                    columns={customerColumns(deleteCustomer)}
+                    columns={customerColumns(
+                        deleteCustomer,
+                        canAdmin(adminAccess, 'customers', 'delete'),
+                    )}
                     data={customers.data}
                     rowKey={(row) => row.id}
                     search={{

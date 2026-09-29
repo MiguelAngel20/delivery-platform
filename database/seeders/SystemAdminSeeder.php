@@ -11,7 +11,7 @@ class SystemAdminSeeder extends Seeder
 {
     public function run(): void
     {
-        User::query()->updateOrCreate(
+        $admin = User::query()->updateOrCreate(
             ['email' => 'm.angel.desarrolladorweb@gmail.com'],
             [
                 'first_name' => 'Miguel Angel',
@@ -26,5 +26,7 @@ class SystemAdminSeeder extends Seeder
                 'phone_verified_at' => now(),
             ],
         );
+
+        $admin->forceFill(['is_platform_owner' => true])->save();
     }
 }
