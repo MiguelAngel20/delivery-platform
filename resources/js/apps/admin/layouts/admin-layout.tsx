@@ -1,6 +1,7 @@
 import { Head, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { adminNavItems } from '@/apps/admin/components/nav-config';
+import { PendingOrderAlert } from '@/apps/admin/components/pending-order-alert';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { PushPermissionPrompt } from '@/components/notifications/push-permission-prompt';
 import { PortalInstallAppBanner } from '@/components/pwa/portal-install-app-banner';
@@ -51,6 +52,7 @@ export default function AdminLayout({
         'requests',
         'request',
         'financial',
+        'adminPendingOrders',
     ]);
     useAdminCustomOrderEvents([
         'requests',
@@ -87,6 +89,7 @@ export default function AdminLayout({
                 title={title}
                 userRole={roleLabel}
             >
+                <PendingOrderAlert />
                 {children}
             </DashboardShell>
         </>

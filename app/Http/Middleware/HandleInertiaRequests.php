@@ -2,13 +2,17 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\AdminAbility;
+use App\Enums\AdminSection;
 use App\Enums\BranchStatus;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
+use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Models\Business;
 use App\Models\BusinessUser;
 use App\Models\Driver;
+use App\Models\Order;
 use App\Models\ServiceFeeDistanceSetting;
 use App\Services\Dispatch\DriverActiveOrderService;
 use App\Services\Drivers\DriverCommissionService;
@@ -94,6 +98,7 @@ class HandleInertiaRequests extends Middleware
             'notifications' => [
                 'unread_count' => $user?->todaysUnreadNotificationCount() ?? 0,
             ],
+            'adminPendingOrders' => $this->adminPendingOrders($request),
             'driver' => $this->driverContext($request),
             'push' => [
                 'enabled' => (bool) config('push.enabled', false),
@@ -109,6 +114,39 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * Platform orders still waiting for an admin to confirm them.
+     *
+     * @return list<array{id: int, order_number: string}>
+     */
+    private function adminPendingOrders(Request $request): array
+    {
+        $user = $request->user();
+
+        if ($user === null || ! $user->hasRole(UserRole::SystemAdmin)) {
+            return [];
+        }
+
+        if (! $request->is('admin', 'admin/*')) {
+            return [];
+        }
+
+        if (! AdminAccess::allows($user, AdminSection::Orders, AdminAbility::View)) {
+            return [];
+        }
+
+        return Order::query()
+            ->where('order_status', OrderStatus::PendingPlatform)
+            ->latest('id')
+            ->limit(20)
+            ->get(['id', 'order_number'])
+            ->map(fn (Order $order): array => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+            ])
+            ->all();
     }
 
     /**

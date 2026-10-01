@@ -36,6 +36,11 @@ final class PlatformOrderPendingNotification extends RideNotification
         return 'platform-order:'.$this->order->id;
     }
 
+    public function threadKey(): ?string
+    {
+        return 'admin-pending-order:'.$this->order->id;
+    }
+
     public function targetType(): ?string
     {
         return 'order';

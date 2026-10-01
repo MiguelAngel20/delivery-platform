@@ -1,9 +1,12 @@
 <?php
 
+use App\Enums\AdminSection;
 use App\Enums\OrderStatus;
+use App\Enums\UserRole;
 use App\Models\Driver;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\AdminAccess;
 
 test('admin order show includes operation summary fields', function () {
     $admin = User::factory()->systemAdmin()->create();
@@ -62,6 +65,45 @@ test('admin orders list sorts pending before kitchen before delivered', function
             ->where('orders.data.0.order_number', $pending->order_number)
             ->where('orders.data.1.order_number', $preparing->order_number)
             ->where('orders.data.2.order_number', $delivered->order_number));
+});
+
+test('admin pages share platform orders that still need confirmation', function () {
+    $admin = User::factory()->systemAdmin()->create();
+    $pending = Order::factory()->create([
+        'order_status' => OrderStatus::PendingPlatform,
+    ]);
+    Order::factory()->create([
+        'order_status' => OrderStatus::Preparing,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.home'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('adminPendingOrders', 1)
+            ->where('adminPendingOrders.0.id', $pending->id)
+            ->where('adminPendingOrders.0.order_number', $pending->order_number));
+});
+
+test('an admin without order access does not receive pending order alerts', function () {
+    $staff = User::factory()->create([
+        'role' => UserRole::SystemAdmin,
+        'is_platform_owner' => false,
+        'email_verified_at' => now(),
+    ]);
+
+    AdminAccess::sync($staff, AdminAccess::permissionInput([
+        AdminSection::Customers->value => ['view' => true],
+    ]));
+
+    Order::factory()->create([
+        'order_status' => OrderStatus::PendingPlatform,
+    ]);
+
+    $this->actingAs($staff)
+        ->get(route('admin.home'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('adminPendingOrders', 0));
 });
 
 test('admin list sort priority groups statuses as expected', function () {

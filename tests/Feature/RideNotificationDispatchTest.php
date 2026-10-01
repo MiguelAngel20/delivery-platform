@@ -258,7 +258,7 @@ test('platform order notifies system admin', function () {
     Notification::assertSentTo($admin, PlatformOrderPendingNotification::class, function (PlatformOrderPendingNotification $notification) use ($order): bool {
         expect($notification->clickPath())->toBe(
             '/admin/orders?search='.rawurlencode((string) $order->order_number).'&filter=pending'
-        );
+        )->and($notification->threadKey())->toBe('admin-pending-order:'.$order->id);
 
         return true;
     });
