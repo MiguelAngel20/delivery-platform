@@ -3,9 +3,16 @@
 use App\Actions\Orders\AcceptBusinessOrder;
 use App\Actions\Orders\AcknowledgeOrder;
 use App\Enums\BusinessOperationMode;
+use App\Enums\OptionSelectionAction;
 use App\Enums\OrderStatus;
+use App\Enums\ProductOptionGroupType;
 use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\OrderItemOption;
 use App\Models\OrderStatusHistory;
+use App\Models\Product;
+use App\Models\ProductOption;
+use App\Models\ProductOptionGroup;
 use App\Models\User;
 use App\Support\OrderData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -251,4 +258,57 @@ test('customer status guidance for rejected orders suggests editing the cart', f
         ->and($guidance['message'] ?? null)->toContain('Ya no hay salsa grande')
         ->and($guidance['message'] ?? null)->toContain('editar tu carrito')
         ->and(collect($guidance['actions'] ?? [])->pluck('type')->all())->toContain('cart');
+});
+
+test('a rejected order refills the cart and keeps its own number', function () {
+    $order = Order::factory()->create([
+        'order_status' => OrderStatus::Rejected,
+    ]);
+    $product = Product::factory()->create([
+        'branch_id' => $order->branch_id,
+        'name' => 'Hamburguesa',
+    ]);
+    $group = ProductOptionGroup::factory()->addon()->create([
+        'product_id' => $product->id,
+    ]);
+    $option = ProductOption::factory()->create([
+        'option_group_id' => $group->id,
+        'name' => 'Queso',
+        'price_modifier' => 15,
+    ]);
+    $item = OrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_id' => $product->id,
+        'product_name' => 'Hamburguesa',
+        'quantity' => 2,
+        'unit_list_price' => 80,
+        'unit_final_price' => 95,
+        'metadata' => ['product_display_name' => 'Hamburguesa'],
+    ]);
+    OrderItemOption::factory()->create([
+        'order_item_id' => $item->id,
+        'product_option_id' => $option->id,
+        'option_name' => 'Queso',
+        'option_type' => ProductOptionGroupType::Addon,
+        'price_modifier' => 15,
+        'selection_action' => OptionSelectionAction::Added,
+        'quantity' => 1,
+    ]);
+
+    $cart = OrderData::reorderCart($order->fresh());
+
+    expect($cart)->not->toBeNull()
+        ->and($cart['branchId'])->toBe($order->branch_id)
+        ->and($cart['lines'])->toHaveCount(1)
+        ->and($cart['lines'][0]['productId'])->toBe((string) $product->id)
+        ->and($cart['lines'][0]['quantity'])->toBe(2)
+        ->and($cart['lines'][0]['unitPrice'])->toBe(80.0)
+        ->and($cart['lines'][0]['name'])->toBe('Hamburguesa')
+        ->and($cart['lines'][0]['extras'][0]['name'])->toBe('Queso')
+        ->and($cart['lines'][0]['selectedOptions'][0]['option_id'])->toBe($option->id)
+        ->and($cart['lines'][0]['selectedOptions'][0]['group_id'])->toBe($group->id);
+
+    expect(OrderData::reorderCart($order->fresh()->forceFill([
+        'order_status' => OrderStatus::Preparing,
+    ])))->toBeNull();
 });

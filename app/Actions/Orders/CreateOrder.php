@@ -480,6 +480,9 @@ final class CreateOrder
                 'promotion_id' => $promotion->id,
                 'promotion_name' => $promotion->name,
                 'items' => $composition,
+                'selected_options' => is_array($itemInput['selected_options'] ?? null)
+                    ? $itemInput['selected_options']
+                    : [],
             ],
         ];
     }

@@ -1,6 +1,10 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { consumePendingCartClear } from '@/apps/storefront/cart/use-storefront-cart';
+import {
+    consumePendingCartClear,
+    restoreStorefrontCart,
+} from '@/apps/storefront/cart/use-storefront-cart';
+import type { CartState } from '@/apps/storefront/cart/use-storefront-cart';
 import { OrderStatusTimeline } from '@/apps/storefront/components/order-status-timeline';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { PageContainer } from '@/components/layout/page';
@@ -81,6 +85,7 @@ type OrderDetail = {
     } | null;
     driver_rating?: { overall_rating: number; comment?: string | null } | null;
     can_rate_driver?: boolean;
+    reorder_cart?: CartState | null;
 };
 
 type Props = {
@@ -219,6 +224,33 @@ export default function CustomerOrderShow({ order }: Props) {
                             {(guidance.actions?.length ?? 0) > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                     {guidance.actions!.map((action) => {
+                                        if (action.type === 'cart') {
+                                            return (
+                                                <Button
+                                                    key={`${action.type}-${action.label}`}
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        if (
+                                                            order.reorder_cart &&
+                                                            order.reorder_cart
+                                                                .lines.length >
+                                                                0
+                                                        ) {
+                                                            restoreStorefrontCart(
+                                                                order.reorder_cart,
+                                                            );
+                                                        }
+
+                                                        router.visit(cart.url());
+                                                    }}
+                                                >
+                                                    {action.label}
+                                                </Button>
+                                            );
+                                        }
+
                                         const href = guidanceActionHref(action);
 
                                         if (!href) {

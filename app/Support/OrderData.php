@@ -248,6 +248,8 @@ final class OrderData
         $data = self::transform($order);
 
         if ($data['driver'] === null) {
+            $data['reorder_cart'] = self::reorderCart($order);
+
             return $data;
         }
 
@@ -259,6 +261,7 @@ final class OrderData
             (string) ($user?->last_name ?? ''),
         );
         $data['driver']['phone'] = null;
+        $data['reorder_cart'] = self::reorderCart($order);
 
         return $data;
     }
@@ -680,6 +683,228 @@ final class OrderData
     }
 
     /**
+     * Cart snapshot so a rejected or cancelled order can be edited and sent again as a new order.
+     *
+     * @return array{
+     *     branchId: int,
+     *     restaurantSlug: string,
+     *     restaurantName: string|null,
+     *     restaurantMode: string|null,
+     *     lines: list<array<string, mixed>>
+     * }|null
+     */
+    public static function reorderCart(Order $order): ?array
+    {
+        if (! in_array($order->order_status, [OrderStatus::Rejected, OrderStatus::Cancelled], true)) {
+            return null;
+        }
+
+        $order->loadMissing([
+            'items.options.productOption',
+            'branch.business',
+        ]);
+
+        $branch = $order->branch;
+        $business = $branch?->business;
+
+        if ($branch === null || $business === null || blank($business->slug)) {
+            return null;
+        }
+
+        $lines = [];
+
+        foreach ($order->items as $item) {
+            $line = $item->promotion_id !== null
+                ? self::promotionCartLine($item, $branch->id, $business->slug, $order->merchantDisplayName())
+                : self::productCartLine($item, $branch->id, $business->slug, $order->merchantDisplayName());
+
+            if ($line !== null) {
+                $lines[] = $line;
+            }
+        }
+
+        if ($lines === []) {
+            return null;
+        }
+
+        return [
+            'branchId' => $branch->id,
+            'restaurantSlug' => $business->slug,
+            'restaurantName' => $order->merchantDisplayName() ?? $business->name,
+            'restaurantMode' => $business->operation_mode->value,
+            'lines' => $lines,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function productCartLine(
+        OrderItem $item,
+        int $branchId,
+        string $restaurantSlug,
+        ?string $restaurantName,
+    ): ?array {
+        if ($item->product_id === null) {
+            return null;
+        }
+
+        $selectedOptions = [];
+        $extras = [];
+        $removedIngredients = [];
+
+        foreach ($item->options as $option) {
+            $action = $option->selection_action?->value;
+            $optionId = $option->product_option_id;
+
+            if ($action === null || $optionId === null) {
+                continue;
+            }
+
+            $quantity = max(1, (int) $option->quantity);
+            $price = (float) $option->price_modifier;
+            $selectedOptions[] = [
+                'option_id' => $optionId,
+                'group_id' => (int) ($option->productOption?->option_group_id ?? 0),
+                'name' => $option->option_name,
+                'action' => $action,
+                'price_modifier' => $price,
+                'quantity' => $quantity,
+            ];
+
+            if ($action === 'removed') {
+                $removedIngredients[] = $option->option_name;
+
+                continue;
+            }
+
+            if ($price !== 0.0) {
+                $extras[] = [
+                    'id' => (string) $optionId,
+                    'name' => $option->option_name,
+                    'price' => $price * $quantity,
+                ];
+            }
+        }
+
+        $metadata = is_array($item->metadata) ? $item->metadata : [];
+        $name = filled($metadata['product_display_name'] ?? null)
+            ? (string) $metadata['product_display_name']
+            : $item->product_name;
+        $note = filled($item->notes) ? (string) $item->notes : null;
+        $productId = (string) $item->product_id;
+
+        return [
+            'key' => 'reorder-item-'.$item->id,
+            'lineType' => 'product',
+            'productId' => $productId,
+            'branchId' => $branchId,
+            'restaurantSlug' => $restaurantSlug,
+            'restaurantName' => $restaurantName,
+            'name' => $name,
+            'unitPrice' => (float) $item->unit_list_price,
+            'quantity' => max(1, (int) round((float) $item->quantity)),
+            'extras' => $extras,
+            'note' => $note,
+            'removedIngredients' => $removedIngredients,
+            'selectedOptions' => $selectedOptions,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function promotionCartLine(
+        OrderItem $item,
+        int $branchId,
+        string $restaurantSlug,
+        ?string $restaurantName,
+    ): ?array {
+        if ($item->promotion_id === null) {
+            return null;
+        }
+
+        $metadata = is_array($item->metadata) ? $item->metadata : [];
+        $promotionItems = [];
+
+        foreach (is_array($metadata['items'] ?? null) ? $metadata['items'] : [] as $row) {
+            if (! is_array($row) || ! isset($row['promotion_item_id'])) {
+                continue;
+            }
+
+            $note = $row['special_instructions'] ?? null;
+            $promotionItems[] = [
+                'promotionItemId' => (int) $row['promotion_item_id'],
+                'name' => (string) ($row['name'] ?? ''),
+                'selectedOptions' => self::cartSelectedOptions(
+                    is_array($row['selected_options'] ?? null) ? $row['selected_options'] : [],
+                ),
+                'note' => filled($note) ? (string) $note : null,
+            ];
+        }
+
+        $name = filled($metadata['promotion_name'] ?? null)
+            ? (string) $metadata['promotion_name']
+            : preg_replace('/^Promoción · /', '', $item->product_name);
+        $note = filled($item->notes) ? (string) $item->notes : null;
+        $composition = collect($promotionItems)
+            ->pluck('name')
+            ->filter()
+            ->implode(', ');
+
+        return [
+            'key' => 'reorder-item-'.$item->id,
+            'lineType' => 'promotion',
+            'promotionId' => (string) $item->promotion_id,
+            'branchId' => $branchId,
+            'restaurantSlug' => $restaurantSlug,
+            'restaurantName' => $restaurantName,
+            'name' => (string) $name,
+            'unitPrice' => (float) $item->unit_final_price,
+            'quantity' => max(1, (int) round((float) $item->quantity)),
+            'composition' => $composition !== '' ? $composition : null,
+            'promotionItems' => $promotionItems,
+            'selectedOptions' => self::cartSelectedOptions(
+                is_array($metadata['selected_options'] ?? null) ? $metadata['selected_options'] : [],
+            ),
+            'note' => $note,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $options
+     * @return list<array{option_id: int, group_id: int, name: string, action: string, price_modifier: float, quantity: int}>
+     */
+    private static function cartSelectedOptions(array $options): array
+    {
+        $normalized = [];
+
+        foreach ($options as $option) {
+            if (! is_array($option)) {
+                continue;
+            }
+
+            $optionId = (int) ($option['option_id'] ?? 0);
+            $action = (string) ($option['action'] ?? '');
+
+            if ($optionId <= 0 || ! in_array($action, ['selected', 'removed', 'added'], true)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'option_id' => $optionId,
+                'group_id' => (int) ($option['group_id'] ?? 0),
+                'name' => (string) ($option['name'] ?? ''),
+                'action' => $action,
+                'price_modifier' => (float) ($option['price_modifier'] ?? 0),
+                'quantity' => max(1, (int) ($option['quantity'] ?? 1)),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Contextual copy shown under the customer tracking stepper.
      * Hidden once the order is already on the road or delivered.
      *
@@ -738,8 +963,8 @@ final class OrderData
                 ?->notes;
 
             $message = filled($reason)
-                ? "Motivo: {$reason}. Puedes editar tu carrito o crear un pedido nuevo."
-                : 'Puedes editar tu carrito o crear un pedido nuevo.';
+                ? "Motivo: {$reason}. Puedes editar tu carrito. Este pedido se queda como #{$order->order_number} y, al enviarlo de nuevo, se crea otro."
+                : "Puedes editar tu carrito. Este pedido se queda como #{$order->order_number} y, al enviarlo de nuevo, se crea otro.";
 
             return [
                 'tone' => 'danger',
@@ -765,8 +990,8 @@ final class OrderData
                 ?: $order->cancellation?->reason_code?->label();
 
             $message = filled($reason)
-                ? "Motivo: {$reason}. Puedes editar tu carrito o crear un pedido nuevo."
-                : 'Puedes editar tu carrito o crear un pedido nuevo.';
+                ? "Motivo: {$reason}. Puedes editar tu carrito. Este pedido se queda como #{$order->order_number} y, al enviarlo de nuevo, se crea otro."
+                : "Puedes editar tu carrito. Este pedido se queda como #{$order->order_number} y, al enviarlo de nuevo, se crea otro.";
 
             return [
                 'tone' => 'danger',

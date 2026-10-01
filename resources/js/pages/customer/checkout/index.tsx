@@ -449,36 +449,6 @@ export default function CustomerCheckout({
                     </div>
                 ) : null}
 
-                {step === 2 || step === 3 ? (
-                    <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
-                        <p className="text-sm font-semibold text-navy">
-                            Tu pedido · {bag.lines.reduce((sum, line) => sum + line.quantity, 0)}{' '}
-                            {bag.lines.reduce((sum, line) => sum + line.quantity, 0) === 1
-                                ? 'producto'
-                                : 'productos'}
-                        </p>
-                        <ul className="space-y-2">
-                            {bag.lines.map((line) => (
-                                <li key={line.key}>
-                                    <CartLineCard line={line} compact />
-                                </li>
-                            ))}
-                        </ul>
-                        <OrderSummary
-                            subtotal={subtotal}
-                            service={service}
-                            serviceFeeDiscount={serviceFeeDiscount}
-                            discount={discount}
-                        />
-                        {feeQuote?.distanceMeters != null && !outsideCoverage ? (
-                            <p className="text-xs text-muted-foreground">
-                                Servicio según distancia (
-                                {(feeQuote.distanceMeters / 1000).toFixed(1)} km)
-                            </p>
-                        ) : null}
-                    </div>
-                ) : null}
-
                 {step === 2 && outsideCoverage ? (
                     <CoverageUnavailableBanner message={feeQuote?.message} />
                 ) : null}

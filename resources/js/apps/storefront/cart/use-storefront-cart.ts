@@ -147,6 +147,22 @@ export function clearStorefrontCart(): void {
     window.sessionStorage.removeItem(PENDING_CLEAR_KEY);
 }
 
+/** Replace the local cart with a rejected or cancelled order so the customer can edit it. */
+export function restoreStorefrontCart(next: CartState): void {
+    if (typeof window === 'undefined' || !Array.isArray(next.lines)) {
+        return;
+    }
+
+    window.sessionStorage.removeItem(PENDING_CLEAR_KEY);
+    writeCart({
+        branchId: next.branchId,
+        restaurantSlug: next.restaurantSlug,
+        restaurantName: next.restaurantName,
+        restaurantMode: next.restaurantMode ?? null,
+        lines: next.lines,
+    });
+}
+
 /** Call on app/pages that load after checkout redirect. */
 export function consumePendingCartClear(): boolean {
     if (typeof window === 'undefined') {

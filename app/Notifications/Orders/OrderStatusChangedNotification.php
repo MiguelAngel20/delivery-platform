@@ -51,7 +51,7 @@ final class OrderStatusChangedNotification extends RideNotification
                 OrderStatus::PickedUp => 'Tu pedido va en camino.',
                 OrderStatus::OnTheWay => 'Tu repartidor ya está afuera.',
                 OrderStatus::Delivered => 'Tu pedido fue entregado.',
-                OrderStatus::Rejected => "Tu pedido #{$number} fue rechazado. Puedes crear uno nuevo.",
+                OrderStatus::Rejected => "Tu pedido #{$number} fue rechazado y conserva ese número. Puedes editarlo en el carrito; al enviarlo se crea un pedido nuevo.",
                 OrderStatus::Cancelled => "Tu pedido #{$number} fue cancelado. Puedes crear uno nuevo.",
                 default => "Tu pedido #{$number} cambió de estado.",
             };

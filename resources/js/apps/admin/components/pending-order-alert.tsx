@@ -7,6 +7,8 @@ import { usePrivateChannelEvents } from '@/hooks/realtime/use-private-channel-ev
 import { canAdmin, type AdminAccess } from '@/lib/admin-access';
 import {
     playAdminPendingChime,
+    readAdminChimeVolume,
+    setAdminChimeVolume,
     unlockAdminOrderChime,
 } from '@/lib/admin/pending-order-chime';
 import {
@@ -22,7 +24,7 @@ type PendingOrder = {
     order_number: string;
 };
 
-const REPEAT_MS = 25_000;
+const REPEAT_MS = 10_000;
 const announcedOrderIds = new Set<number>();
 
 function isViewingOrder(url: string, orderNumber: string): boolean {
@@ -51,6 +53,7 @@ export function PendingOrderAlert() {
         readSeenPendingOrderIds(),
     );
     const [soundReady, setSoundReady] = useState(false);
+    const [volume, setVolume] = useState(() => readAdminChimeVolume());
     const soundUnlocked = useRef(false);
 
     const canViewOrders = canAdmin(adminAccess, 'orders');
@@ -239,6 +242,49 @@ export function PendingOrderAlert() {
                     {soundReady
                         ? 'El timbre se repite hasta que abras el pedido o marques que ya lo viste.'
                         : 'Toca la página una vez para activar el timbre. Seguirá sonando hasta que abras el pedido.'}
+                    <div className="mt-3 flex max-w-xs items-center gap-3 text-foreground">
+                        <label
+                            htmlFor="admin-order-chime-volume"
+                            className="shrink-0 text-sm font-medium"
+                        >
+                            Volumen
+                        </label>
+                        <input
+                            id="admin-order-chime-volume"
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={5}
+                            value={volume}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={volume}
+                            aria-label="Volumen del timbre"
+                            className="accent-primary h-2 w-full cursor-pointer"
+                            onChange={(event) => {
+                                const next = Number(event.target.value);
+                                setVolume(next);
+                                setAdminChimeVolume(next);
+                            }}
+                            onPointerUp={() => {
+                                void unlockAdminOrderChime().then((ready) => {
+                                    if (!ready) {
+                                        return;
+                                    }
+
+                                    soundUnlocked.current = true;
+                                    setSoundReady(true);
+                                    playAdminPendingChime();
+                                });
+                            }}
+                            onKeyUp={() => {
+                                playAdminPendingChime();
+                            }}
+                        />
+                        <span className="w-10 shrink-0 text-sm tabular-nums">
+                            {volume}%
+                        </span>
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                         <Button size="sm" asChild>
                             <Link href={href}>
