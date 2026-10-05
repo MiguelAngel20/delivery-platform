@@ -25,7 +25,6 @@ import { cn } from '@/lib/utils';
 import admin from '@/routes/admin';
 import { show as showCustomer } from '@/routes/admin/customers';
 import { show as showOrder } from '@/routes/admin/orders';
-import { update as updateLoyaltyLaunch } from '@/routes/admin/settings/loyalty-launch';
 
 type LaunchCustomer = {
     customer_id: number;
@@ -170,7 +169,7 @@ export default function AdminHome({ operation, loyaltyLaunch }: Props) {
                             aria-label="Activar mitad de precio en el servicio"
                             onCheckedChange={(checked) => {
                                 router.put(
-                                    updateLoyaltyLaunch.url(),
+                                    '/admin/settings/loyalty-launch',
                                     { enabled: checked },
                                     { preserveScroll: true },
                                 );
