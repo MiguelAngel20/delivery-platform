@@ -17,6 +17,7 @@ use App\Http\Controllers\Web\Admin\DriverController;
 use App\Http\Controllers\Web\Admin\FinanceController;
 use App\Http\Controllers\Web\Admin\HomeController;
 use App\Http\Controllers\Web\Admin\IncidentController;
+use App\Http\Controllers\Web\Admin\LoyaltyLaunchSettingController;
 use App\Http\Controllers\Web\Admin\OrderController;
 use App\Http\Controllers\Web\Admin\PlatformActivitySuspensionController;
 use App\Http\Controllers\Web\Notifications\NotificationPreferencesController;
@@ -195,4 +196,6 @@ Route::middleware([
             ->name('settings.activity-suspension.edit');
         Route::put('settings/activity-suspension', [PlatformActivitySuspensionController::class, 'update'])
             ->name('settings.activity-suspension.update');
+        Route::put('settings/loyalty-launch', [LoyaltyLaunchSettingController::class, 'update'])
+            ->name('settings.loyalty-launch.update');
     });

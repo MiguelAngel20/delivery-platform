@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ClipboardList,
     Gift,
@@ -15,6 +15,7 @@ import {
     Section,
 } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { useAdminCustomOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { useAdminOrderEvents } from '@/hooks/realtime/use-order-realtime';
 import { canAdmin  } from '@/lib/admin-access';
@@ -24,6 +25,7 @@ import { cn } from '@/lib/utils';
 import admin from '@/routes/admin';
 import { show as showCustomer } from '@/routes/admin/customers';
 import { show as showOrder } from '@/routes/admin/orders';
+import { update as updateLoyaltyLaunch } from '@/routes/admin/settings/loyalty-launch';
 
 type LaunchCustomer = {
     customer_id: number;
@@ -47,6 +49,7 @@ type LoyaltyLaunch = {
     used: number;
     remaining: number;
     progress_ratio: number;
+    enabled: boolean;
     service_fee_percent: number;
     customers: LaunchCustomer[];
 };
@@ -85,6 +88,7 @@ export default function AdminHome({ operation, loyaltyLaunch }: Props) {
     useAdminOrderEvents(true, ['operation']);
     useAdminCustomOrderEvents(['operation']);
 
+    const canToggleLaunch = canAdmin(adminAccess, 'settings', 'update');
     const progressPercent = Math.round(
         Math.min(1, Math.max(0, loyaltyLaunch.progress_ratio)) * 100,
     );
@@ -145,8 +149,34 @@ export default function AdminHome({ operation, loyaltyLaunch }: Props) {
 
                 <Section
                     title="Bienvenida 50% (primeros clientes)"
-                    description={`Cupos del descuento de lanzamiento (${loyaltyLaunch.service_fee_percent}% del service fee).`}
+                    description={`Cupos del descuento de lanzamiento (${loyaltyLaunch.service_fee_percent}% del costo de servicio).`}
                 >
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface px-4 py-3">
+                        <div className="space-y-1">
+                            <p className="font-medium text-navy">
+                                Mitad de precio en el servicio
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {loyaltyLaunch.remaining === 0
+                                    ? `Ya se usaron los ${loyaltyLaunch.max_customers} servicios. Activarlo no aplica más descuentos.`
+                                    : loyaltyLaunch.enabled
+                                      ? `Activa hasta completar ${loyaltyLaunch.max_customers} servicios. Van ${loyaltyLaunch.used}. Los pedidos ya cobrados no cambian.`
+                                      : 'Desactivada: los servicios se cobran completos. Al activarla otra vez, el conteo sigue donde iba.'}
+                            </p>
+                        </div>
+                        <Switch
+                            checked={loyaltyLaunch.enabled}
+                            disabled={!canToggleLaunch}
+                            aria-label="Activar mitad de precio en el servicio"
+                            onCheckedChange={(checked) => {
+                                router.put(
+                                    updateLoyaltyLaunch.url(),
+                                    { enabled: checked },
+                                    { preserveScroll: true },
+                                );
+                            }}
+                        />
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <StatCard
                             title="Cupos usados"

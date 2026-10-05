@@ -6,6 +6,7 @@ use App\Enums\LoyaltyRewardType;
 use App\Enums\OrderStatus;
 use App\Models\Customer;
 use App\Models\CustomerLoyaltyAccount;
+use App\Models\LoyaltyLaunchSetting;
 use App\Models\Order;
 use App\Models\ServiceFeeDistanceSetting;
 use Illuminate\Support\Facades\Cache;
@@ -98,6 +99,7 @@ final class CustomerLoyaltyService
      *     used: int,
      *     remaining: int,
      *     progress_ratio: float,
+     *     enabled: bool,
      *     service_fee_percent: float,
      *     customers: list<array{
      *         customer_id: int,
@@ -189,6 +191,7 @@ final class CustomerLoyaltyService
             'used' => $used,
             'remaining' => $remaining,
             'progress_ratio' => $max > 0 ? min(1, $used / $max) : 0.0,
+            'enabled' => LoyaltyLaunchSetting::current()->isEnabled(),
             'service_fee_percent' => $percent,
             'customers' => $customers,
         ];
@@ -420,6 +423,10 @@ final class CustomerLoyaltyService
 
     private function canApplyLaunchDiscount(Customer $customer, CustomerLoyaltyAccount $account): bool
     {
+        if (! LoyaltyLaunchSetting::current()->isEnabled()) {
+            return false;
+        }
+
         if ($account->launch_consumed_at !== null || $account->launch_order_id !== null) {
             return false;
         }

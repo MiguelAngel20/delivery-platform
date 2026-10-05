@@ -2,22 +2,26 @@
 
 use App\Actions\Orders\AcceptBusinessOrder;
 use App\Actions\Orders\CreateOrder;
+use App\Enums\AdminSection;
 use App\Enums\BusinessOperationMode;
 use App\Enums\BusinessStatus;
 use App\Enums\CancellationReasonCode;
 use App\Enums\LoyaltyRewardType;
 use App\Enums\OrderStatus;
+use App\Enums\UserRole;
 use App\Models\Business;
 use App\Models\BusinessBranch;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\CustomerLoyaltyAccount;
+use App\Models\LoyaltyLaunchSetting;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductPrice;
 use App\Models\User;
 use App\Services\Loyalty\CustomerLoyaltyService;
 use App\Services\Orders\OrderCancellationService;
+use App\Support\AdminAccess;
 use Illuminate\Support\Facades\Hash;
 
 beforeEach(function (): void {
@@ -94,6 +98,10 @@ test('first launch customers receive fifty percent service fee discount', functi
 
     ['user' => $user, 'customer' => $customer, 'address' => $address] = seedLoyaltyCustomer();
     ['branch' => $branch, 'product' => $product] = seedLoyaltyCatalog();
+    $address->update([
+        'latitude' => $branch->latitude,
+        'longitude' => $branch->longitude,
+    ]);
 
     $order = app(CreateOrder::class)->handle(
         $customer,
@@ -352,7 +360,8 @@ test('admin launch overview reports remaining slots and launch customers', funct
 
     $overview = app(CustomerLoyaltyService::class)->adminLaunchOverview();
 
-    expect($overview['max_customers'])->toBe(25)
+    expect($overview['enabled'])->toBeTrue()
+        ->and($overview['max_customers'])->toBe(25)
         ->and($overview['consumed'])->toBe(1)
         ->and($overview['reserved'])->toBe(1)
         ->and($overview['used'])->toBe(2)
@@ -371,5 +380,87 @@ test('admin launch overview reports remaining slots and launch customers', funct
             ->component('admin/home')
             ->where('loyaltyLaunch.used', 2)
             ->where('loyaltyLaunch.remaining', 23)
+            ->where('loyaltyLaunch.enabled', true)
             ->has('loyaltyLaunch.customers', 2));
+});
+
+test('pausing the launch discount charges the full service fee and keeps the slot count', function () {
+    ['user' => $user, 'customer' => $customer, 'address' => $address] = seedLoyaltyCustomer();
+    ['user' => $otherUser, 'customer' => $otherCustomer, 'address' => $otherAddress] = seedLoyaltyCustomer();
+    ['branch' => $branch, 'product' => $product] = seedLoyaltyCatalog();
+    $address->update([
+        'latitude' => $branch->latitude,
+        'longitude' => $branch->longitude,
+    ]);
+    $otherAddress->update([
+        'latitude' => $branch->latitude,
+        'longitude' => $branch->longitude,
+    ]);
+    $admin = User::factory()->systemAdmin()->create();
+
+    $discounted = app(CreateOrder::class)->handle(
+        $customer,
+        $user,
+        loyaltyOrderPayload($branch, $product, $address),
+    );
+
+    $this->actingAs($admin)
+        ->put(route('admin.settings.loyalty-launch.update'), ['enabled' => false])
+        ->assertRedirect();
+
+    $paused = app(CreateOrder::class)->handle(
+        $otherCustomer,
+        $otherUser,
+        loyaltyOrderPayload($branch, $product, $otherAddress),
+    );
+
+    $overview = app(CustomerLoyaltyService::class)->adminLaunchOverview();
+
+    expect((string) $discounted->fresh()->service_fee_discount)->toBe('25.00')
+        ->and($paused->loyalty_reward_type)->toBeNull()
+        ->and((string) $paused->service_fee_discount)->toBe('0.00')
+        ->and((string) $paused->service_fee)->toBe('50.00')
+        ->and($overview['enabled'])->toBeFalse()
+        ->and($overview['used'])->toBe(1)
+        ->and($overview['remaining'])->toBe(24)
+        ->and(app(CustomerLoyaltyService::class)->progressFor($otherCustomer)['launch_available'])->toBeFalse();
+
+    $this->actingAs($admin)
+        ->put(route('admin.settings.loyalty-launch.update'), ['enabled' => true])
+        ->assertRedirect();
+
+    ['user' => $thirdUser, 'customer' => $thirdCustomer, 'address' => $thirdAddress] = seedLoyaltyCustomer();
+    $thirdAddress->update([
+        'latitude' => $branch->latitude,
+        'longitude' => $branch->longitude,
+    ]);
+
+    $resumed = app(CreateOrder::class)->handle(
+        $thirdCustomer,
+        $thirdUser,
+        loyaltyOrderPayload($branch, $product, $thirdAddress),
+    );
+
+    expect($resumed->loyalty_reward_type)->toBe(LoyaltyRewardType::LaunchFifty)
+        ->and((string) $resumed->service_fee_discount)->toBe('25.00')
+        ->and((string) $paused->fresh()->service_fee_discount)->toBe('0.00')
+        ->and(app(CustomerLoyaltyService::class)->adminLaunchOverview()['used'])->toBe(2);
+});
+
+test('an admin without settings access cannot pause the launch discount', function () {
+    $staff = User::factory()->create([
+        'role' => UserRole::SystemAdmin,
+        'is_platform_owner' => false,
+        'email_verified_at' => now(),
+    ]);
+
+    AdminAccess::sync($staff, AdminAccess::permissionInput([
+        AdminSection::Orders->value => ['view' => true],
+    ]));
+
+    $this->actingAs($staff)
+        ->put(route('admin.settings.loyalty-launch.update'), ['enabled' => false])
+        ->assertForbidden();
+
+    expect(LoyaltyLaunchSetting::current()->isEnabled())->toBeTrue();
 });
